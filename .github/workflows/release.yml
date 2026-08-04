@@ -95,7 +95,7 @@ jobs:
             fi
           done
       - id: metadata
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/infosteed/infosteed-${{ matrix.name }}
           tags: |

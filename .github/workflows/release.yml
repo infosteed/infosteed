@@ -43,6 +43,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
+          package-manager-cache: false
       - run: corepack enable
       - run: corepack pnpm install --frozen-lockfile
       - run: corepack pnpm check
@@ -135,6 +136,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
+          package-manager-cache: false
       - run: corepack enable
       - run: corepack pnpm install --frozen-lockfile
       - run: corepack pnpm extension:package

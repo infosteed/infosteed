@@ -14,7 +14,7 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 RUN pnpm exec tsc -b --force packages/shared/tsconfig.json packages/markdown-exporter/tsconfig.json apps/web/tsconfig.json \
   && pnpm --filter @infosteed/web build
 
-FROM nginxinc/nginx-unprivileged:1.29-alpine@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6
+FROM nginxinc/nginx-unprivileged:1.30.4-alpine3.24@sha256:44e36330f74d4f3a1d4e222acca9e23b401fb87811a7597024502bb759c4dd49
 COPY infra/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /source/apps/web/dist /usr/share/nginx/html
 COPY LICENSE /usr/share/nginx/html/LICENSE

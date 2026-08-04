@@ -1,0 +1,11 @@
+title = "InfoSteed Gitleaks configuration"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
+description = "The Chrome extension manifest key is a public, stable extension identity."
+paths = ['''^apps/extension/public/manifest\.json$''']

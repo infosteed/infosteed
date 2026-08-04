@@ -16,6 +16,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
+          package-manager-cache: false
       - run: corepack enable
       - run: corepack pnpm install --frozen-lockfile
       - run: corepack pnpm format:check
@@ -130,7 +131,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
-        with: { node-version: 24 }
+        with: { node-version: 24, package-manager-cache: false }
       - run: corepack enable && corepack pnpm install --frozen-lockfile
       - run: docker compose --env-file docker.env.example up -d --build --wait
       - run: corepack pnpm e2e
@@ -147,4 +148,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
-      - uses: gitleaks/gitleaks-action@v2
+      - name: Scan git history for secrets
+        run: >-
+          docker run --rm
+          --volume "$PWD:/repo"
+          --workdir /repo
+          ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+          git --redact --no-banner /repo

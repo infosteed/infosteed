@@ -3,6 +3,7 @@
 set -euo pipefail
 
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+release_version=$(node -e 'process.stdout.write(require(process.argv[1]).version)' "$script_dir/../package.json")
 test_root=$(mktemp -d)
 trap 'rm -rf "$test_root"' EXIT
 mkdir -p "$test_root/bin"
@@ -125,7 +126,7 @@ awk '
 chmod 600 "$legacy_env"
 ENV_FILE="$legacy_env" "$script_dir/upgrade-production.sh" \
   --allow-dirty --allow-without-backup >/dev/null
-grep -q '^RELEASE_VERSION=0.1.0-beta.2$' "$legacy_env"
+grep -Fqx "RELEASE_VERSION=$release_version" "$legacy_env"
 if grep -q '^COMPOSE_FILE=' "$legacy_env"; then
   echo "upgrade-production.sh retained the known beta.1 hotfix selector" >&2
   exit 1

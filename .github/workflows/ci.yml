@@ -16,7 +16,6 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-          cache: pnpm
       - run: corepack enable
       - run: corepack pnpm install --frozen-lockfile
       - run: corepack pnpm format:check
@@ -131,7 +130,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
-        with: { node-version: 24, cache: pnpm }
+        with: { node-version: 24 }
       - run: corepack enable && corepack pnpm install --frozen-lockfile
       - run: docker compose --env-file docker.env.example up -d --build --wait
       - run: corepack pnpm e2e

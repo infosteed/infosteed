@@ -1,16 +1,24 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { errorMessage } from "./errors";
 import { guideSourceLabel } from "./guide/source";
-import { recordingUrl } from "./navigation";
+import { recordingUrl, resolveRecordingView } from "./navigation";
 import { RecordingGenerationStatus } from "./components/RecordingGenerationStatus";
+import { recordingListItem } from "./test/fixtures";
 import {
   createProject,
   getBranding,
+  getTwoFactorStatus,
   listProjects,
   listRecordings,
   me,
@@ -21,6 +29,7 @@ vi.mock("./api", () => ({
   setupStatus: vi.fn(),
   me: vi.fn(),
   getBranding: vi.fn(),
+  getTwoFactorStatus: vi.fn(),
   listRecordings: vi.fn(),
   listProjects: vi.fn(),
   createProject: vi.fn(),
@@ -47,6 +56,12 @@ describe("web presentation", () => {
     vi.mocked(getBranding).mockResolvedValue({
       displayName: "InfoSteed",
       iconDataUrl: null,
+    });
+    vi.mocked(getTwoFactorStatus).mockResolvedValue({
+      enabled: false,
+      required: false,
+      recoveryCodesRemaining: 0,
+      enrollmentAvailable: false,
     });
     vi.mocked(listRecordings).mockResolvedValue({ items: [], total: 0 });
     vi.mocked(listProjects).mockResolvedValue({ projects: [] });
@@ -85,6 +100,94 @@ describe("web presentation", () => {
         expect.objectContaining({ search: "onboarding" }),
       ),
     );
+  });
+
+  it("uses query-backed library navigation states", async () => {
+    window.history.replaceState({}, "", "/?library=shared&scope=shared");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Shared" })).toBeTruthy();
+    await waitFor(() =>
+      expect(listRecordings).toHaveBeenLastCalledWith(
+        expect.objectContaining({ scope: "shared", sort: "recent" }),
+      ),
+    );
+    expect(
+      screen.getByRole("link", { name: "Trash" }).getAttribute("href"),
+    ).toBe("/?library=trash&scope=trash");
+  });
+
+  it("renders stable recording action menus with destructive separation", async () => {
+    const input = userEvent.setup();
+    vi.mocked(listRecordings).mockResolvedValue({
+      items: [
+        recordingListItem({
+          title: "Publish payroll steps",
+          captureMode: "both",
+        }),
+      ],
+      total: 1,
+    });
+    render(<App />);
+
+    await screen.findByText("Publish payroll steps");
+    expect(
+      screen
+        .getByRole("link", { name: "Open Publish payroll steps" })
+        .getAttribute("href"),
+    ).toContain("view=both");
+    await input.click(
+      screen.getByRole("button", { name: "Recording actions" }),
+    );
+
+    expect(
+      await screen.findByRole("menuitem", { name: "View both" }),
+    ).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "View video" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "View guide" })).toBeTruthy();
+    expect(
+      screen.getByRole("menuitem", { name: /Delete/ }).className,
+    ).toContain("text-red-700");
+  });
+
+  it("shows account security in compact status cards", async () => {
+    const input = userEvent.setup();
+    render(<App />);
+
+    await input.click(
+      await screen.findByRole("button", {
+        name: "Account menu for Recording Owner",
+      }),
+    );
+    await input.click(
+      await screen.findByRole("menuitem", { name: "Security" }),
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Security" }),
+    ).toBeTruthy();
+    expect(document.querySelector(".security-status-grid")).toBeTruthy();
+    expect(screen.getByText("Optional")).toBeTruthy();
+  });
+
+  it("keeps library and account actions in one place each", async () => {
+    const input = userEvent.setup();
+    render(<App />);
+
+    expect(await screen.findByRole("link", { name: "Trash" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Administration" })).toBeNull();
+
+    await input.click(
+      screen.getByRole("button", {
+        name: "Account menu for Recording Owner",
+      }),
+    );
+    const menu = await screen.findByRole("menu");
+
+    expect(
+      within(menu).getByRole("menuitem", { name: "Administration" }),
+    ).toBeTruthy();
+    expect(within(menu).queryByRole("menuitem", { name: "Trash" })).toBeNull();
   });
 
   it("creates a project from the primary dialog", async () => {
@@ -149,6 +252,13 @@ describe("web presentation", () => {
     expect(recordingUrl("abc", "video-edit")).toBe(
       "/?recordingId=abc&view=video-edit",
     );
+    expect(recordingUrl("abc", "video")).toBe("/?recordingId=abc&view=video");
+    expect(recordingUrl("abc", "guide")).toBe("/?recordingId=abc&view=guide");
+    expect(recordingUrl("abc", "both")).toBe("/?recordingId=abc&view=both");
+    expect(resolveRecordingView("video", "both")).toBe("video");
+    expect(resolveRecordingView("guide", "both")).toBe("guide");
+    expect(resolveRecordingView("both", "both")).toBe("both");
+    expect(resolveRecordingView("video", "guide")).toBe("guide");
     expect(errorMessage(new Error("Unavailable"))).toBe("Unavailable");
     expect(errorMessage("Unavailable")).toBe("Unavailable");
   });

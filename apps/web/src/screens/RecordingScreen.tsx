@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CurrentUser } from "@infosteed/shared";
 import type { BrandingSettings } from "@infosteed/shared";
 import { VideoEditor } from "../VideoEditor";
@@ -11,7 +11,7 @@ import { RecordingHeader } from "../features/recording/RecordingHeader";
 import { RecordingMediaViewer } from "../features/recording/RecordingMediaViewer";
 import type { RecordingController } from "../features/recording/useRecordingController";
 import { t } from "../i18n";
-import type { AppView } from "../navigation";
+import { resolveRecordingView, type AppView } from "../navigation";
 
 export function RecordingScreen({
   user,
@@ -30,9 +30,24 @@ export function RecordingScreen({
   onLogout: () => void;
   onLogoutAll: () => void;
 }) {
-  const { recording, video, setVideo, error, viewOnly, load } =
+  const { recording, video, setVideo, error, viewOnly, setViewOnly, load } =
     recordingController;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const guideEditRouteApplied = useRef(false);
+
+  useEffect(() => {
+    if (
+      !guideEditRouteApplied.current &&
+      requestedView === "guide-edit" &&
+      recording &&
+      recording.captureMode !== "video" &&
+      recording.userRole &&
+      ["admin", "owner", "editor"].includes(recording.userRole)
+    ) {
+      guideEditRouteApplied.current = true;
+      setViewOnly(false);
+    }
+  }, [recording, requestedView, setViewOnly]);
 
   if (error) return <main className="empty">{error}</main>;
   if (!recording)
@@ -57,6 +72,14 @@ export function RecordingScreen({
     );
   }
 
+  const contentView = resolveRecordingView(
+    requestedView,
+    recording.captureMode,
+  );
+  const showVideo = contentView === "video" || contentView === "both";
+  const showGuide = contentView === "guide" || contentView === "both";
+  const combinedView = viewOnly && showVideo && showGuide && Boolean(video);
+
   return (
     <AppShell
       user={user}
@@ -79,9 +102,29 @@ export function RecordingScreen({
           viewOnly ? "view-only-mode recording-page" : "recording-page"
         }
       >
-        <RecordingHeader controller={recordingController} />
-        <RecordingMediaViewer controller={recordingController} />
-        <GuideWorkspace controller={recordingController} />
+        <RecordingHeader
+          controller={recordingController}
+          contentView={contentView}
+        />
+        <div className="recording-workspace-container">
+          <div
+            className={`recording-workspace${combinedView ? " combined" : ""}`}
+          >
+            <div className="recording-video-column">
+              {showVideo && (
+                <RecordingMediaViewer controller={recordingController} />
+              )}
+            </div>
+            <div className="recording-guide-column">
+              {showGuide && (
+                <GuideWorkspace
+                  controller={recordingController}
+                  showViewNavigation={viewOnly && contentView === "guide"}
+                />
+              )}
+            </div>
+          </div>
+        </div>
         <RecordingDrawers user={user} controller={recordingController} />
       </div>
     </AppShell>

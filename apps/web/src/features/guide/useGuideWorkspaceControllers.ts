@@ -55,6 +55,7 @@ export function useVideoGuidePlayerController({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [panel, setPanel] = useState<"chapters" | "transcript">("chapters");
+  const [panelOpen, setPanelOpen] = useState(false);
   const [transcript, setTranscript] = useState<RecordingTranscript>();
 
   useEffect(() => {
@@ -141,6 +142,8 @@ export function useVideoGuidePlayerController({
     error,
     panel,
     setPanel,
+    panelOpen,
+    setPanelOpen,
     transcript,
     togglePublished,
     discard,

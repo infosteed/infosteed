@@ -4,11 +4,17 @@ import QRCode from "qrcode";
 import type { BrandingSettings, CurrentUser } from "@infosteed/shared";
 import {
   ArchiveRestore,
+  BookOpen,
+  Clapperboard,
+  Columns2,
+  Film,
   Grid2X2,
   Import,
   LayoutList,
+  Pencil,
   Plus,
   Search,
+  ShieldCheck,
   Trash2,
 } from "lucide-react";
 import {
@@ -40,13 +46,18 @@ import { StatusBadge } from "./design/StatusBadge";
 import { Button } from "./ui/button";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "./ui/dialog";
-import { DropdownMenuItem, DropdownMenuSeparator } from "./ui/dropdown-menu";
+import {
+  DropdownMenuDestructiveItem,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "./ui/dropdown-menu";
 
 function AccountSecurityDialog({ onClose }: { onClose: () => void }) {
   const [status, setStatus] =
@@ -134,29 +145,36 @@ function AccountSecurityDialog({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="modal-backdrop">
-      <section className="modal-panel security-dialog">
-        <header>
-          <div>
-            <p>{t("Account")}</p>
-            <h2>{t("Security")}</h2>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="security-dialog">
+        <DialogHeader>
+          <div className="security-title-row">
+            <span className="security-icon" aria-hidden="true">
+              <ShieldCheck className="size-5" />
+            </span>
+            <div>
+              <p className="ui-eyebrow">{t("Account")}</p>
+              <DialogTitle>{t("Security")}</DialogTitle>
+              <DialogDescription>
+                {t("Manage two-factor authentication for this account.")}
+              </DialogDescription>
+            </div>
           </div>
-          <button onClick={onClose}>{t("Close")}</button>
-        </header>
+        </DialogHeader>
         {status && (
-          <div className="settings-strip">
-            <span>
-              <strong>{t("2FA")}</strong>:{" "}
-              {status.enabled ? t("Enabled") : t("Disabled")}
-            </span>
-            <span>
-              <strong>{t("Requirement")}</strong>:{" "}
-              {status.required ? t("Required") : t("Optional")}
-            </span>
-            <span>
-              <strong>{t("Recovery codes")}</strong>:{" "}
-              {status.recoveryCodesRemaining}
-            </span>
+          <div className="security-status-grid">
+            <div>
+              <span>{t("2FA")}</span>
+              <strong>{status.enabled ? t("Enabled") : t("Disabled")}</strong>
+            </div>
+            <div>
+              <span>{t("Requirement")}</span>
+              <strong>{status.required ? t("Required") : t("Optional")}</strong>
+            </div>
+            <div>
+              <span>{t("Recovery codes")}</span>
+              <strong>{status.recoveryCodesRemaining}</strong>
+            </div>
           </div>
         )}
         {recoveryCodes.length > 0 && (
@@ -180,7 +198,7 @@ function AccountSecurityDialog({ onClose }: { onClose: () => void }) {
                 autoComplete="current-password"
               />
             </label>
-            <button>{t("Start 2FA setup")}</button>
+            <Button type="submit">{t("Start 2FA setup")}</Button>
           </form>
         )}
         {!status?.enabled && status && !status.enrollmentAvailable && (
@@ -203,7 +221,7 @@ function AccountSecurityDialog({ onClose }: { onClose: () => void }) {
                 inputMode="numeric"
               />
             </label>
-            <button>{t("Enable 2FA")}</button>
+            <Button type="submit">{t("Enable 2FA")}</Button>
           </form>
         )}
         {status?.enabled && (
@@ -225,21 +243,30 @@ function AccountSecurityDialog({ onClose }: { onClose: () => void }) {
                 autoComplete="one-time-code"
               />
             </label>
-            <button>{t("Regenerate recovery codes")}</button>
-            <button
+            <Button type="submit" variant="outline">
+              {t("Regenerate recovery codes")}
+            </Button>
+            <Button
               type="button"
-              className="danger-action"
+              variant="destructive"
               onClick={(event) =>
                 void disable(event as unknown as React.FormEvent)
               }
             >
               {t("Disable 2FA")}
-            </button>
+            </Button>
           </form>
         )}
         {error && <p className="error">{error}</p>}
-      </section>
-    </div>
+        <div className="dialog-actions">
+          <DialogClose asChild>
+            <Button type="button" variant="outline">
+              {t("Close")}
+            </Button>
+          </DialogClose>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -293,6 +320,25 @@ export function GuideBrowser({
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
+  const libraryView = new URLSearchParams(window.location.search).get(
+    "library",
+  );
+  const activeLibrary =
+    scope === "trash"
+      ? "trash"
+      : libraryView === "projects" || scope === "owned"
+        ? "projects"
+        : libraryView === "shared" || scope === "shared"
+          ? "shared"
+          : "library";
+  const pageTitle =
+    activeLibrary === "trash"
+      ? t("Trash")
+      : activeLibrary === "projects"
+        ? t("Projects")
+        : activeLibrary === "shared"
+          ? t("Shared")
+          : t("Recordings");
 
   async function handleImport(file?: File) {
     try {
@@ -306,7 +352,7 @@ export function GuideBrowser({
     <AppShell
       user={user}
       branding={branding}
-      active="library"
+      active={activeLibrary}
       collapsed={sidebarCollapsed}
       onCollapsedChange={setSidebarCollapsed}
       onOpenAdmin={user.role === "admin" ? onOpenAdmin : undefined}
@@ -317,7 +363,7 @@ export function GuideBrowser({
         <>
           <nav className="breadcrumbs" aria-label={t("Breadcrumbs")}>
             <span>{t("Library")}</span>
-            <span>{scope === "trash" ? t("Trash") : t("Recordings")}</span>
+            <span>{pageTitle}</span>
           </nav>
           <div className="topbar-actions">
             <LanguageSelect compact />
@@ -331,7 +377,7 @@ export function GuideBrowser({
         )}
         <PageHeader
           eyebrow={t("Library")}
-          title={scope === "trash" ? t("Trash") : t("Recordings")}
+          title={pageTitle}
           description={
             <>
               {plural(
@@ -476,7 +522,11 @@ export function GuideBrowser({
               key={guide.id}
               className={`guide-card${guide.deletedAt ? " deleted" : ""}`}
             >
-              <div className="guide-thumb">
+              <a
+                className="guide-thumb"
+                href={recordingUrl(guide.id, guide.captureMode)}
+                aria-label={t("Open {title}", { title: guide.title })}
+              >
                 {guide.thumbnailFilename ? (
                   <img
                     src={versionedImageUrl(
@@ -496,13 +546,10 @@ export function GuideBrowser({
                       ? t("Video")
                       : t("Guide")}
                 </StatusBadge>
-              </div>
+              </a>
               <a
                 className="guide-open"
-                href={recordingUrl(
-                  guide.id,
-                  guide.captureMode === "guide" ? undefined : "video",
-                )}
+                href={recordingUrl(guide.id, guide.captureMode)}
               >
                 <p>
                   {guide.projectName ?? t("Private")} ·{" "}
@@ -512,9 +559,11 @@ export function GuideBrowser({
                       ? t("Video")
                       : t("Guide")}
                 </p>
-                <h3>{guide.title}</h3>
+                <h3 title={guide.title}>{guide.title}</h3>
                 {guide.overview && (
-                  <p className="guide-snippet">{guide.overview}</p>
+                  <p className="guide-snippet" title={guide.overview}>
+                    {guide.overview}
+                  </p>
                 )}
                 <div className="guide-meta-grid">
                   <span>{guide.projectName ?? t("Private")}</span>
@@ -535,16 +584,68 @@ export function GuideBrowser({
               <div className="guide-card-actions">
                 <StatusBadge variant="outline">{t(guide.userRole)}</StatusBadge>
                 <ActionMenu label={t("Recording actions")}>
-                  <DropdownMenuItem asChild>
-                    <a
-                      href={recordingUrl(
-                        guide.id,
-                        guide.captureMode === "guide" ? undefined : "video",
-                      )}
+                  {guide.captureMode === "both" && (
+                    <DropdownMenuItem
+                      onSelect={() =>
+                        window.location.assign(recordingUrl(guide.id, "both"))
+                      }
                     >
-                      {t("Open")}
-                    </a>
-                  </DropdownMenuItem>
+                      <Columns2 />
+                      {t("View both")}
+                    </DropdownMenuItem>
+                  )}
+                  {guide.captureMode !== "guide" && (
+                    <DropdownMenuItem
+                      onSelect={() =>
+                        window.location.assign(recordingUrl(guide.id, "video"))
+                      }
+                    >
+                      <Film />
+                      {t("View video")}
+                    </DropdownMenuItem>
+                  )}
+                  {guide.captureMode !== "video" && (
+                    <DropdownMenuItem
+                      onSelect={() =>
+                        window.location.assign(recordingUrl(guide.id, "guide"))
+                      }
+                    >
+                      <BookOpen />
+                      {t("View guide")}
+                    </DropdownMenuItem>
+                  )}
+                  {!guide.deletedAt &&
+                    ["admin", "owner", "editor"].includes(guide.userRole) && (
+                      <DropdownMenuSeparator />
+                    )}
+                  {!guide.deletedAt &&
+                    ["admin", "owner", "editor"].includes(guide.userRole) &&
+                    guide.captureMode !== "video" && (
+                      <DropdownMenuItem
+                        onSelect={() =>
+                          window.location.assign(
+                            recordingUrl(guide.id, "guide-edit"),
+                          )
+                        }
+                      >
+                        <Pencil />
+                        {t("Edit guide")}
+                      </DropdownMenuItem>
+                    )}
+                  {!guide.deletedAt &&
+                    ["admin", "owner", "editor"].includes(guide.userRole) &&
+                    guide.captureMode !== "guide" && (
+                      <DropdownMenuItem
+                        onSelect={() =>
+                          window.location.assign(
+                            recordingUrl(guide.id, "video-edit"),
+                          )
+                        }
+                      >
+                        <Clapperboard />
+                        {t("Edit video")}
+                      </DropdownMenuItem>
+                    )}
                   {guide.deletedAt ? (
                     <DropdownMenuItem onSelect={() => void restoreGuide(guide)}>
                       <ArchiveRestore className="mr-2 size-4" />
@@ -553,13 +654,12 @@ export function GuideBrowser({
                   ) : (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="text-red-700 focus:text-red-700"
+                      <DropdownMenuDestructiveItem
                         onSelect={() => setDeleteCandidate(guide)}
                       >
                         <Trash2 className="mr-2 size-4" />
                         {t("Delete")}
-                      </DropdownMenuItem>
+                      </DropdownMenuDestructiveItem>
                     </>
                   )}
                 </ActionMenu>

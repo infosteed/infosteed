@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 import {
   Archive,
   BookOpen,
-  Clock3,
   FolderKanban,
   LogOut,
   PanelLeftClose,
@@ -33,11 +32,34 @@ import { UserAvatar } from "./UserAvatar";
 import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 
-const navItems = [
-  { label: t("Library"), href: "/", icon: BookOpen },
-  { label: t("Projects"), href: "/?scope=all", icon: FolderKanban },
-  { label: t("Shared"), href: "/?scope=shared", icon: Share2 },
-  { label: t("Recent"), href: "/?sort=recent", icon: Clock3 },
+export type AppShellNavKey =
+  "library" | "projects" | "shared" | "trash" | "admin" | "recording";
+
+const navItems: Array<{
+  key: AppShellNavKey;
+  label: string;
+  href: string;
+  icon: typeof BookOpen;
+}> = [
+  { key: "library", label: t("Library"), href: "/", icon: BookOpen },
+  {
+    key: "projects",
+    label: t("Projects"),
+    href: "/?library=projects&scope=owned",
+    icon: FolderKanban,
+  },
+  {
+    key: "shared",
+    label: t("Shared"),
+    href: "/?library=shared&scope=shared",
+    icon: Share2,
+  },
+  {
+    key: "trash",
+    label: t("Trash"),
+    href: "/?library=trash&scope=trash",
+    icon: Archive,
+  },
 ];
 
 export function AppShell({
@@ -56,7 +78,7 @@ export function AppShell({
 }: {
   user: CurrentUser;
   branding?: BrandingSettings;
-  active?: "library" | "recording" | "admin";
+  active?: AppShellNavKey;
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
   onOpenAdmin?: () => void;
@@ -80,16 +102,18 @@ export function AppShell({
         )}
       >
         <Sidebar className="app-sidebar">
-          <SidebarHeader>
+          <SidebarHeader className="app-sidebar-header">
             <div className="app-brand-row">
               <a className="app-brand" href="/">
                 <BrandMark src={brandIcon} />
                 <span>{brandName}</span>
               </a>
               <Button
+                className="app-sidebar-toggle"
                 aria-label={
                   collapsed ? t("Expand sidebar") : t("Collapse sidebar")
                 }
+                title={collapsed ? t("Expand sidebar") : t("Collapse sidebar")}
                 size="icon"
                 type="button"
                 variant="ghost"
@@ -110,35 +134,33 @@ export function AppShell({
                 return (
                   <a
                     key={item.label}
+                    aria-label={item.label}
                     className={cn(
                       "app-nav-item",
-                      active === "library" &&
-                        item.label === t("Library") &&
-                        "active",
+                      active === item.key && "active",
                     )}
                     href={item.href}
+                    aria-current={active === item.key ? "page" : undefined}
+                    title={item.label}
                   >
                     <Icon className="size-4" />
                     <span>{item.label}</span>
                   </a>
                 );
               })}
-              {user.role === "admin" && onOpenAdmin && (
-                <button
-                  className={cn("app-nav-item", active === "admin" && "active")}
-                  type="button"
-                  onClick={onOpenAdmin}
-                >
-                  <Settings className="size-4" />
-                  <span>{t("Administration")}</span>
-                </button>
-              )}
             </nav>
           </SidebarContent>
-          <SidebarFooter>
+          <SidebarFooter className="app-sidebar-footer">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="app-profile" type="button">
+                <button
+                  aria-label={t("Account menu for {name}", {
+                    name: user.displayName,
+                  })}
+                  className="app-profile"
+                  title={user.displayName}
+                  type="button"
+                >
                   <UserAvatar name={user.displayName} />
                   <span>
                     <strong>{user.displayName}</strong>
@@ -146,28 +168,33 @@ export function AppShell({
                   </span>
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent
+                align="start"
+                className="app-account-menu w-56"
+                side={collapsed ? "right" : "top"}
+              >
+                {user.role === "admin" && onOpenAdmin && (
+                  <DropdownMenuItem onSelect={onOpenAdmin}>
+                    <Settings className="size-4" />
+                    {t("Administration")}
+                  </DropdownMenuItem>
+                )}
                 {onOpenSecurity && (
                   <DropdownMenuItem onSelect={onOpenSecurity}>
-                    <ShieldCheck className="mr-2 size-4" />
+                    <ShieldCheck className="size-4" />
                     {t("Security")}
                   </DropdownMenuItem>
                 )}
-                <DropdownMenuItem asChild>
-                  <a href="/?scope=trash">
-                    <Archive className="mr-2 size-4" />
-                    {t("Trash")}
-                  </a>
-                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 {onLogout && (
                   <DropdownMenuItem onSelect={onLogout}>
-                    <LogOut className="mr-2 size-4" />
+                    <LogOut className="size-4" />
                     {t("Log Out")}
                   </DropdownMenuItem>
                 )}
                 {onLogoutAll && (
                   <DropdownMenuItem onSelect={onLogoutAll}>
+                    <LogOut className="size-4" />
                     {t("Log Out All Sessions")}
                   </DropdownMenuItem>
                 )}

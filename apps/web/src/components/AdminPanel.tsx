@@ -2,6 +2,7 @@
 import { useAdminController } from "../features/admin/useAdminController";
 import { plural, t } from "../i18n";
 import { BrandMark, productLogoUrl } from "./BrandMark";
+import { StatusBadge } from "./design/StatusBadge";
 
 export function AdminPanel({ onClose }: { onClose: () => void }) {
   const controller = useAdminController();
@@ -90,26 +91,46 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                 })}
               </span>
             </div>
-            <div className="settings-strip">
+            <div className="operations-grid">
               {Object.entries(systemStatus?.providers ?? {}).map(
                 ([name, value]) => (
-                  <span key={name}>
-                    <strong>{name}</strong>: {value}
-                  </span>
+                  <div key={name} className="operation-card">
+                    <span>{t("Provider")}</span>
+                    <strong>{name}</strong>
+                    <StatusBadge
+                      variant={value === "configured" ? "success" : "warning"}
+                    >
+                      {value}
+                    </StatusBadge>
+                  </div>
                 ),
               )}
               {Object.entries(systemStatus?.workers ?? {}).map(
                 ([name, value]) => (
-                  <span key={name}>
-                    <strong>{name} worker</strong>: {value}
-                  </span>
+                  <div key={name} className="operation-card">
+                    <span>{t("Worker")}</span>
+                    <strong>{name}</strong>
+                    <StatusBadge
+                      variant={
+                        value === "ready" || value === "enabled"
+                          ? "success"
+                          : "warning"
+                      }
+                    >
+                      {value}
+                    </StatusBadge>
+                  </div>
                 ),
               )}
               {Object.entries(systemStatus?.queues ?? {}).map(
                 ([name, value]) => (
-                  <span key={name}>
-                    <strong>{name} queued</strong>: {value}
-                  </span>
+                  <div key={name} className="operation-card">
+                    <span>{t("Queue")}</span>
+                    <strong>{name}</strong>
+                    <StatusBadge variant={value > 0 ? "warning" : "outline"}>
+                      {t("{count} queued", { count: value })}
+                    </StatusBadge>
+                  </div>
                 ),
               )}
             </div>

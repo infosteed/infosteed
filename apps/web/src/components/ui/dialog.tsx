@@ -15,10 +15,10 @@ export function DialogContent({
 }: DialogPrimitive.DialogContentProps) {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-slate-950/45" />
+      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-[2px]" />
       <DialogPrimitive.Content
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 grid w-[min(520px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-[var(--radius)] border border-border bg-popover p-5 text-popover-foreground shadow-[var(--shadow-panel)] focus:outline-none",
+          "fixed left-1/2 top-1/2 z-50 grid w-[min(460px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 gap-5 rounded-xl border border-border bg-popover p-6 text-popover-foreground shadow-[var(--shadow-panel)] focus:outline-none",
           className,
         )}
         {...props}
@@ -27,7 +27,7 @@ export function DialogContent({
         <DialogPrimitive.Close asChild>
           <Button
             aria-label="Close"
-            className="absolute right-3 top-3"
+            className="absolute right-4 top-4"
             size="icon"
             type="button"
             variant="ghost"
@@ -41,8 +41,31 @@ export function DialogContent({
 }
 
 export function DialogHeader(props: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("grid gap-1 pr-8", props.className)} {...props} />;
+  return (
+    <div className={cn("grid gap-1.5 pr-10", props.className)} {...props} />
+  );
 }
 
-export const DialogTitle = DialogPrimitive.Title;
-export const DialogDescription = DialogPrimitive.Description;
+export function DialogTitle({
+  className,
+  ...props
+}: DialogPrimitive.DialogTitleProps) {
+  return (
+    <DialogPrimitive.Title
+      className={cn("m-0 text-lg font-semibold leading-tight", className)}
+      {...props}
+    />
+  );
+}
+
+export function DialogDescription({
+  className,
+  ...props
+}: DialogPrimitive.DialogDescriptionProps) {
+  return (
+    <DialogPrimitive.Description
+      className={cn("m-0 text-sm text-muted-foreground", className)}
+      {...props}
+    />
+  );
+}

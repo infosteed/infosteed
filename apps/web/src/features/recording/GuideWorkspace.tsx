@@ -2,9 +2,12 @@
 import React from "react";
 import {
   AlertTriangle,
+  ArrowDown,
+  ArrowUp,
   FileText,
   GripVertical,
   Lightbulb,
+  Menu,
   MousePointer,
 } from "lucide-react";
 import {
@@ -14,13 +17,24 @@ import {
   InsertBar,
 } from "../../components/RecordingWorkspace";
 import { ScrollArea } from "../../components/ui/scroll-area";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "../../components/ui/sheet";
 import { t } from "../../i18n";
 import type { RecordingController } from "./useRecordingController";
+import { GuideIconButton } from "../guide/GuideIconButton";
 
 export function GuideWorkspace({
   controller,
+  showViewNavigation = false,
 }: {
   controller: RecordingController;
+  showViewNavigation?: boolean;
 }) {
   const {
     recording,
@@ -33,7 +47,6 @@ export function GuideWorkspace({
     viewOnly,
     previewOpen,
     setPreviewOpen,
-    headerMoreOpen,
     accessOpen,
     setAccessOpen,
     setVersionsOpen,
@@ -57,8 +70,148 @@ export function GuideWorkspace({
     stepNumbers,
     reorderDisabled,
   } = controller;
+  const pendingOutlineScroll = React.useRef<string>();
+  const [mobileOutlineOpen, setMobileOutlineOpen] = React.useState(false);
+  const [activeOutlineItemId, setActiveOutlineItemId] = React.useState(
+    selectedItemId || "overview",
+  );
+
+  const scrollToGuideItem = React.useCallback((itemId: string) => {
+    const target = document.getElementById(`guide-item-${itemId}`);
+    if (typeof target?.scrollIntoView === "function") {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, []);
+
+  const selectFromOutline = (itemId: string) => {
+    setActiveOutlineItemId(itemId);
+    if (selectedItemId === itemId) {
+      scrollToGuideItem(itemId);
+      return;
+    }
+    pendingOutlineScroll.current = itemId;
+    setSelectedItemId(itemId);
+  };
+
+  const selectInlineItem = (itemId: string) => {
+    setActiveOutlineItemId(itemId);
+    setSelectedItemId(itemId);
+  };
+
+  const navigateFromOutline = (itemId: string) => {
+    if (viewOnly) {
+      setActiveOutlineItemId(itemId);
+      scrollToGuideItem(itemId);
+      return;
+    }
+    selectFromOutline(itemId);
+  };
+
+  React.useEffect(() => {
+    if (pendingOutlineScroll.current !== selectedItemId) return;
+    pendingOutlineScroll.current = undefined;
+    scrollToGuideItem(selectedItemId);
+  }, [scrollToGuideItem, selectedItemId]);
+
+  React.useEffect(() => {
+    if ((viewOnly && !showViewNavigation) || recording?.captureMode === "video")
+      return;
+
+    const targets = ["overview", ...items.map((item) => item.id)];
+    const updateActiveOutlineItem = () => {
+      const readingLine = Math.min(120, window.innerHeight * 0.2);
+      let nextId: string | undefined;
+      let nearestDistance = Number.POSITIVE_INFINITY;
+
+      for (const itemId of targets) {
+        const target = document.getElementById(`guide-item-${itemId}`);
+        if (!target) continue;
+        const rect = target.getBoundingClientRect();
+        if (rect.height <= 0) continue;
+
+        if (rect.top <= readingLine && rect.bottom > readingLine) {
+          nextId = itemId;
+          break;
+        }
+
+        const distance = Math.min(
+          Math.abs(rect.top - readingLine),
+          Math.abs(rect.bottom - readingLine),
+        );
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nextId = itemId;
+        }
+      }
+
+      if (nextId) {
+        setActiveOutlineItemId((current) =>
+          current === nextId ? current : nextId,
+        );
+      }
+    };
+
+    updateActiveOutlineItem();
+    window.addEventListener("scroll", updateActiveOutlineItem, {
+      passive: true,
+    });
+    window.addEventListener("resize", updateActiveOutlineItem);
+    document.addEventListener("scroll", updateActiveOutlineItem, true);
+    return () => {
+      window.removeEventListener("scroll", updateActiveOutlineItem);
+      window.removeEventListener("resize", updateActiveOutlineItem);
+      document.removeEventListener("scroll", updateActiveOutlineItem, true);
+    };
+  }, [items, recording?.captureMode, showViewNavigation, viewOnly]);
+
   if (!recording) return null;
-  const selectedItem = items.find((item) => item.id === selectedItemId);
+
+  const overviewButton = (onNavigate: (itemId: string) => void) => (
+    <button
+      className={`${activeOutlineItemId === "overview" ? "active" : ""}${!viewOnly && selectedItemId === "overview" ? " selected" : ""}`}
+      type="button"
+      aria-current={activeOutlineItemId === "overview" ? "location" : undefined}
+      onClick={() => onNavigate("overview")}
+    >
+      <FileText className="size-4" />
+      <span>{t("Overview")}</span>
+    </button>
+  );
+
+  const outlineItemButtons = (onNavigate: (itemId: string) => void) =>
+    items.map((item) => {
+      const Icon =
+        item.kind === "tip"
+          ? Lightbulb
+          : item.kind === "alert"
+            ? AlertTriangle
+            : item.kind === "header"
+              ? FileText
+              : MousePointer;
+      const outlineTitle = item.title || item.body || t("Untitled");
+      return (
+        <button
+          key={item.id}
+          className={`${activeOutlineItemId === item.id ? "active" : ""}${!viewOnly && selectedItemId === item.id ? " selected" : ""}`}
+          type="button"
+          aria-current={
+            activeOutlineItemId === item.id ? "location" : undefined
+          }
+          onClick={() => onNavigate(item.id)}
+        >
+          <Icon className="size-4" />
+          <span title={outlineTitle}>
+            {item.kind === "step" && stepNumbers.get(item.id)
+              ? `${stepNumbers.get(item.id)}. `
+              : ""}
+            {outlineTitle}
+          </span>
+          {!viewOnly && !reorderDisabled && (
+            <GripVertical className="guide-outline-grip size-3" />
+          )}
+        </button>
+      );
+    });
 
   return (
     <>
@@ -68,257 +221,194 @@ export function GuideWorkspace({
         </div>
       )}
 
-      {recording.captureMode !== "video" &&
-        !viewOnly &&
-        !previewOpen &&
-        !headerMoreOpen && (
-          <button
-            className="preview-toggle"
-            onClick={() => {
-              setPreviewOpen(true);
-              setAccessOpen(false);
-              setVersionsOpen(false);
-            }}
-            aria-label={t("Open preview")}
-          >
-            <span className="burger-lines" aria-hidden="true">
-              <span />
-              <span />
-              <span />
-            </span>
-            {t("Preview")}
-          </button>
-        )}
-
       {recording.captureMode !== "video" && (
-        <div className="layout">
-          {!viewOnly && (
-            <aside className="guide-outline" aria-label={t("Guide outline")}>
-              <div className="guide-panel-head">
-                <p>{t("Outline")}</p>
-                <span>{items.length}</span>
-              </div>
-              <button
-                className={selectedItemId === "overview" ? "active" : ""}
-                type="button"
-                onClick={() => setSelectedItemId("overview")}
+        <>
+          {showViewNavigation && (
+            <div className="guide-mobile-outline-trigger">
+              <Sheet
+                open={mobileOutlineOpen}
+                onOpenChange={setMobileOutlineOpen}
               >
-                <FileText className="size-4" />
-                <span>{t("Overview")}</span>
-              </button>
-              <ScrollArea className="guide-outline-scroll">
-                {items.map((item, index) => {
-                  const Icon =
-                    item.kind === "tip"
-                      ? Lightbulb
-                      : item.kind === "alert"
-                        ? AlertTriangle
-                        : item.kind === "header"
-                          ? FileText
-                          : MousePointer;
-                  return (
-                    <button
-                      key={item.id}
-                      className={selectedItemId === item.id ? "active" : ""}
-                      type="button"
-                      onClick={() => setSelectedItemId(item.id)}
-                    >
-                      <Icon className="size-4" />
-                      <span>
-                        {item.kind === "step" && stepNumbers.get(item.id)
-                          ? `${stepNumbers.get(item.id)}. `
-                          : ""}
-                        {item.title || item.body || t("Untitled")}
-                      </span>
-                      {!reorderDisabled && (
-                        <GripVertical className="guide-outline-grip size-3" />
-                      )}
-                    </button>
-                  );
-                })}
-              </ScrollArea>
-            </aside>
+                <SheetTrigger asChild>
+                  <GuideIconButton label={t("Open guide outline")}>
+                    <Menu aria-hidden="true" />
+                  </GuideIconButton>
+                </SheetTrigger>
+                <SheetContent className="guide-mobile-outline-sheet">
+                  <SheetHeader className="guide-mobile-outline-head">
+                    <SheetTitle>{t("Outline")}</SheetTitle>
+                    <SheetDescription className="sr-only">
+                      {t("Guide outline")}
+                    </SheetDescription>
+                    <span>{items.length}</span>
+                  </SheetHeader>
+                  <ScrollArea className="guide-mobile-outline-scroll">
+                    {overviewButton((itemId) => {
+                      navigateFromOutline(itemId);
+                      setMobileOutlineOpen(false);
+                    })}
+                    {outlineItemButtons((itemId) => {
+                      navigateFromOutline(itemId);
+                      setMobileOutlineOpen(false);
+                    })}
+                  </ScrollArea>
+                </SheetContent>
+              </Sheet>
+            </div>
           )}
-          <section className="steps document-canvas">
-            <GuideOverviewEditor
-              recording={recording}
-              isSelected={false}
-              onSelect={() => setSelectedItemId("overview")}
-              onCloseEdit={() => setSelectedItemId("")}
-              editable={!viewOnly}
-              onDraftChange={(updated) => setRecording(updated)}
-              onSaved={(updated) => setRecording(updated)}
-            />
-            {!viewOnly && (
-              <InsertBar
-                recordingId={recording.id}
-                afterItemId={null}
-                onAdded={load}
-              />
+          <div
+            className={`layout${viewOnly ? " layout-view-only" : ""}${showViewNavigation ? " layout-view-navigation" : ""}`}
+          >
+            {(!viewOnly || showViewNavigation) && (
+              <aside className="guide-outline" aria-label={t("Guide outline")}>
+                <div className="guide-panel-head">
+                  <p>{t("Outline")}</p>
+                  <span>{items.length}</span>
+                </div>
+                {overviewButton(navigateFromOutline)}
+                <ScrollArea className="guide-outline-scroll">
+                  {outlineItemButtons(navigateFromOutline)}
+                </ScrollArea>
+              </aside>
             )}
-            {items.map((item, index) => (
-              <React.Fragment key={item.id}>
-                <div
-                  id={`guide-item-${item.id}`}
-                  className={`reorderable-item${
-                    dropTarget?.itemId === item.id
-                      ? ` drop-${dropTarget.position}`
-                      : ""
-                  }${draggingItemId === item.id ? " dragging" : ""}`}
-                  onDragOver={(event) => {
-                    if (
-                      viewOnly ||
-                      reorderDisabled ||
-                      !draggingItemId ||
-                      draggingItemId === item.id
-                    )
-                      return;
-                    event.preventDefault();
-                    const rect = event.currentTarget.getBoundingClientRect();
-                    setDropTarget({
-                      itemId: item.id,
-                      position:
+            <section className="steps document-canvas">
+              <GuideOverviewEditor
+                elementId="guide-item-overview"
+                recording={recording}
+                isSelected={selectedItemId === "overview"}
+                onSelect={() => selectInlineItem("overview")}
+                onCloseEdit={() => setSelectedItemId("")}
+                editable={!viewOnly}
+                onDraftChange={(updated) => setRecording(updated)}
+                onSaved={(updated) => setRecording(updated)}
+              />
+              {!viewOnly && (
+                <InsertBar
+                  recordingId={recording.id}
+                  afterItemId={null}
+                  onAdded={load}
+                />
+              )}
+              {items.map((item, index) => (
+                <React.Fragment key={item.id}>
+                  <div
+                    id={`guide-item-${item.id}`}
+                    className={`reorderable-item${
+                      dropTarget?.itemId === item.id
+                        ? ` drop-${dropTarget.position}`
+                        : ""
+                    }${draggingItemId === item.id ? " dragging" : ""}`}
+                    onDragOver={(event) => {
+                      if (
+                        viewOnly ||
+                        reorderDisabled ||
+                        !draggingItemId ||
+                        draggingItemId === item.id
+                      )
+                        return;
+                      event.preventDefault();
+                      const rect = event.currentTarget.getBoundingClientRect();
+                      setDropTarget({
+                        itemId: item.id,
+                        position:
+                          event.clientY < rect.top + rect.height / 2
+                            ? "before"
+                            : "after",
+                      });
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      if (!draggingItemId) return;
+                      const rect = event.currentTarget.getBoundingClientRect();
+                      const position =
                         event.clientY < rect.top + rect.height / 2
                           ? "before"
-                          : "after",
-                    });
-                  }}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    if (!draggingItemId) return;
-                    const rect = event.currentTarget.getBoundingClientRect();
-                    const position =
-                      event.clientY < rect.top + rect.height / 2
-                        ? "before"
-                        : "after";
-                    void dropItem(draggingItemId, item.id, position);
-                  }}
-                >
+                          : "after";
+                      void dropItem(draggingItemId, item.id, position);
+                    }}
+                  >
+                    <GuideItemEditor
+                      recordingId={recording.id}
+                      item={item}
+                      event={
+                        item.eventId ? eventsById.get(item.eventId) : undefined
+                      }
+                      stepNumber={stepNumbers.get(item.id)}
+                      imageVersion={
+                        item.imageFilename
+                          ? imageVersions.get(item.imageFilename)
+                          : undefined
+                      }
+                      onImageSaved={bumpImageVersion}
+                      isSelected={selectedItemId === item.id}
+                      onSelect={() => selectInlineItem(item.id)}
+                      onCloseEdit={() => setSelectedItemId("")}
+                      editable={!viewOnly}
+                      onDraftChange={updateLocalItem}
+                      onSaved={load}
+                      controls={
+                        !viewOnly ? (
+                          <div
+                            className="reorder-controls"
+                            aria-label={t("Reorder {title}", {
+                              title: item.title,
+                            })}
+                            onClick={(event) => event.stopPropagation()}
+                            onFocus={(event) => event.stopPropagation()}
+                          >
+                            <GuideIconButton
+                              className="drag-handle"
+                              label={t("Drag {title}", { title: item.title })}
+                              draggable={!reorderDisabled}
+                              disabled={reorderDisabled}
+                              onDragStart={(event) => {
+                                event.dataTransfer.effectAllowed = "move";
+                                event.dataTransfer.setData(
+                                  "text/plain",
+                                  item.id,
+                                );
+                                setDraggingItemId(item.id);
+                              }}
+                              onDragEnd={() => {
+                                setDraggingItemId(undefined);
+                                setDropTarget(undefined);
+                              }}
+                            >
+                              <GripVertical aria-hidden="true" />
+                            </GuideIconButton>
+                            <GuideIconButton
+                              label={t("Move up")}
+                              disabled={reorderDisabled || index === 0}
+                              onClick={() => void moveItemBy(item.id, -1)}
+                            >
+                              <ArrowUp aria-hidden="true" />
+                            </GuideIconButton>
+                            <GuideIconButton
+                              label={t("Move down")}
+                              disabled={
+                                reorderDisabled || index === items.length - 1
+                              }
+                              onClick={() => void moveItemBy(item.id, 1)}
+                            >
+                              <ArrowDown aria-hidden="true" />
+                            </GuideIconButton>
+                          </div>
+                        ) : undefined
+                      }
+                    />
+                  </div>
                   {!viewOnly && (
-                    <div
-                      className="reorder-controls"
-                      aria-label={t("Reorder {title}", { title: item.title })}
-                    >
-                      <button
-                        className="drag-handle"
-                        draggable={!reorderDisabled}
-                        disabled={reorderDisabled}
-                        title={t("Drag to reorder")}
-                        aria-label={t("Drag {title}", { title: item.title })}
-                        onDragStart={(event) => {
-                          event.dataTransfer.effectAllowed = "move";
-                          event.dataTransfer.setData("text/plain", item.id);
-                          setDraggingItemId(item.id);
-                        }}
-                        onDragEnd={() => {
-                          setDraggingItemId(undefined);
-                          setDropTarget(undefined);
-                        }}
-                      >
-                        ::
-                      </button>
-                      <button
-                        disabled={reorderDisabled || index === 0}
-                        onClick={() => void moveItemBy(item.id, -1)}
-                      >
-                        {t("Move up")}
-                      </button>
-                      <button
-                        disabled={reorderDisabled || index === items.length - 1}
-                        onClick={() => void moveItemBy(item.id, 1)}
-                      >
-                        {t("Move down")}
-                      </button>
-                    </div>
+                    <InsertBar
+                      recordingId={recording.id}
+                      afterItemId={item.id}
+                      onAdded={load}
+                    />
                   )}
-                  <GuideItemEditor
-                    recordingId={recording.id}
-                    item={item}
-                    event={
-                      item.eventId ? eventsById.get(item.eventId) : undefined
-                    }
-                    stepNumber={stepNumbers.get(item.id)}
-                    imageVersion={
-                      item.imageFilename
-                        ? imageVersions.get(item.imageFilename)
-                        : undefined
-                    }
-                    onImageSaved={bumpImageVersion}
-                    isSelected={false}
-                    onSelect={() => setSelectedItemId(item.id)}
-                    onCloseEdit={() => setSelectedItemId("")}
-                    editable={!viewOnly}
-                    onDraftChange={updateLocalItem}
-                    onSaved={load}
-                  />
-                </div>
-                {!viewOnly && (
-                  <InsertBar
-                    recordingId={recording.id}
-                    afterItemId={item.id}
-                    onAdded={load}
-                  />
-                )}
-              </React.Fragment>
-            ))}
-          </section>
-          {!viewOnly && (
-            <aside
-              className="guide-properties"
-              aria-label={t("Step properties")}
-            >
-              <div className="guide-panel-head">
-                <p>{t("Properties")}</p>
-                {selectedItem && <span>{t(selectedItem.kind)}</span>}
-              </div>
-              {!selectedItemId && (
-                <div className="properties-empty">
-                  <strong>{t("Select a step")}</strong>
-                  <p>
-                    {t(
-                      "Choose a guide item to edit its text, image, and metadata.",
-                    )}
-                  </p>
-                </div>
-              )}
-              {selectedItemId === "overview" && (
-                <GuideOverviewEditor
-                  recording={recording}
-                  isSelected
-                  onSelect={() => setSelectedItemId("overview")}
-                  onCloseEdit={() => setSelectedItemId("")}
-                  editable
-                  onDraftChange={(updated) => setRecording(updated)}
-                  onSaved={(updated) => setRecording(updated)}
-                />
-              )}
-              {selectedItem && (
-                <GuideItemEditor
-                  recordingId={recording.id}
-                  item={selectedItem}
-                  event={
-                    selectedItem.eventId
-                      ? eventsById.get(selectedItem.eventId)
-                      : undefined
-                  }
-                  stepNumber={stepNumbers.get(selectedItem.id)}
-                  imageVersion={
-                    selectedItem.imageFilename
-                      ? imageVersions.get(selectedItem.imageFilename)
-                      : undefined
-                  }
-                  onImageSaved={bumpImageVersion}
-                  isSelected
-                  onSelect={() => setSelectedItemId(selectedItem.id)}
-                  onCloseEdit={() => setSelectedItemId("")}
-                  editable
-                  onDraftChange={updateLocalItem}
-                  onSaved={load}
-                />
-              )}
-            </aside>
-          )}
-        </div>
+                </React.Fragment>
+              ))}
+            </section>
+          </div>
+        </>
       )}
       {recording.captureMode !== "video" && previewOpen && (
         <section className="preview-drawer" aria-label={t("Guide preview")}>

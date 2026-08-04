@@ -1,9 +1,22 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import React, { useRef, useState } from "react";
 import type { NormalizedRect } from "@infosteed/shared";
+import {
+  Check,
+  Code2,
+  Crop,
+  Eraser,
+  Link,
+  List,
+  ListOrdered,
+  ScanLine,
+  Trash2,
+  X,
+} from "lucide-react";
 import { sourceImageUrl } from "../../api";
 import { t } from "../../i18n";
 import { useImageEditorController } from "./useGuideWorkspaceControllers";
+import { GuideIconButton } from "./GuideIconButton";
 
 function clampRect(rect: NormalizedRect): NormalizedRect {
   return {
@@ -70,33 +83,40 @@ export function ImageEditor({
       <div className="image-editor">
         <div className="modal-head">
           <h2>{t("Edit Image")}</h2>
-          <button onClick={onClose}>{t("Close")}</button>
+          <GuideIconButton label={t("Close")} onClick={onClose}>
+            <X aria-hidden="true" />
+          </GuideIconButton>
         </div>
         <div className="editor-tools">
-          <button
-            className={mode === "crop" ? "active" : undefined}
+          <GuideIconButton
+            label={t("Crop / Zoom")}
+            active={mode === "crop"}
             onClick={() => setMode("crop")}
           >
-            {t("Crop / Zoom")}
-          </button>
-          <button
-            className={mode === "redact" ? "active" : undefined}
+            <Crop aria-hidden="true" />
+          </GuideIconButton>
+          <GuideIconButton
+            label={t("Redact")}
+            active={mode === "redact"}
             onClick={() => setMode("redact")}
           >
-            {t("Redact")}
-          </button>
-          <button
+            <ScanLine aria-hidden="true" />
+          </GuideIconButton>
+          <GuideIconButton
+            label={t("Clear Crop")}
             onClick={() =>
               setOperations({ redactions: operations.redactions ?? [] })
             }
           >
-            {t("Clear Crop")}
-          </button>
-          <button
+            <Eraser aria-hidden="true" />
+          </GuideIconButton>
+          <GuideIconButton
+            label={t("Clear Redactions")}
+            tone="danger"
             onClick={() => setOperations({ ...operations, redactions: [] })}
           >
-            {t("Clear Redactions")}
-          </button>
+            <Trash2 aria-hidden="true" />
+          </GuideIconButton>
         </div>
         <div
           className="image-edit-surface"
@@ -122,9 +142,16 @@ export function ImageEditor({
             />
           ))}
         </div>
-        <div className="actions">
-          <button onClick={() => void save()}>{t("Save Image Edits")}</button>
-          <button onClick={onClose}>{t("Cancel")}</button>
+        <div className="actions guide-action-toolbar">
+          <GuideIconButton
+            label={t("Save Image Edits")}
+            onClick={() => void save()}
+          >
+            <Check aria-hidden="true" />
+          </GuideIconButton>
+          <GuideIconButton label={t("Cancel")} onClick={onClose}>
+            <X aria-hidden="true" />
+          </GuideIconButton>
         </div>
       </div>
     </div>
@@ -221,54 +248,44 @@ export function MarkdownAssistantField({
         className="markdown-toolbar"
         aria-label={t("{field} formatting", { field: ariaLabel })}
       >
-        <button
+        <GuideIconButton
+          label={t("Bold")}
           type="button"
-          aria-label={t("Bold")}
-          title={t("Bold")}
           onClick={() => wrap("**")}
         >
           B
-        </button>
-        <button
+        </GuideIconButton>
+        <GuideIconButton
+          label={t("Italic")}
           type="button"
-          aria-label={t("Italic")}
-          title={t("Italic")}
           onClick={() => wrap("*")}
         >
           I
-        </button>
-        <button
+        </GuideIconButton>
+        <GuideIconButton label={t("Link")} type="button" onClick={link}>
+          <Link aria-hidden="true" />
+        </GuideIconButton>
+        <GuideIconButton
+          label={t("Code")}
           type="button"
-          aria-label={t("Link")}
-          title={t("Link")}
-          onClick={link}
-        >
-          link
-        </button>
-        <button
-          type="button"
-          aria-label={t("Code")}
-          title={t("Code")}
           onClick={() => wrap("`")}
         >
-          &lt;/&gt;
-        </button>
-        <button
+          <Code2 aria-hidden="true" />
+        </GuideIconButton>
+        <GuideIconButton
+          label={t("Bullet list")}
           type="button"
-          aria-label={t("Bullet list")}
-          title={t("Bullet list")}
           onClick={() => list(false)}
         >
-          -
-        </button>
-        <button
+          <List aria-hidden="true" />
+        </GuideIconButton>
+        <GuideIconButton
+          label={t("Numbered list")}
           type="button"
-          aria-label={t("Numbered list")}
-          title={t("Numbered list")}
           onClick={() => list(true)}
         >
-          1.
-        </button>
+          <ListOrdered aria-hidden="true" />
+        </GuideIconButton>
       </div>
       <textarea
         ref={textareaRef}

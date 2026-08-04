@@ -21,7 +21,7 @@ export function SelectTrigger({
     >
       {children}
       <SelectPrimitive.Icon asChild>
-        <ChevronDown className="size-4 opacity-60" />
+        <ChevronDown className="select-trigger-chevron size-4 opacity-60" />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   );
@@ -29,17 +29,24 @@ export function SelectTrigger({
 
 export function SelectContent({
   className,
+  children,
+  position = "popper",
   ...props
 }: SelectPrimitive.SelectContentProps) {
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
+        position={position}
         className={cn(
-          "z-50 overflow-hidden rounded-[var(--radius)] border border-border bg-popover text-popover-foreground shadow-[var(--shadow-soft)]",
+          "z-50 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-[var(--radius)] border border-border bg-popover text-popover-foreground shadow-[var(--shadow-soft)]",
           className,
         )}
         {...props}
-      />
+      >
+        <SelectPrimitive.Viewport className="p-1.5">
+          {children}
+        </SelectPrimitive.Viewport>
+      </SelectPrimitive.Content>
     </SelectPrimitive.Portal>
   );
 }

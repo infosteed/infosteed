@@ -26,7 +26,7 @@ main {
   color: #475467;
 }
 
-.language-select.compact span {
+.language-select.compact > span {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -34,8 +34,9 @@ main {
   clip: rect(0, 0, 0, 0);
 }
 
-.language-select select {
-  min-height: 34px;
+.language-select-trigger {
+  min-height: 38px;
+  gap: 8px;
 }
 
 header {

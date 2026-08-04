@@ -7,21 +7,39 @@ import {
   sanityExportUrl,
   wordExportUrl,
 } from "../../api";
+import {
+  BookOpen,
+  CirclePlus,
+  Clapperboard,
+  Columns2,
+  Ellipsis,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Film,
+  PanelTopClose,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import { LanguageSelect } from "../../components/LanguageSelect";
+import { GuideIconButton } from "../guide/GuideIconButton";
 import { t } from "../../i18n";
-import { openRecording } from "../../navigation";
+import { openRecording, type RecordingView } from "../../navigation";
 import type { RecordingController } from "./useRecordingController";
 
 export function RecordingHeader({
   controller,
+  contentView,
 }: {
   controller: RecordingController;
+  contentView: RecordingView;
 }) {
   const {
     recording,
     viewOnly,
     setViewOnly,
     setSelectedItemId,
+    previewOpen,
     setPreviewOpen,
     headerMoreRef,
     setHeaderMoreOpen,
@@ -59,23 +77,55 @@ export function RecordingHeader({
     <header>
       <div>
         <p>
-          {recording.captureMode === "both"
+          {contentView === "both"
             ? t("Video + Workflow Guide")
-            : recording.captureMode === "video"
+            : contentView === "video"
               ? t("Video Recording")
               : t("Workflow Guide")}
         </p>
         <h1>{recording.title}</h1>
       </div>
       <div className="header-actions">
-        <a href="/">{t("Library")}</a>
-        <LanguageSelect compact />
+        <LanguageSelect compact iconOnly />
+        {viewOnly && recording.captureMode === "both" && (
+          <>
+            {contentView !== "video" && (
+              <GuideIconButton
+                label={t("View video")}
+                onClick={() => openRecording(recording.id, "video")}
+              >
+                <Film aria-hidden="true" />
+              </GuideIconButton>
+            )}
+            {contentView !== "guide" && (
+              <GuideIconButton
+                label={t("View guide")}
+                onClick={() => openRecording(recording.id, "guide")}
+              >
+                <BookOpen aria-hidden="true" />
+              </GuideIconButton>
+            )}
+            {contentView !== "both" && (
+              <GuideIconButton
+                label={t("View both")}
+                onClick={() => openRecording(recording.id, "both")}
+              >
+                <Columns2 aria-hidden="true" />
+              </GuideIconButton>
+            )}
+          </>
+        )}
         {(recording.userRole === "admin" ||
           recording.userRole === "owner" ||
           recording.userRole === "editor") &&
           recording.captureMode !== "video" && (
-            <button
+            <GuideIconButton
+              label={viewOnly ? t("Edit guide") : t("Close guide editor")}
               onClick={() => {
+                if (viewOnly && contentView === "video") {
+                  openRecording(recording.id, "guide-edit");
+                  return;
+                }
                 setViewOnly((current) => {
                   if (!current) {
                     setSelectedItemId("");
@@ -87,34 +137,60 @@ export function RecordingHeader({
                 });
               }}
             >
-              {viewOnly ? t("Edit guide") : t("Close guide editor")}
-            </button>
+              {viewOnly ? (
+                <Pencil aria-hidden="true" />
+              ) : (
+                <PanelTopClose aria-hidden="true" />
+              )}
+            </GuideIconButton>
           )}
         {viewOnly &&
           (recording.userRole === "admin" ||
             recording.userRole === "owner" ||
             recording.userRole === "editor") &&
           recording.captureMode !== "guide" && (
-            <button onClick={() => openRecording(recording.id, "video-edit")}>
-              {t("Edit video")}
-            </button>
+            <GuideIconButton
+              label={t("Edit video")}
+              onClick={() => openRecording(recording.id, "video-edit")}
+            >
+              <Clapperboard aria-hidden="true" />
+            </GuideIconButton>
           )}
         {!viewOnly && recording.captureMode !== "video" && (
           <>
-            <button
+            <GuideIconButton
+              label={previewOpen ? t("Close preview") : t("Preview")}
+              onClick={() => {
+                setPreviewOpen(!previewOpen);
+                setAccessOpen(false);
+                setVersionsOpen(false);
+              }}
+            >
+              {previewOpen ? (
+                <EyeOff aria-hidden="true" />
+              ) : (
+                <Eye aria-hidden="true" />
+              )}
+            </GuideIconButton>
+            <GuideIconButton
+              label={
+                captureMoreStatus === "starting"
+                  ? t("Starting Capture...")
+                  : t("Capture More")
+              }
               disabled={captureMoreStatus === "starting"}
               onClick={() => void handleCaptureMore()}
             >
-              {captureMoreStatus === "starting"
-                ? t("Starting Capture...")
-                : t("Capture More")}
-            </button>
+              <CirclePlus aria-hidden="true" />
+            </GuideIconButton>
             <details
               ref={headerMoreRef}
               className="header-more-menu"
               onToggle={(event) => setHeaderMoreOpen(event.currentTarget.open)}
             >
-              <summary>{t("More")}</summary>
+              <summary aria-label={t("More")} title={t("More")}>
+                <Ellipsis aria-hidden="true" />
+              </summary>
               <div className="header-more-panel">
                 <button
                   onClick={() => {
@@ -161,21 +237,23 @@ export function RecordingHeader({
         )}
         {recording.captureMode === "video" && (
           <>
-            <button
+            <GuideIconButton
+              label={t("Access")}
               onClick={() => {
                 setAccessOpen(true);
                 setPreviewOpen(false);
                 setVersionsOpen(false);
               }}
             >
-              {t("Access")}
-            </button>
-            <button
-              className="danger-action"
+              <KeyRound aria-hidden="true" />
+            </GuideIconButton>
+            <GuideIconButton
+              label={t("Delete Recording")}
+              tone="danger"
               onClick={() => setDeleteCurrentOpen(true)}
             >
-              {t("Delete Recording")}
-            </button>
+              <Trash2 aria-hidden="true" />
+            </GuideIconButton>
           </>
         )}
       </div>

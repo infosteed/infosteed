@@ -1,7 +1,27 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import type { GuideItem, Recording, RecordingVideo } from "@infosteed/shared";
 import { PRODUCT_IDENTIFIERS } from "@infosteed/shared";
+import {
+  Check,
+  Crop,
+  Eye,
+  EyeOff,
+  Heading,
+  ImageOff,
+  ImageUp,
+  Lightbulb,
+  Link2,
+  ListVideo,
+  MousePointerClick,
+  Plus,
+  RefreshCw,
+  Trash2,
+  TriangleAlert,
+  VideoOff,
+  WandSparkles,
+  X,
+} from "lucide-react";
 import {
   imageUrl,
   recordingCaptionsUrl,
@@ -23,7 +43,14 @@ import {
   useInsertController,
   useVideoGuidePlayerController,
 } from "../features/guide/useGuideWorkspaceControllers";
+import { GuideIconButton } from "../features/guide/GuideIconButton";
 import { ConfirmDialog } from "./ConfirmDialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 
 interface GuideSection {
   id: string;
@@ -258,6 +285,8 @@ export function VideoGuidePlayer({
     error,
     panel,
     setPanel,
+    panelOpen,
+    setPanelOpen,
     transcript,
     togglePublished,
     discard,
@@ -269,6 +298,42 @@ export function VideoGuidePlayer({
     onRecordingChanged,
     onVideoDeleted,
   });
+  const panelTrigger = useRef<HTMLButtonElement>(null);
+  const chaptersTab = useRef<HTMLButtonElement>(null);
+  const transcriptTab = useRef<HTMLButtonElement>(null);
+  const panelId = `video-navigation-${recording.id}`;
+
+  function closePanel(restoreFocus = true) {
+    setPanelOpen(false);
+    if (restoreFocus) panelTrigger.current?.focus();
+  }
+
+  function selectPanel(next: "chapters" | "transcript") {
+    setPanel(next);
+    window.requestAnimationFrame(() => {
+      (next === "chapters" ? chaptersTab : transcriptTab).current?.focus();
+    });
+  }
+
+  useEffect(() => {
+    if (!panelOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      closePanel();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [panelOpen]);
+
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      if (document.fullscreenElement) closePanel(false);
+    };
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
 
   function openChapter(offsetMs: number, guideItemId: string | null) {
     if (player.current) {
@@ -295,170 +360,265 @@ export function VideoGuidePlayer({
   const playable = video.status === "ready" || video.status === "published";
   return (
     <section className="video-guide-player" aria-label={t("Recording video")}>
-      <div className="video-stage">
-        {playable ? (
-          <video
-            ref={player}
-            controls
-            preload="metadata"
-            crossOrigin="use-credentials"
-            src={recordingVideoContentUrl(recording.id)}
-          >
-            {transcript?.status === "ready" && (
-              <track
-                kind="captions"
-                srcLang={transcript.language ?? "und"}
-                label={transcript.language ?? t("Captions")}
-                src={recordingCaptionsUrl(recording.id)}
-                default
-              />
-            )}
-          </video>
-        ) : (
-          <div className="video-processing">
-            <strong>{t("Video {status}", { status: t(video.status) })}</strong>
-            <p>{t("The uploaded recording is not ready for playback yet.")}</p>
-          </div>
-        )}
-      </div>
-      <aside className="video-chapters">
-        <div className="video-chapter-head">
-          <div>
-            <strong>
-              {panel === "chapters" ? t("Chapters") : t("Transcript")}
-            </strong>
-            <small>
-              {panel === "chapters"
-                ? plural(
-                    "{count} captured action",
-                    "{count} captured actions",
-                    video.chapters.length,
-                  )
-                : transcript?.language
-                  ? t("Language: {language}", { language: transcript.language })
-                  : t("Narration")}
-            </small>
-          </div>
-          <span className={`video-status ${video.status}`}>
-            {t(video.status)}
-          </span>
-        </div>
-        <div className="video-panel-tabs" role="tablist">
-          <button
-            className={panel === "chapters" ? "active" : ""}
-            onClick={() => setPanel("chapters")}
-          >
-            {t("Chapters")}
-          </button>
-          <button
-            className={panel === "transcript" ? "active" : ""}
-            onClick={() => setPanel("transcript")}
-          >
-            {t("Transcript")}
-          </button>
-        </div>
-        {panel === "chapters" ? (
-          <div className="chapter-list">
-            {video.chapters.map((chapter) => (
-              <button
-                key={chapter.id}
-                onClick={() =>
-                  openChapter(chapter.offsetMs, chapter.guideItemId)
-                }
-              >
-                <time>{formatVideoTime(chapter.offsetMs)}</time>
-                <span>{chapter.title}</span>
-              </button>
-            ))}
-            {video.chapters.length === 0 && (
-              <p>{t("No actions were captured for chapters.")}</p>
-            )}
-          </div>
-        ) : (
-          <div className="chapter-list transcript-list">
-            {transcript?.cues.map((segment) => (
-              <button key={segment.id} onClick={() => seek(segment.startMs)}>
-                <time>{formatVideoTime(segment.startMs)}</time>
-                <span>{segment.text}</span>
-              </button>
-            ))}
-            {(transcript?.status === "pending" ||
-              transcript?.status === "processing") && (
-              <p>
-                {t(
-                  "Transcription is {status}. The video remains ready to use.",
-                  {
-                    status: t(transcript.status),
-                  },
-                )}
-              </p>
-            )}
-            {transcript?.status === "disabled" && (
-              <p>
-                {video.transcriptionAvailable
-                  ? t("No transcript has been generated yet.")
-                  : t("Transcription is not configured.")}
-              </p>
-            )}
-            {transcript?.status === "failed" && (
-              <p className="transcript-error">
-                {t("Transcription failed: {error}", {
-                  error: transcript.errorMessage ?? t("Provider unavailable"),
-                })}
-              </p>
-            )}
-            {transcript?.status === "ready" && transcript.cues.length === 0 && (
-              <p>{t("No speech was detected.")}</p>
-            )}
-          </div>
-        )}
-        {editable &&
-          video.transcriptionAvailable &&
-          (transcript?.status === "failed" ||
-            transcript?.status === "disabled") && (
-            <button
-              className="retry-transcript"
-              disabled={busy}
-              onClick={() => void retryTranscript()}
+      <div className="video-stage-shell">
+        <div className="video-stage">
+          {playable ? (
+            <video
+              ref={player}
+              controls
+              preload="metadata"
+              crossOrigin="use-credentials"
+              src={recordingVideoContentUrl(recording.id)}
             >
-              {transcript.status === "disabled"
-                ? t("Generate transcript")
-                : t("Retry transcription")}
-            </button>
+              {transcript?.status === "ready" && (
+                <track
+                  kind="captions"
+                  srcLang={transcript.language ?? "und"}
+                  label={transcript.language ?? t("Captions")}
+                  src={recordingCaptionsUrl(recording.id)}
+                  default
+                />
+              )}
+            </video>
+          ) : (
+            <div className="video-processing">
+              <strong>
+                {t("Video {status}", { status: t(video.status) })}
+              </strong>
+              <p>
+                {t("The uploaded recording is not ready for playback yet.")}
+              </p>
+            </div>
           )}
-        {!video.rawAssetsComplete && (
-          <p className="raw-warning">
-            {t(
-              "The playback video is ready, but one or more raw editing tracks could not be saved.",
+        </div>
+        <button
+          ref={panelTrigger}
+          className="video-panel-trigger"
+          type="button"
+          aria-expanded={panelOpen}
+          aria-controls={panelId}
+          onClick={() => setPanelOpen(!panelOpen)}
+        >
+          <ListVideo aria-hidden="true" />
+          <span>{t("Chapters")}</span>
+          <span className="video-panel-count" aria-hidden="true">
+            {video.chapters.length}
+          </span>
+        </button>
+        <aside
+          id={panelId}
+          className={`video-chapters-drawer${panelOpen ? " open" : ""}`}
+          aria-label={t("Chapters and transcript")}
+          aria-hidden={!panelOpen}
+          {...(!panelOpen ? { inert: "" } : {})}
+        >
+          <div className="video-chapter-head">
+            <div>
+              <strong>
+                {panel === "chapters" ? t("Chapters") : t("Transcript")}
+              </strong>
+              <small>
+                {panel === "chapters"
+                  ? plural(
+                      "{count} captured action",
+                      "{count} captured actions",
+                      video.chapters.length,
+                    )
+                  : transcript?.language
+                    ? t("Language: {language}", {
+                        language: transcript.language,
+                      })
+                    : t("Narration")}
+              </small>
+            </div>
+            <button
+              className="video-panel-close"
+              type="button"
+              aria-label={t("Close chapters and transcript")}
+              onClick={() => closePanel()}
+            >
+              <X aria-hidden="true" />
+            </button>
+          </div>
+          <div
+            className="video-panel-tabs"
+            role="tablist"
+            aria-label={t("Video navigation")}
+          >
+            <button
+              ref={chaptersTab}
+              id={`${panelId}-chapters-tab`}
+              type="button"
+              role="tab"
+              aria-selected={panel === "chapters"}
+              aria-controls={`${panelId}-chapters-panel`}
+              tabIndex={panel === "chapters" ? 0 : -1}
+              className={panel === "chapters" ? "active" : ""}
+              onClick={() => setPanel("chapters")}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+                  event.preventDefault();
+                  selectPanel("transcript");
+                }
+              }}
+            >
+              {t("Chapters")}
+            </button>
+            <button
+              ref={transcriptTab}
+              id={`${panelId}-transcript-tab`}
+              type="button"
+              role="tab"
+              aria-selected={panel === "transcript"}
+              aria-controls={`${panelId}-transcript-panel`}
+              tabIndex={panel === "transcript" ? 0 : -1}
+              className={panel === "transcript" ? "active" : ""}
+              onClick={() => setPanel("transcript")}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+                  event.preventDefault();
+                  selectPanel("chapters");
+                }
+              }}
+            >
+              {t("Transcript")}
+            </button>
+          </div>
+          {panel === "chapters" ? (
+            <div
+              id={`${panelId}-chapters-panel`}
+              className="chapter-list"
+              role="tabpanel"
+              aria-labelledby={`${panelId}-chapters-tab`}
+            >
+              {video.chapters.map((chapter) => (
+                <button
+                  key={chapter.id}
+                  onClick={() =>
+                    openChapter(chapter.offsetMs, chapter.guideItemId)
+                  }
+                >
+                  <time>{formatVideoTime(chapter.offsetMs)}</time>
+                  <span>{chapter.title}</span>
+                </button>
+              ))}
+              {video.chapters.length === 0 && (
+                <p>{t("No actions were captured for chapters.")}</p>
+              )}
+            </div>
+          ) : (
+            <div
+              id={`${panelId}-transcript-panel`}
+              className="chapter-list transcript-list"
+              role="tabpanel"
+              aria-labelledby={`${panelId}-transcript-tab`}
+            >
+              {transcript?.cues.map((segment) => (
+                <button key={segment.id} onClick={() => seek(segment.startMs)}>
+                  <time>{formatVideoTime(segment.startMs)}</time>
+                  <span>{segment.text}</span>
+                </button>
+              ))}
+              {(transcript?.status === "pending" ||
+                transcript?.status === "processing") && (
+                <p>
+                  {t(
+                    "Transcription is {status}. The video remains ready to use.",
+                    {
+                      status: t(transcript.status),
+                    },
+                  )}
+                </p>
+              )}
+              {transcript?.status === "disabled" && (
+                <p>
+                  {video.transcriptionAvailable
+                    ? t("No transcript has been generated yet.")
+                    : t("Transcription is not configured.")}
+                </p>
+              )}
+              {transcript?.status === "failed" && (
+                <p className="transcript-error">
+                  {t("Transcription failed: {error}", {
+                    error: transcript.errorMessage ?? t("Provider unavailable"),
+                  })}
+                </p>
+              )}
+              {transcript?.status === "ready" &&
+                transcript.cues.length === 0 && (
+                  <p>{t("No speech was detected.")}</p>
+                )}
+            </div>
+          )}
+          {editable &&
+            video.transcriptionAvailable &&
+            (transcript?.status === "failed" ||
+              transcript?.status === "disabled") && (
+              <button
+                className="retry-transcript"
+                disabled={busy}
+                onClick={() => void retryTranscript()}
+              >
+                {transcript.status === "disabled"
+                  ? t("Generate transcript")
+                  : t("Retry transcription")}
+              </button>
             )}
-          </p>
-        )}
+        </aside>
+      </div>
+      <footer className="video-player-footer">
+        <span className={`video-status ${video.status}`}>
+          {t(video.status)}
+        </span>
         {editable && playable && (
           <div className="video-actions">
-            <button disabled={busy} onClick={() => void togglePublished()}>
-              {video.status === "published"
-                ? t("Unpublish")
-                : t("Publish video")}
-            </button>
-            <button
+            <GuideIconButton
+              label={
+                video.status === "published"
+                  ? t("Unpublish")
+                  : t("Publish video")
+              }
+              disabled={busy}
+              onClick={() => void togglePublished()}
+            >
+              {video.status === "published" ? (
+                <EyeOff aria-hidden="true" />
+              ) : (
+                <Eye aria-hidden="true" />
+              )}
+            </GuideIconButton>
+            <GuideIconButton
+              label={t("Copy link")}
               disabled={busy}
               onClick={() =>
                 void navigator.clipboard.writeText(window.location.href)
               }
             >
-              {t("Copy link")}
-            </button>
-            <button
-              className="danger-action"
+              <Link2 aria-hidden="true" />
+            </GuideIconButton>
+            <GuideIconButton
+              label={t("Discard video")}
+              tone="danger"
               disabled={busy}
               onClick={() => void discard()}
             >
-              {t("Discard video")}
-            </button>
+              <VideoOff aria-hidden="true" />
+            </GuideIconButton>
           </div>
         )}
-        {error && <p className="error">{error}</p>}
-      </aside>
+      </footer>
+      {(!video.rawAssetsComplete || error) && (
+        <div className="video-player-messages">
+          {!video.rawAssetsComplete && (
+            <p className="raw-warning">
+              {t(
+                "The playback video is ready, but one or more raw editing tracks could not be saved.",
+              )}
+            </p>
+          )}
+          {error && <p className="error">{error}</p>}
+        </div>
+      )}
     </section>
   );
 }
@@ -476,10 +636,31 @@ export function InsertBar({
 
   return (
     <div className="insert-bar">
-      <button onClick={() => void insert("step")}>{t("Step")}</button>
-      <button onClick={() => void insert("tip")}>{t("Tip")}</button>
-      <button onClick={() => void insert("alert")}>{t("Alert")}</button>
-      <button onClick={() => void insert("header")}>{t("Header")}</button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <GuideIconButton label={t("Add guide item")} tooltip={false}>
+            <Plus aria-hidden="true" />
+          </GuideIconButton>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="center">
+          <DropdownMenuItem onSelect={() => void insert("step")}>
+            <MousePointerClick />
+            {t("Step")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => void insert("tip")}>
+            <Lightbulb />
+            {t("Tip")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => void insert("alert")}>
+            <TriangleAlert />
+            {t("Alert")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => void insert("header")}>
+            <Heading />
+            {t("Header")}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
@@ -497,6 +678,7 @@ export function GuideItemEditor({
   editable,
   onDraftChange,
   onSaved,
+  controls,
 }: {
   recordingId: string;
   item: GuideItem;
@@ -510,6 +692,7 @@ export function GuideItemEditor({
   editable: boolean;
   onDraftChange: (item: GuideItem) => void;
   onSaved: () => void;
+  controls?: React.ReactNode;
 }) {
   const {
     draft,
@@ -542,6 +725,17 @@ export function GuideItemEditor({
       ));
 
   const imageFilename = item.imageFilename;
+  const kindLabel =
+    item.kind === "tip"
+      ? t("Tip")
+      : item.kind === "alert"
+        ? t("Alert")
+        : t("Header");
+  const repeatsKind =
+    (item.kind === "tip" || item.kind === "alert") &&
+    item.title.trim().localeCompare(kindLabel, undefined, {
+      sensitivity: "base",
+    }) === 0;
 
   if (!isSelected) {
     if (item.kind !== "step") {
@@ -552,17 +746,14 @@ export function GuideItemEditor({
           tabIndex={editable ? 0 : undefined}
           onFocus={editable ? onSelect : undefined}
         >
-          {(editable || item.kind !== "header") && (
-            <div className="display-marker">
-              {item.kind === "tip"
-                ? t("Tip")
-                : item.kind === "alert"
-                  ? t("Alert")
-                  : t("Header")}
-            </div>
-          )}
+          <div className="guide-item-head">
+            {(editable || item.kind !== "header") && (
+              <div className="display-marker">{kindLabel}</div>
+            )}
+            {controls}
+          </div>
           <div>
-            <h3>{item.title}</h3>
+            {!repeatsKind && <h3>{item.title}</h3>}
             {item.body && item.body !== item.title && (
               <p>{renderInlineMarkdown(item.body)}</p>
             )}
@@ -583,6 +774,7 @@ export function GuideItemEditor({
           <div>
             <p>{renderInlineMarkdown(item.body)}</p>
           </div>
+          {controls}
         </div>
         {editable && (
           <div className="meta-row display-meta">
@@ -607,6 +799,7 @@ export function GuideItemEditor({
   if (item.kind !== "step") {
     return (
       <article className={`guide-item selected-item ${item.kind}`}>
+        <div className="guide-item-controls">{controls}</div>
         <label className="field-label">
           {item.kind === "header" ? t("Section title") : t("Title")}
         </label>
@@ -630,7 +823,7 @@ export function GuideItemEditor({
           onChange={(body) => updateDraft({ body })}
           rows={3}
         />
-        <div className="actions">
+        <div className="actions guide-action-toolbar">
           <span className={`save-state ${saveState}`}>
             {saveState === "saving"
               ? t("Saving...")
@@ -638,8 +831,16 @@ export function GuideItemEditor({
                 ? t("Save failed")
                 : t("Saved")}
           </span>
-          <button onClick={onCloseEdit}>{t("Done")}</button>
-          <button onClick={() => void remove()}>{t("Delete")}</button>
+          <GuideIconButton label={t("Done")} onClick={onCloseEdit}>
+            <Check aria-hidden="true" />
+          </GuideIconButton>
+          <GuideIconButton
+            label={t("Delete")}
+            tone="danger"
+            onClick={() => void remove()}
+          >
+            <Trash2 aria-hidden="true" />
+          </GuideIconButton>
         </div>
       </article>
     );
@@ -659,6 +860,7 @@ export function GuideItemEditor({
             {event.pageTitle}
           </span>
         )}
+        <div className="guide-item-controls">{controls}</div>
       </div>
       <label className="field-label">{t("Instruction")}</label>
       <MarkdownAssistantField
@@ -684,34 +886,6 @@ export function GuideItemEditor({
             src={versionedImageUrl(recordingId, imageFilename, imageVersion)}
             alt=""
           />
-          <div className="image-actions">
-            <button onClick={() => setEditingImage(true)}>
-              {t("Crop / Redact")}
-            </button>
-            <button
-              disabled={imageBusy}
-              onClick={() => imageInputRef.current?.click()}
-            >
-              {t("Replace Image")}
-            </button>
-            <button
-              className="danger-action"
-              disabled={imageBusy}
-              onClick={() => setDeleteImageOpen(true)}
-            >
-              {t("Delete Image")}
-            </button>
-          </div>
-        </div>
-      )}
-      {!imageFilename && item.eventId && (
-        <div className="image-empty">
-          <button
-            disabled={imageBusy}
-            onClick={() => imageInputRef.current?.click()}
-          >
-            {t("Upload Image")}
-          </button>
         </div>
       )}
       <input
@@ -722,7 +896,7 @@ export function GuideItemEditor({
         onChange={(event) => void uploadImage(event.target.files?.[0])}
       />
       {imageError && <p className="error">{imageError}</p>}
-      <div className="actions">
+      <div className="actions guide-action-toolbar">
         <span className={`save-state ${saveState}`}>
           {saveState === "saving"
             ? t("Saving...")
@@ -730,11 +904,62 @@ export function GuideItemEditor({
               ? t("Save failed")
               : t("Saved")}
         </span>
-        <button onClick={onCloseEdit}>{t("Done")}</button>
-        <button disabled={!item.eventId} onClick={() => void regenerate()}>
-          {t("Regenerate")}
-        </button>
-        <button onClick={() => void remove()}>{t("Delete")}</button>
+        {imageFilename ? (
+          <>
+            <GuideIconButton
+              label={t("Crop / Redact")}
+              onClick={() => setEditingImage(true)}
+            >
+              <Crop aria-hidden="true" />
+            </GuideIconButton>
+            <GuideIconButton
+              label={t("Replace Image")}
+              disabled={imageBusy}
+              onClick={() => imageInputRef.current?.click()}
+            >
+              <ImageUp aria-hidden="true" />
+            </GuideIconButton>
+            <GuideIconButton
+              label={t("Delete Image")}
+              tone="danger"
+              disabled={imageBusy}
+              onClick={() => setDeleteImageOpen(true)}
+            >
+              <ImageOff aria-hidden="true" />
+            </GuideIconButton>
+            <span className="guide-toolbar-divider" aria-hidden="true" />
+          </>
+        ) : (
+          item.eventId && (
+            <>
+              <GuideIconButton
+                label={t("Upload Image")}
+                disabled={imageBusy}
+                onClick={() => imageInputRef.current?.click()}
+              >
+                <ImageUp aria-hidden="true" />
+              </GuideIconButton>
+              <span className="guide-toolbar-divider" aria-hidden="true" />
+            </>
+          )
+        )}
+        <GuideIconButton label={t("Done")} onClick={onCloseEdit}>
+          <Check aria-hidden="true" />
+        </GuideIconButton>
+        <GuideIconButton
+          label={t("Regenerate")}
+          disabled={!item.eventId}
+          onClick={() => void regenerate()}
+        >
+          <RefreshCw aria-hidden="true" />
+        </GuideIconButton>
+        <GuideIconButton
+          label={t("Delete")}
+          tone="danger"
+          onClick={() => void remove()}
+        >
+          <Trash2 aria-hidden="true" />
+        </GuideIconButton>
       </div>
       {editingImage && imageFilename && (
         <ImageEditor
@@ -764,6 +989,7 @@ export function GuideItemEditor({
 }
 
 export function GuideOverviewEditor({
+  elementId,
   recording,
   isSelected,
   onSelect,
@@ -772,6 +998,7 @@ export function GuideOverviewEditor({
   onDraftChange,
   onSaved,
 }: {
+  elementId?: string;
   recording: Recording;
   isSelected: boolean;
   onSelect: () => void;
@@ -786,6 +1013,7 @@ export function GuideOverviewEditor({
   if (!isSelected) {
     return (
       <section
+        id={elementId}
         className={`guide-overview display-overview${editable ? "" : " view-only"}`}
         onClick={editable ? onSelect : undefined}
         tabIndex={editable ? 0 : undefined}
@@ -801,7 +1029,7 @@ export function GuideOverviewEditor({
   }
 
   return (
-    <section className="guide-overview selected-overview">
+    <section id={elementId} className="guide-overview selected-overview">
       <label className="field-label">{t("Guide title")}</label>
       <input
         value={draft.title}
@@ -814,7 +1042,7 @@ export function GuideOverviewEditor({
         onChange={(purpose) => updateDraft({ purpose })}
         rows={3}
       />
-      <div className="actions">
+      <div className="actions guide-action-toolbar">
         <span className={`save-state ${saveState}`}>
           {saveState === "saving"
             ? t("Saving...")
@@ -822,10 +1050,16 @@ export function GuideOverviewEditor({
               ? t("Save failed")
               : t("Saved")}
         </span>
-        <button onClick={onCloseEdit}>{t("Done")}</button>
-        <button disabled={generating} onClick={() => void generate()}>
-          {generating ? t("Generating...") : t("Generate Overview")}
-        </button>
+        <GuideIconButton label={t("Done")} onClick={onCloseEdit}>
+          <Check aria-hidden="true" />
+        </GuideIconButton>
+        <GuideIconButton
+          label={generating ? t("Generating...") : t("Generate Overview")}
+          disabled={generating}
+          onClick={() => void generate()}
+        >
+          <WandSparkles aria-hidden="true" />
+        </GuideIconButton>
       </div>
     </section>
   );

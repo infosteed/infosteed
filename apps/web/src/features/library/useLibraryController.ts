@@ -37,15 +37,30 @@ const libraryDependencies: LibraryControllerDependencies = {
   openRecording,
 };
 
+function initialLibraryScope(): LibraryScope {
+  const value = new URLSearchParams(window.location.search).get("scope");
+  return value === "owned" || value === "shared" || value === "trash"
+    ? value
+    : "all";
+}
+
+function initialLibrarySort(): LibrarySort {
+  return new URLSearchParams(window.location.search).get("sort") === "title"
+    ? "title"
+    : "recent";
+}
+
 export function useLibraryController(
   dependencies: LibraryControllerDependencies = libraryDependencies,
 ) {
   const [guides, setGuides] = useState<RecordingListItem[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [search, setSearch] = useState("");
-  const [projectId, setProjectId] = useState("");
-  const [scope, setScope] = useState<LibraryScope>("all");
-  const [sort, setSort] = useState<LibrarySort>("recent");
+  const [projectId, setProjectId] = useState(
+    () => new URLSearchParams(window.location.search).get("projectId") ?? "",
+  );
+  const [scope, setScope] = useState<LibraryScope>(initialLibraryScope);
+  const [sort, setSort] = useState<LibrarySort>(initialLibrarySort);
   const [view, setView] = useState<LibraryView>("grid");
   const [error, setError] = useState<string>();
   const [newProjectName, setNewProjectName] = useState("");

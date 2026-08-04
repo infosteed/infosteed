@@ -32,7 +32,7 @@ jobs:
           path: apps/extension/dist
           format: cyclonedx-json
           output-file: artifacts/extension.cdx.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: extension-development-artifacts
           path: artifacts/
@@ -112,7 +112,7 @@ jobs:
           output: /tmp/${{ matrix.name }}-trivy.sarif
           severity: HIGH,CRITICAL
           exit-code: "1"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.name }}-supply-chain
           path: |

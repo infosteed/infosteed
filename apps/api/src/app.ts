@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import Fastify from "fastify";
-import type { FastifyRequest } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 import { timingSafeEqual } from "node:crypto";
@@ -20,8 +20,6 @@ import { buildSanityImportTarGz } from "@infosteed/markdown-exporter/sanity";
 import {
   createGuideItemRequestSchema,
   createGuideVersionRequestSchema,
-  createProjectRequestSchema,
-  createUserRequestSchema,
   createRecordingRequestSchema,
   loginRequestSchema,
   moveRecordingProjectRequestSchema,
@@ -31,11 +29,7 @@ import {
   replaceGuideItemImageRequestSchema,
   screenshotEditOperationsSchema,
   setupAdminRequestSchema,
-  updateBrandingSettingsRequestSchema,
-  updateProjectMemberRequestSchema,
-  updateProjectRequestSchema,
   updateOwnPasswordRequestSchema,
-  updateUserRequestSchema,
   updateRecordingRequestSchema,
   updateGuideItemRequestSchema,
   updateGuideStepRequestSchema,
@@ -53,7 +47,6 @@ import {
   videoRecipeCaptions,
   videoRecipeChapters,
   PRODUCT_IDENTIFIERS,
-  PRODUCT_METADATA,
   PROTOCOL_VERSION,
 } from "@infosteed/shared";
 import type { RecordingProject, VideoChapter } from "@infosteed/shared";
@@ -100,10 +93,7 @@ import {
   canEditProject,
   canManageProject,
   countUsers,
-  createProject,
   createSession,
-  createUser,
-  deleteProjectMember,
   deleteSession,
   deleteUserSessions,
   ensurePersonalProject,
@@ -114,23 +104,14 @@ import {
   getSessionUser,
   isLoginRateLimited,
   issueCsrfToken,
-  listAuditEvents,
   listAccessibleRecordings,
-  listProjectMembers,
-  listProjects,
-  listUserDirectory,
   moveRecordingToProject,
-  listUsers,
   passwordNeedsRehash,
   recordLoginAttempt,
   recordingAccessRole,
   setupFirstAdmin,
-  updateBranding,
   updateOwnPassword,
-  updateProject,
-  updateUser,
   verifyCsrfToken,
-  upsertProjectMember,
   verifyPassword,
   writeAuditEvent,
 } from "./repositories/auth.js";
@@ -193,6 +174,26 @@ import {
   getVoiceoverGeneration,
   queueVoiceoverGeneration,
 } from "./repositories/voiceovers.js";
+import { registerSystemRoutes } from "./routes/system.js";
+import { registerProjectRoutes } from "./routes/projects.js";
+import { registerUserRoutes } from "./routes/users.js";
+
+export interface RegisteredRoute {
+  method: string;
+  url: string;
+}
+
+const routeInventories = new WeakMap<FastifyInstance, RegisteredRoute[]>();
+
+export function registeredRoutes(app: FastifyInstance): RegisteredRoute[] {
+  return (routeInventories.get(app) ?? [])
+    .slice()
+    .sort((left, right) =>
+      `${left.url}:${left.method}`.localeCompare(
+        `${right.url}:${right.method}`,
+      ),
+    );
+}
 
 export function buildApp(
   config: ApiConfig,
@@ -202,6 +203,15 @@ export function buildApp(
   const app = Fastify({
     logger: true,
     trustProxy: config.TRUST_PROXY_HOPS === 1 ? 1 : false,
+  });
+  const routeInventory: RegisteredRoute[] = [];
+  routeInventories.set(app, routeInventory);
+  app.addHook("onRoute", (route) => {
+    for (const method of Array.isArray(route.method)
+      ? route.method
+      : [route.method]) {
+      routeInventory.push({ method, url: route.url });
+    }
   });
   const provider = createAiProvider(config);
   const transcriptionProvider = createTranscriptionProvider(config);
@@ -363,15 +373,6 @@ export function buildApp(
     return recording ? buildVideoChapters(recording, titles) : [];
   }
 
-  async function playbackChapters(
-    recordingId: string,
-  ): Promise<VideoChapter[]> {
-    const published = await getPublishedVideoEditRecipe(pool, recordingId);
-    return published
-      ? videoRecipeChapters(published.recipe)
-      : videoChapters(recordingId);
-  }
-
   async function videoResponse(recordingId: string) {
     const published = await getPublishedVideoEditRecipe(pool, recordingId);
     const video = await getRecordingVideo(
@@ -500,41 +501,7 @@ export function buildApp(
     }
   });
 
-  app.get("/health/live", async () => ({ ok: true }));
-
-  app.get("/health/ready", async (_request, reply) => {
-    const checks = { postgres: false, objectStorage: false };
-    try {
-      await pool.query("select 1");
-      checks.postgres = true;
-      checks.objectStorage = await videoStorage.checkHealth();
-    } catch {
-      return reply.code(503).send({ ok: false, checks });
-    }
-    return { ok: true, checks };
-  });
-
-  app.get("/system/info", async () => {
-    const sourceUrl = config.APP_SOURCE_URL ?? "";
-    return {
-      productName: PRODUCT_METADATA.displayName,
-      productSlug: PRODUCT_METADATA.slug,
-      releaseVersion: config.RELEASE_VERSION,
-      releaseCommit: config.RELEASE_COMMIT,
-      sourceUrl,
-      exactSourceUrl:
-        sourceUrl && config.RELEASE_COMMIT !== "development"
-          ? `${sourceUrl.replace(/\/$/, "")}/tree/${encodeURIComponent(config.RELEASE_COMMIT)}`
-          : sourceUrl,
-      protocolVersion: PROTOCOL_VERSION,
-      setupRequired: (await countUsers(pool)) === 0,
-      minimumExtensionVersion: PRODUCT_METADATA.minimumExtensionVersion,
-    };
-  });
-
-  app.get("/setup/status", async () => ({
-    required: (await countUsers(pool)) === 0,
-  }));
+  registerSystemRoutes(app, { config, pool, videoStorage });
 
   app.post(
     "/setup/admin",
@@ -694,196 +661,32 @@ export function buildApp(
     return { ok: true };
   });
 
-  app.get("/users", async (request) => {
-    requireAdmin(request);
-    return { users: await listUsers(pool) };
+  registerUserRoutes(app, {
+    config,
+    pool,
+    videoStorage,
+    currentUser,
+    requireAdmin,
+    requireProjectRead,
+    requireProjectManage,
+    audit,
+    httpError,
+    guideWriterConfigured: Boolean(provider),
+    transcriptionConfigured: Boolean(transcriptionProvider),
+    voiceoverConfigured: Boolean(ttsProvider),
+    renderWorkerAvailable: () => videoRenderWorkerAvailable(pool),
   });
 
-  app.get("/admin/audit-events", async (request) => {
-    requireAdmin(request);
-    const query = request.query as Record<string, string | undefined>;
-    return listAuditEvents(pool, {
-      eventType: query.eventType,
-      actorUserId: query.actorUserId,
-      entityId: query.entityId,
-      from: query.from,
-      to: query.to,
-      limit: Math.min(500, Math.max(1, Number(query.limit ?? 100))),
-    });
-  });
-
-  app.get("/admin/system/status", async (request) => {
-    requireAdmin(request);
-    const queues = await pool.query<{
-      transcription_queued: string;
-      render_queued: string;
-      voiceover_queued: string;
-    }>(`
-      select
-        (select count(*) from recording_videos where transcription_status = 'pending') as transcription_queued,
-        (select count(*) from recording_video_renders where status = 'queued') as render_queued,
-        (select count(*) from recording_voiceover_generations where status = 'queued') as voiceover_queued
-    `);
-    const row = queues.rows[0];
-    const objectStorageHealthy = await videoStorage
-      .checkHealth()
-      .catch(() => false);
-    return {
-      protocolVersion: PROTOCOL_VERSION,
-      providers: {
-        guideWriter: provider ? "configured" : "deterministic",
-        transcription: transcriptionProvider ? "configured" : "disabled",
-        voiceover: ttsProvider ? "configured" : "disabled",
-        objectStorage: videoStorage.enabled
-          ? objectStorageHealthy
-            ? "ready"
-            : "unavailable"
-          : "disabled",
-      },
-      workers: {
-        renderer:
-          config.VIDEO_RENDER_ENABLED &&
-          (await videoRenderWorkerAvailable(pool))
-            ? "ready"
-            : "unavailable",
-        transcription: transcriptionProvider ? "enabled" : "disabled",
-        voiceover: ttsProvider ? "enabled" : "disabled",
-      },
-      queues: {
-        transcription: Number(row?.transcription_queued ?? 0),
-        rendering: Number(row?.render_queued ?? 0),
-        voiceover: Number(row?.voiceover_queued ?? 0),
-      },
-    };
-  });
-
-  app.get("/users/directory", async () => ({
-    users: await listUserDirectory(pool),
-  }));
-
-  app.post("/users", async (request, reply) => {
-    requireAdmin(request);
-    const input = createUserRequestSchema.parse(request.body);
-    const user = await withTransaction(pool, async (client) => {
-      const created = await createUser(client, input);
-      await ensurePersonalProject(client, created);
-      return created;
-    });
-    await audit(request, "user_created", "user", user.id, { role: user.role });
-    return reply.code(201).send(user);
-  });
-
-  app.patch<{ Params: { id: string } }>("/users/:id", async (request) => {
-    requireAdmin(request);
-    const patch = updateUserRequestSchema.parse(request.body);
-    const user = await updateUser(pool, request.params.id, patch);
-    if (!user) throw httpError(404, "User not found");
-    if (patch.password || patch.enabled === false)
-      await deleteUserSessions(pool, user.id);
-    await audit(
-      request,
-      patch.password ? "password_reset" : "user_updated",
-      "user",
-      user.id,
-      {
-        role: patch.role,
-        enabled: patch.enabled,
-      },
-    );
-    return user;
-  });
-
-  app.get("/projects", async (request) => ({
-    projects: await listProjects(pool, currentUser(request)),
-  }));
-
-  app.post("/projects", async (request, reply) => {
-    const input = createProjectRequestSchema.parse(request.body);
-    const project = await createProject(pool, currentUser(request), input);
-    return reply.code(201).send(project);
-  });
-
-  app.patch<{ Params: { id: string } }>("/projects/:id", async (request) => {
-    await requireProjectManage(request, request.params.id);
-    const patch = updateProjectRequestSchema.parse(request.body);
-    const project = await updateProject(pool, request.params.id, patch);
-    if (!project) throw httpError(404, "Project not found");
-    return project;
-  });
-
-  app.get<{ Params: { id: string } }>(
-    "/projects/:id/members",
-    async (request) => {
-      await requireProjectRead(request, request.params.id);
-      return { members: await listProjectMembers(pool, request.params.id) };
-    },
-  );
-
-  app.put<{ Params: { id: string } }>(
-    "/projects/:id/members",
-    async (request, reply) => {
-      await requireProjectManage(request, request.params.id);
-      const input = updateProjectMemberRequestSchema.parse(request.body);
-      const member = await upsertProjectMember(
-        pool,
-        request.params.id,
-        input.userId,
-        input.role,
-      );
-      if (!member) throw httpError(404, "User not found");
-      await audit(
-        request,
-        "share_member_upserted",
-        "project",
-        request.params.id,
-        {
-          userId: input.userId,
-          role: input.role,
-        },
-      );
-      return reply.code(201).send(member);
-    },
-  );
-
-  app.delete<{ Params: { id: string; userId: string } }>(
-    "/projects/:id/members/:userId",
-    async (request, reply) => {
-      await requireProjectManage(request, request.params.id);
-      await deleteProjectMember(pool, request.params.id, request.params.userId);
-      await audit(
-        request,
-        "share_member_removed",
-        "project",
-        request.params.id,
-        { userId: request.params.userId },
-      );
-      return reply.code(204).send();
-    },
-  );
-
-  app.get("/settings/branding", async () => getBranding(pool));
-
-  app.patch("/settings/branding", async (request) => {
-    requireAdmin(request);
-    const patch = updateBrandingSettingsRequestSchema.parse(request.body);
-    if (patch.iconDataUrl) {
-      const isAllowed =
-        /^data:image\/(?:png|webp|svg\+xml);base64,[A-Za-z0-9+/=]+$/.test(
-          patch.iconDataUrl,
-        );
-      if (!isAllowed || patch.iconDataUrl.length > 1_500_000) {
-        throw httpError(
-          400,
-          "Icon must be a PNG, WebP, or SVG data URL under 1.5 MB",
-        );
-      }
-    }
-    const branding = await updateBranding(pool, patch);
-    await audit(request, "branding_updated", "settings", "branding", {
-      displayName: patch.displayName,
-      iconChanged: Object.prototype.hasOwnProperty.call(patch, "iconDataUrl"),
-    });
-    return branding;
+  registerProjectRoutes(app, {
+    config,
+    pool,
+    videoStorage,
+    currentUser,
+    requireAdmin,
+    requireProjectRead,
+    requireProjectManage,
+    audit,
+    httpError,
   });
 
   app.get("/recordings", async (request) => {

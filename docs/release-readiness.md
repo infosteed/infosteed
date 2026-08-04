@@ -1,35 +1,27 @@
-# Release Readiness
+# Release readiness
 
-## Supplied
+InfoSteed is preparing its first supported self-hosted beta for Linux amd64. The source tree includes the application, production Compose configuration, extension packaging, backup tools, CI checks, and release-evidence workflow.
 
-- Final product name: InfoSteed.
-- Target version: 0.1.0-beta.1.
-- Public licence: AGPL-3.0-only with a separate commercial-licensing path.
-- Supported platform: Linux amd64 with Docker Compose and Caddy HTTPS.
+## Publication requirements
 
-The compatibility-breaking InfoSteed cutover is complete across repository paths, packages, interfaces, runtime identifiers, documentation, and test fixtures. No compatibility aliases for earlier working names are retained.
+Publication remains closed until maintainers record:
 
-## Still required before publication
+- legal clearance for the product name and slug;
+- the copyright holder and, if commercial terms are offered, the contracting entity and approved licence;
+- the public repository, image namespace, production domain, and browser-store publisher;
+- the stable extension ID and public manifest key;
+- approved contributor, security, and moderation contacts.
 
-- Written confirmation that the InfoSteed name and slug are legally cleared.
-- Exact copyright-owning person or company.
-- Commercial-licensing contact, contracting entity, and lawyer-approved commercial licence.
-- Lawyer-approved CLA granting the required relicensing rights.
-- GitHub owner, GHCR namespace, production domain, and Chrome Web Store publisher identity.
-- Stable Store extension ID and its public manifest key.
-- Security and moderation contacts.
+These are release controls, not runtime configuration. Development and private evaluation do not depend on them.
 
-Until these are supplied, external contributions, public Store listing, commercial offers, and public release remain blocked.
+## Candidate exercises
 
-## Technical release exercises still required
+Before publishing a candidate, maintainers must:
 
-These require the final identity, signed extension, published candidate images, or elapsed soak time and therefore cannot be completed in the source tree alone:
+- exercise guide, video, and combined capture with the signed extension, including permission loss, child-tab handoff, recovery, and server changes;
+- test transcription, voiceover, and rendering through success, failure, retry, restart, and cache reuse;
+- restore a realistic backup after rebuilding the deployment and compare database records and stored objects;
+- scan and sign the final images and verify their SBOMs and provenance;
+- complete a one-week private installation soak before opening the public beta.
 
-- Run the real signed extension in Chromium through guide-only, video-only, combined capture, permission revocation, tab handoff, interrupted recovery, and server reconfiguration scenarios.
-- Exercise transcription and voiceover success, failure, retry, restart, cache reuse, and render mixing against the final digest-pinned provider images.
-- Create a realistic populated installation, perform a destructive rebuild and restore, and compare every database entity and object checksum.
-- Test upgrade from the previous beta once a previous beta exists. This is not applicable to the first beta candidate.
-- Scan and sign the final published image digests and verify the attached SBOMs and provenance.
-- Complete the one-week private installation soak and minimum two-week public beta period.
-
-Record evidence for each exercise with the candidate commit and image digests before promoting the release.
+Evidence must identify the candidate commit and immutable image digests. Upgrade testing from a previous beta begins once a previous beta exists.

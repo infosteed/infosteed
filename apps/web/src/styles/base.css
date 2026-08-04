@@ -1,0 +1,401 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font:
+    14px/1.5 system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  color: #111827;
+  background: #f4f6f8;
+}
+
+main {
+  min-height: 100vh;
+}
+
+header {
+  position: sticky;
+  top: 0;
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 18px 24px;
+  border-bottom: 1px solid #d0d5dd;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+}
+
+header p {
+  margin: 0;
+  color: #667085;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 2px 0 0;
+  font-size: 20px;
+}
+
+.brand-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-heading img {
+  width: 32px;
+  height: 32px;
+  max-height: none;
+  object-fit: contain;
+  border: 0;
+  border-radius: 6px;
+}
+
+.brand-heading h1 {
+  margin: 0;
+}
+
+h2 {
+  margin: 0 0 12px;
+  font-size: 15px;
+}
+
+a,
+button {
+  min-height: 34px;
+  border: 1px solid #98a2b3;
+  border-radius: 6px;
+  background: #fff;
+  color: #111827;
+  font: inherit;
+  text-decoration: none;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+a {
+  background: #235ee7;
+  border-color: #235ee7;
+  color: #fff;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.header-more-menu {
+  position: relative;
+}
+
+.header-more-menu summary {
+  min-height: 34px;
+  box-sizing: border-box;
+  border: 1px solid #98a2b3;
+  border-radius: 6px;
+  padding: 7px 30px 6px 10px;
+  background: #fff;
+  color: #111827;
+  cursor: pointer;
+  list-style: none;
+}
+
+.header-more-menu summary::after {
+  position: absolute;
+  top: 13px;
+  right: 11px;
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  content: "";
+  transform: rotate(45deg);
+}
+
+.header-more-menu[open] summary::after {
+  top: 16px;
+  transform: rotate(225deg);
+}
+
+.header-more-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.header-more-panel {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  right: 0;
+  display: grid;
+  width: 220px;
+  max-height: min(620px, calc(100vh - 120px));
+  gap: 3px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  border: 1px solid #d0d5dd;
+  border-radius: 9px;
+  padding: 7px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgb(16 24 40 / 18%);
+}
+
+.header-more-panel button,
+.header-more-panel a {
+  width: 100%;
+  min-height: 34px;
+  border: 0;
+  border-radius: 5px;
+  padding: 7px 9px;
+  background: transparent;
+  color: #111827;
+  text-align: left;
+}
+
+.header-more-panel button:hover,
+.header-more-panel a:hover {
+  background: #f2f4f7;
+}
+
+.header-more-label {
+  margin-top: 5px;
+  border-top: 1px solid #e4e7ec;
+  padding: 9px 9px 3px;
+  color: #667085;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.header-more-panel .header-more-danger {
+  margin-top: 5px;
+  border-top: 1px solid #e4e7ec;
+  border-radius: 0 0 5px 5px;
+  padding-top: 10px;
+  color: #b42318;
+}
+
+.hidden-file {
+  display: none;
+}
+
+.auth-page,
+.browser-page,
+.admin-page {
+  min-height: 100vh;
+}
+
+.admin-page {
+  background: #eef2f6;
+}
+
+.auth-page {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.auth-card,
+.admin-card {
+  display: grid;
+  gap: 12px;
+  width: min(420px, 100%);
+  padding: 22px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+}
+
+.auth-card p {
+  margin: 0;
+  color: #667085;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.auth-card label,
+.admin-card label {
+  display: grid;
+  gap: 6px;
+  color: #344054;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  border: 1px solid #d0d5dd;
+  border-radius: 999px;
+  padding: 4px 12px;
+  background: #f9fafb;
+  color: #344054;
+}
+
+.browser-shell {
+  width: min(1280px, 100%);
+  margin: 0 auto;
+  padding: 32px 24px;
+}
+
+.browser-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.browser-head h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.browser-head p {
+  margin: 4px 0 0;
+  color: #667085;
+}
+
+.browser-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.browser-controls input,
+.browser-controls select,
+.quick-project input,
+.quick-project select {
+  width: auto;
+  min-width: 150px;
+}
+
+.quick-project {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.guide-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
+}
+
+.guide-list {
+  display: grid;
+  gap: 10px;
+}
+
+.guide-card {
+  display: grid;
+  grid-template-columns: 54px 1fr auto;
+  gap: 14px;
+  min-height: 156px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  padding: 18px;
+  background: #fff;
+  color: #111827;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+.guide-list .guide-card {
+  min-height: 92px;
+}
+
+.guide-card.deleted {
+  background: #f9fafb;
+}
+
+.guide-open {
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  color: #111827;
+}
+
+.guide-open:hover h3 {
+  color: #175cd3;
+}
+
+.guide-card p {
+  margin: 0;
+  color: #667085;
+}
+
+.guide-card h3 {
+  margin: 8px 0;
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.guide-snippet {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.guide-card small {
+  display: block;
+  margin-top: 10px;
+  color: #667085;
+}
+
+.guide-card-actions {
+  display: grid;
+  align-content: start;
+  justify-items: end;
+  gap: 8px;
+}
+
+.danger-action {
+  border-color: #fecdca;
+  background: #fff;
+  color: #b42318;
+}
+
+.danger-action:hover {
+  border-color: #f97066;
+  background: #fef3f2;
+}
+
+.guide-thumb {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #eff8ff;
+  color: #175cd3;
+  font-weight: 700;
+}
+
+.guide-thumb img {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  object-fit: cover;
+  border: 0;
+}

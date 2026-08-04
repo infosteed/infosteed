@@ -19,8 +19,8 @@ packages/
   image-processor/     Sharp WebP conversion and target annotation helpers
 migrations/            Ordered SQL migrations
 infra/                 Docker Compose for PostgreSQL and MinIO
-docs/                  Architecture, permissions, threat model, acceptance tests
-tests/e2e/             Playwright vertical-slice test
+docs/                  Operations, architecture, privacy, and release guidance
+tests/e2e/             Compose-backed HTTP integration tests
 ```
 
 ## Database Schema
@@ -76,21 +76,9 @@ App-created child tabs are tracked as a parent/child trail. Guide Only follows a
 - Exports are validated so Markdown image references cannot point to remote URLs, extension URLs, blob URLs, or data URLs.
 - The backend uses parameterized SQL only and transactions for multi-step writes.
 
-## Vertical-Slice Acceptance Tests
+## Guide export invariants
 
-1. Start a recording from the extension popup.
-2. Click a visible button in a test page.
-3. Confirm the content script emits one meaningful click step with accessible element metadata.
-4. Confirm the background worker captures a screenshot and posts event plus screenshot to the API.
-5. Finalize the recording and generate a deterministic instruction.
-6. Open the web editor and confirm the generated step is editable.
-7. Export a ZIP.
-8. Extract the ZIP and confirm it contains:
-   - `workflow-guide/guide.md`
-   - `workflow-guide/recording.json`
-   - `workflow-guide/images/<deterministic-step-file>.webp`
-9. Confirm `guide.md` references only `./images/...`.
-10. Confirm no image reference contains `http://`, `https://`, `s3://`, `blob:`, `data:`, or `chrome-extension:`.
+Every ZIP export contains `workflow-guide/guide.md`, `workflow-guide/recording.json`, and the referenced WebP files beneath `workflow-guide/images/`. Markdown image references are relative to `./images/`; remote, S3, blob, data, and extension URLs are rejected.
 
 Sanity exports use a separate gzip-compressed tar archive containing `data.ndjson` and only the local WebP images
 referenced by the guide. The NDJSON document uses Portable Text plus structured workflow-step and callout blocks; the

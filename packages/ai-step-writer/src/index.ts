@@ -319,6 +319,38 @@ export interface OpenAiCompatibleProviderOptions {
   timeoutMs?: number;
 }
 
+async function postProviderJson<T>(input: {
+  options: OpenAiCompatibleProviderOptions;
+  path: string;
+  body: unknown;
+  providerName: "AI provider" | "Ollama provider";
+  authenticate?: boolean;
+}): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    input.options.timeoutMs ?? 30_000,
+  );
+  const response = await fetch(
+    input.options.endpoint.replace(/\/$/, "") + input.path,
+    {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "content-type": "application/json",
+        ...(input.authenticate && input.options.apiKey
+          ? { authorization: `Bearer ${input.options.apiKey}` }
+          : {}),
+      },
+      body: JSON.stringify(input.body),
+    },
+  ).finally(() => clearTimeout(timeout));
+
+  if (!response.ok)
+    throw new Error(`${input.providerName} failed with ${response.status}`);
+  return (await response.json()) as T;
+}
+
 function parseGeneratedStep(value: string): GeneratedStep {
   const trimmed = value.trim();
   try {
@@ -339,65 +371,49 @@ export class OpenAiCompatibleStepWriter implements AiStepWriterProvider {
   async generateOverview(
     context: GuideOverviewContext,
   ): Promise<GeneratedOverview> {
-    const controller = new AbortController();
-    const timeout = setTimeout(
-      () => controller.abort(),
-      this.options.timeoutMs ?? 30_000,
-    );
     const jsonContract =
       'Return exactly one compact JSON object: {"title":"...","overview":"..."}. No markdown outside JSON.';
 
-    const response = await fetch(
-      this.options.endpoint.replace(/\/$/, "") + "/chat/completions",
-      {
-        method: "POST",
-        signal: controller.signal,
-        headers: {
-          "content-type": "application/json",
-          ...(this.options.apiKey
-            ? { authorization: `Bearer ${this.options.apiKey}` }
-            : {}),
-        },
-        body: JSON.stringify({
-          model: this.options.model,
-          temperature: 0.1,
-          max_tokens: 512,
-          think: false,
-          options: {
-            think: false,
-            num_predict: 512,
-          },
-          response_format: { type: "json_object" },
-          messages: [
-            {
-              role: "system",
-              content:
-                "/no_think\nWrite Scribe-style guide titles and short overview blurbs. Use normal product language. Do not invent company names. " +
-                jsonContract +
-                "\n/no_think",
-            },
-            {
-              role: "user",
-              content:
-                "/no_think\n" +
-                JSON.stringify(context) +
-                "\nCreate a concise how-to title and a 1-2 sentence overview for the whole recorded workflow.\n" +
-                jsonContract +
-                "\n/no_think",
-            },
-          ],
-        }),
-      },
-    ).finally(() => clearTimeout(timeout));
-
-    if (!response.ok)
-      throw new Error(`AI provider failed with ${response.status}`);
-    const json = (await response.json()) as {
+    const json = await postProviderJson<{
       choices?: Array<{
         finish_reason?: string;
         message?: { content?: string; reasoning?: string };
       }>;
-    };
+    }>({
+      options: this.options,
+      path: "/chat/completions",
+      providerName: "AI provider",
+      authenticate: true,
+      body: {
+        model: this.options.model,
+        temperature: 0.1,
+        max_tokens: 512,
+        think: false,
+        options: {
+          think: false,
+          num_predict: 512,
+        },
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content:
+              "/no_think\nWrite Scribe-style guide titles and short overview blurbs. Use normal product language. Do not invent company names. " +
+              jsonContract +
+              "\n/no_think",
+          },
+          {
+            role: "user",
+            content:
+              "/no_think\n" +
+              JSON.stringify(context) +
+              "\nCreate a concise how-to title and a 1-2 sentence overview for the whole recorded workflow.\n" +
+              jsonContract +
+              "\n/no_think",
+          },
+        ],
+      },
+    });
     const choice = json.choices?.[0];
     if (choice?.message?.content)
       return parseGeneratedOverview(choice.message.content);
@@ -412,12 +428,6 @@ export class OpenAiCompatibleStepWriter implements AiStepWriterProvider {
     context: StepWritingContext,
     includeScreenshot: boolean,
   ): Promise<GeneratedStep> {
-    const controller = new AbortController();
-    const timeout = setTimeout(
-      () => controller.abort(),
-      this.options.timeoutMs ?? 30_000,
-    );
-
     const stepContext = {
       workflowPurpose: context.workflowPurpose,
       audience: context.audience,
@@ -450,49 +460,38 @@ export class OpenAiCompatibleStepWriter implements AiStepWriterProvider {
           ]
         : userText;
 
-    const response = await fetch(
-      this.options.endpoint.replace(/\/$/, "") + "/chat/completions",
-      {
-        method: "POST",
-        signal: controller.signal,
-        headers: {
-          "content-type": "application/json",
-          ...(this.options.apiKey
-            ? { authorization: `Bearer ${this.options.apiKey}` }
-            : {}),
-        },
-        body: JSON.stringify({
-          model: this.options.model,
-          temperature: 0.1,
-          max_tokens: 2048,
-          think: false,
-          options: {
-            think: false,
-            num_predict: 2048,
-          },
-          response_format: { type: "json_object" },
-          messages: [
-            {
-              role: "system",
-              content: `/no_think\nWrite concise browser workflow instructions. ${jsonContract} Do not invent actions or outcomes. Avoid mechanical words like div, canvas, field, i, or full page text.\n/no_think`,
-            },
-            {
-              role: "user",
-              content: userContent,
-            },
-          ],
-        }),
-      },
-    ).finally(() => clearTimeout(timeout));
-
-    if (!response.ok)
-      throw new Error(`AI provider failed with ${response.status}`);
-    const json = (await response.json()) as {
+    const json = await postProviderJson<{
       choices?: Array<{
         finish_reason?: string;
         message?: { content?: string; reasoning?: string };
       }>;
-    };
+    }>({
+      options: this.options,
+      path: "/chat/completions",
+      providerName: "AI provider",
+      authenticate: true,
+      body: {
+        model: this.options.model,
+        temperature: 0.1,
+        max_tokens: 2048,
+        think: false,
+        options: {
+          think: false,
+          num_predict: 2048,
+        },
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content: `/no_think\nWrite concise browser workflow instructions. ${jsonContract} Do not invent actions or outcomes. Avoid mechanical words like div, canvas, field, i, or full page text.\n/no_think`,
+          },
+          {
+            role: "user",
+            content: userContent,
+          },
+        ],
+      },
+    });
     const choice = json.choices?.[0];
     const content = choice?.message?.content;
     if (content) return parseGeneratedStep(content);
@@ -532,51 +531,35 @@ export class OpenAiCompatibleStepWriter implements AiStepWriterProvider {
   async generateChapter(
     context: ChapterWritingContext,
   ): Promise<GeneratedChapter> {
-    const controller = new AbortController();
-    const timeout = setTimeout(
-      () => controller.abort(),
-      this.options.timeoutMs ?? 30_000,
-    );
     const jsonContract =
       'Return exactly one compact JSON object: {"title":"..."}. No markdown outside JSON.';
-    const response = await fetch(
-      this.options.endpoint.replace(/\/$/, "") + "/chat/completions",
-      {
-        method: "POST",
-        signal: controller.signal,
-        headers: {
-          "content-type": "application/json",
-          ...(this.options.apiKey
-            ? { authorization: `Bearer ${this.options.apiKey}` }
-            : {}),
-        },
-        body: JSON.stringify({
-          model: this.options.model,
-          temperature: 0.1,
-          max_tokens: 128,
-          response_format: { type: "json_object" },
-          messages: [
-            {
-              role: "system",
-              content: `Write concise action-oriented video chapter titles. ${jsonContract}`,
-            },
-            {
-              role: "user",
-              content:
-                JSON.stringify(context) +
-                "\nUse the action and nearby narration. Do not invent an outcome.\n" +
-                jsonContract,
-            },
-          ],
-        }),
-      },
-    ).finally(() => clearTimeout(timeout));
-
-    if (!response.ok)
-      throw new Error(`AI provider failed with ${response.status}`);
-    const json = (await response.json()) as {
+    const json = await postProviderJson<{
       choices?: Array<{ message?: { content?: string } }>;
-    };
+    }>({
+      options: this.options,
+      path: "/chat/completions",
+      providerName: "AI provider",
+      authenticate: true,
+      body: {
+        model: this.options.model,
+        temperature: 0.1,
+        max_tokens: 128,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content: `Write concise action-oriented video chapter titles. ${jsonContract}`,
+          },
+          {
+            role: "user",
+            content:
+              JSON.stringify(context) +
+              "\nUse the action and nearby narration. Do not invent an outcome.\n" +
+              jsonContract,
+          },
+        ],
+      },
+    });
     const content = json.choices?.[0]?.message?.content;
     if (!content) throw new Error("AI provider returned no chapter title");
     return parseGeneratedChapter(content);
@@ -589,45 +572,30 @@ export class OllamaNativeStepWriter implements AiStepWriterProvider {
   async generateOverview(
     context: GuideOverviewContext,
   ): Promise<GeneratedOverview> {
-    const controller = new AbortController();
-    const timeout = setTimeout(
-      () => controller.abort(),
-      this.options.timeoutMs ?? 30_000,
-    );
-
-    const response = await fetch(
-      this.options.endpoint.replace(/\/$/, "") + "/api/generate",
-      {
-        method: "POST",
-        signal: controller.signal,
-        headers: {
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          model: this.options.model,
-          prompt:
-            "/no_think\nReturn ONLY JSON with keys title and overview for this whole browser workflow. " +
-            "The overview must be 1-2 concise sentences.\n" +
-            JSON.stringify(context) +
-            "\n/no_think",
-          stream: false,
-          format: "json",
-          think: false,
-          options: {
-            num_predict: 512,
-            temperature: 0,
-          },
-        }),
-      },
-    ).finally(() => clearTimeout(timeout));
-
-    if (!response.ok)
-      throw new Error(`Ollama provider failed with ${response.status}`);
-    const json = (await response.json()) as {
+    const json = await postProviderJson<{
       response?: string;
       thinking?: string;
       done_reason?: string;
-    };
+    }>({
+      options: this.options,
+      path: "/api/generate",
+      providerName: "Ollama provider",
+      body: {
+        model: this.options.model,
+        prompt:
+          "/no_think\nReturn ONLY JSON with keys title and overview for this whole browser workflow. " +
+          "The overview must be 1-2 concise sentences.\n" +
+          JSON.stringify(context) +
+          "\n/no_think",
+        stream: false,
+        format: "json",
+        think: false,
+        options: {
+          num_predict: 512,
+          temperature: 0,
+        },
+      },
+    });
     if (json.response) return parseGeneratedOverview(json.response);
     if (json.thinking) return parseGeneratedOverview(json.thinking);
     throw new Error(
@@ -636,11 +604,6 @@ export class OllamaNativeStepWriter implements AiStepWriterProvider {
   }
 
   async generateStep(context: StepWritingContext): Promise<GeneratedStep> {
-    const controller = new AbortController();
-    const timeout = setTimeout(
-      () => controller.abort(),
-      this.options.timeoutMs ?? 30_000,
-    );
     const imageBase64 = context.screenshotDataUrl?.replace(
       /^data:image\/[a-zA-Z0-9.+-]+;base64,/,
       "",
@@ -659,36 +622,27 @@ export class OllamaNativeStepWriter implements AiStepWriterProvider {
         hasScreenshot: Boolean(imageBase64),
       });
 
-    const response = await fetch(
-      this.options.endpoint.replace(/\/$/, "") + "/api/generate",
-      {
-        method: "POST",
-        signal: controller.signal,
-        headers: {
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          model: this.options.model,
-          prompt,
-          images: imageBase64 ? [imageBase64] : undefined,
-          stream: false,
-          format: "json",
-          think: false,
-          options: {
-            num_predict: 2048,
-            temperature: 0,
-          },
-        }),
-      },
-    ).finally(() => clearTimeout(timeout));
-
-    if (!response.ok)
-      throw new Error(`Ollama provider failed with ${response.status}`);
-    const json = (await response.json()) as {
+    const json = await postProviderJson<{
       response?: string;
       thinking?: string;
       done_reason?: string;
-    };
+    }>({
+      options: this.options,
+      path: "/api/generate",
+      providerName: "Ollama provider",
+      body: {
+        model: this.options.model,
+        prompt,
+        images: imageBase64 ? [imageBase64] : undefined,
+        stream: false,
+        format: "json",
+        think: false,
+        options: {
+          num_predict: 2048,
+          temperature: 0,
+        },
+      },
+    });
     if (json.response) return parseGeneratedStep(json.response);
     if (json.thinking) return parseGeneratedStep(json.thinking);
     throw new Error(
@@ -699,37 +653,25 @@ export class OllamaNativeStepWriter implements AiStepWriterProvider {
   async generateChapter(
     context: ChapterWritingContext,
   ): Promise<GeneratedChapter> {
-    const controller = new AbortController();
-    const timeout = setTimeout(
-      () => controller.abort(),
-      this.options.timeoutMs ?? 30_000,
-    );
-    const response = await fetch(
-      this.options.endpoint.replace(/\/$/, "") + "/api/generate",
-      {
-        method: "POST",
-        signal: controller.signal,
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          model: this.options.model,
-          prompt:
-            "Return ONLY JSON with one key, title, containing a concise action-oriented video chapter name. " +
-            "Use nearby narration but do not invent an outcome.\n" +
-            JSON.stringify(context),
-          stream: false,
-          format: "json",
-          think: false,
-          options: { num_predict: 128, temperature: 0 },
-        }),
-      },
-    ).finally(() => clearTimeout(timeout));
-
-    if (!response.ok)
-      throw new Error(`Ollama provider failed with ${response.status}`);
-    const json = (await response.json()) as {
+    const json = await postProviderJson<{
       response?: string;
       thinking?: string;
-    };
+    }>({
+      options: this.options,
+      path: "/api/generate",
+      providerName: "Ollama provider",
+      body: {
+        model: this.options.model,
+        prompt:
+          "Return ONLY JSON with one key, title, containing a concise action-oriented video chapter name. " +
+          "Use nearby narration but do not invent an outcome.\n" +
+          JSON.stringify(context),
+        stream: false,
+        format: "json",
+        think: false,
+        options: { num_predict: 128, temperature: 0 },
+      },
+    });
     if (json.response) return parseGeneratedChapter(json.response);
     if (json.thinking) return parseGeneratedChapter(json.thinking);
     throw new Error("Ollama provider returned no chapter title");

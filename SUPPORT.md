@@ -1,6 +1,6 @@
 # Support Policy
 
-The supported beta deployment is the supplied production Docker Compose bundle on Linux amd64, using its pinned container versions. The latest beta receives security and data-loss fixes. Older betas are supported only long enough to perform the documented backup and forward upgrade.
+The supported beta deployment is the production Docker Compose bundle on Linux amd64, using its pinned container versions. The latest beta receives security and data-loss fixes. Older betas are supported only long enough to perform the documented backup and forward upgrade.
 
 Community support is provided through public GitHub issues after publication. Include the application version, release commit, sanitized Compose configuration, relevant structured logs, and reproduction steps. Never attach recordings, speech text, media URLs, tokens, passwords, private hostnames, or database dumps.
 

@@ -11,7 +11,7 @@ function send(type: string) {
   return chrome.runtime.sendMessage({ type });
 }
 
-function Popup() {
+export function Popup() {
   const [status, setStatus] = useState<Status>("idle");
   const [recordingId, setRecordingId] = useState<string | undefined>();
   const [error, setError] = useState<string | undefined>();
@@ -236,7 +236,6 @@ function Popup() {
           </div>
         </div>
       )}
-      {recordingId && <p className="id">{recordingId}</p>}
       {captureMode && status !== "idle" && (
         <p className="id">
           Output:{" "}
@@ -247,10 +246,10 @@ function Popup() {
               : "Guide Only"}
         </p>
       )}
-      {webEditorUrl && <p className="id">App: {webEditorUrl}</p>}
       {error && <p className="error">{error}</p>}
     </main>
   );
 }
 
-createRoot(document.getElementById("root")!).render(<Popup />);
+const root = document.getElementById("root");
+if (root) createRoot(root).render(<Popup />);

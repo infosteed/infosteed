@@ -2,6 +2,7 @@
 import JSZip from "jszip";
 import { gunzipSync } from "node:zlib";
 import { test, expect } from "@playwright/test";
+import type { APIRequestContext } from "@playwright/test";
 
 const apiUrl = process.env.INFOSTEED_API_URL;
 const onePixelPng =
@@ -30,9 +31,9 @@ function readTarGz(buffer: Buffer): Map<string, Buffer> {
   return files;
 }
 
-test("records a small workflow and exports an offline guide", async ({
-  request,
-}) => {
+async function authenticate(
+  request: APIRequestContext,
+): Promise<Record<string, string>> {
   test.skip(
     !apiUrl,
     "Set INFOSTEED_API_URL to a running API backed by PostgreSQL",
@@ -60,33 +61,24 @@ test("records a small workflow and exports an offline guide", async ({
     expect(simultaneous.map((response) => response.status()).sort()).toEqual([
       201, 409,
     ]);
-    expect(
-      (
-        await request.post(`${apiUrl}/auth/login`, {
-          data: { username, password },
-        })
-      ).ok(),
-    ).toBe(true);
-  } else {
-    test.skip(
-      !process.env.INFOSTEED_TEST_USERNAME ||
-        !process.env.INFOSTEED_TEST_PASSWORD,
-      "Set test credentials when API setup already exists",
-    );
-    expect(
-      (
-        await request.post(`${apiUrl}/auth/login`, {
-          data: { username, password },
-        })
-      ).ok(),
-    ).toBe(true);
   }
+  expect(
+    (
+      await request.post(`${apiUrl}/auth/login`, {
+        data: { username, password },
+      })
+    ).ok(),
+  ).toBe(true);
   const csrfToken = (
     (await (await request.get(`${apiUrl}/auth/csrf`)).json()) as {
       csrfToken: string;
     }
   ).csrfToken;
-  const mutationHeaders = { "x-csrf-token": csrfToken };
+  return { "x-csrf-token": csrfToken };
+}
+
+test("creates and exports an offline guide over HTTP", async ({ request }) => {
+  const mutationHeaders = await authenticate(request);
 
   const create = await request.post(`${apiUrl}/recordings`, {
     headers: mutationHeaders,
@@ -199,6 +191,16 @@ test("records a small workflow and exports an offline guide", async ({
   };
   expect(videoCapability.enabled).toBe(true);
   expect(typeof videoCapability.transcription.enabled).toBe("boolean");
+});
+
+test("runs the video recording lifecycle over HTTP", async ({ request }) => {
+  const mutationHeaders = await authenticate(request);
+  const videoCapability = (await (
+    await request.get(`${apiUrl}/capabilities/video`)
+  ).json()) as {
+    enabled: boolean;
+    transcription: { enabled: boolean };
+  };
 
   const createVideo = await request.post(`${apiUrl}/recordings`, {
     headers: mutationHeaders,
@@ -346,6 +348,12 @@ test("records a small workflow and exports an offline guide", async ({
       })
     ).status(),
   ).toBe(204);
+});
+
+test("keeps combined guide and video output synchronized over HTTP", async ({
+  request,
+}) => {
+  const mutationHeaders = await authenticate(request);
 
   const createBoth = await request.post(`${apiUrl}/recordings`, {
     headers: mutationHeaders,

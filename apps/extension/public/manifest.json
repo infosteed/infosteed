@@ -3,7 +3,7 @@
   "minimum_chrome_version": "116",
   "name": "InfoSteed Recorder",
   "version": "0.1.0",
-  "description": "Internal browser workflow recorder with self-contained guide exports.",
+  "description": "Self-hosted browser recorder for creating editable guides and videos.",
   "action": {
     "default_popup": "src/popup.html",
     "default_title": "InfoSteed"

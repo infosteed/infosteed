@@ -1,17 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   videoEditedDurationMs,
   videoOutputToSourceMs,
   videoRecipeCaptions,
   videoSourceToOutputMs,
-  type EditableCaptionCue,
   type Recording,
   type RecordingVideo,
   type VideoEditDraft,
@@ -40,51 +33,18 @@ import {
   saveVideoEditor,
   voiceoverCueUrl,
 } from "./api";
+import { errorMessage } from "./errors";
+import { openRecording } from "./navigation";
+import {
+  materializeVideoCaptions,
+  subtractVideoRange,
+  videoTimeLabel,
+} from "./video-editor/model";
 
 interface Props {
   recording: Recording;
   video: RecordingVideo;
   onPublished(video: RecordingVideo): void;
-}
-
-function timeLabel(milliseconds: number): string {
-  const seconds = Math.max(0, Math.floor(milliseconds / 1000));
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
-}
-
-function subtractRange(
-  recipe: VideoEditRecipe,
-  startMs: number,
-  endMs: number,
-): VideoEditRecipe {
-  const keepRanges = recipe.keepRanges.flatMap((range) => {
-    if (endMs <= range.startMs || startMs >= range.endMs) return [range];
-    const output = [];
-    if (startMs - range.startMs >= 100)
-      output.push({ startMs: range.startMs, endMs: startMs });
-    if (range.endMs - endMs >= 100)
-      output.push({ startMs: endMs, endMs: range.endMs });
-    return output;
-  });
-  return keepRanges.reduce(
-    (total, range) => total + range.endMs - range.startMs,
-    0,
-  ) >= 500
-    ? { ...recipe, keepRanges }
-    : recipe;
-}
-
-function materializeCaptions(
-  state: VideoEditorState,
-  recipe: VideoEditRecipe,
-): EditableCaptionCue[] {
-  if (recipe.captions.mode === "manual") return recipe.captions.cues;
-  return state.transcriptCues.map((cue) => ({
-    id: `caption-${cue.id}-${cue.startMs}`,
-    sourceStartMs: cue.startMs,
-    sourceEndMs: cue.endMs,
-    text: cue.text,
-  }));
 }
 
 export function VideoEditor({ recording, video, onPublished }: Props) {
@@ -137,7 +97,7 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
         sourceStartMs: cue.sourceStartMs,
         sourceEndMs: cue.sourceEndMs,
         text: cue.text,
-      })) ?? materializeCaptions(next, next.draft.recipe);
+      })) ?? materializeVideoCaptions(next, next.draft.recipe);
     setNarrationCues(initialCues);
     if (next.voiceoverAvailable) {
       void listVoiceoverVoices(recording.id)
@@ -145,20 +105,12 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
           setVoices(result.voices);
           setVoice(next.voiceover?.voice ?? result.defaultVoice);
         })
-        .catch((loadError) =>
-          setError(
-            loadError instanceof Error ? loadError.message : String(loadError),
-          ),
-        );
+        .catch((loadError) => setError(errorMessage(loadError)));
     }
   }, [recording.id]);
 
   useEffect(() => {
-    void load().catch((loadError) =>
-      setError(
-        loadError instanceof Error ? loadError.message : String(loadError),
-      ),
-    );
+    void load().catch((loadError) => setError(errorMessage(loadError)));
   }, [load]);
 
   function change(next: VideoEditRecipe) {
@@ -184,8 +136,7 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
       setError(undefined);
       return saved;
     } catch (saveError) {
-      const message =
-        saveError instanceof Error ? saveError.message : String(saveError);
+      const message = errorMessage(saveError);
       if (message.includes("409")) setSavePaused(true);
       setError(message);
       return undefined;
@@ -384,11 +335,7 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
       setCandidatePreview(false);
       setError(undefined);
     } catch (renderError) {
-      setError(
-        renderError instanceof Error
-          ? renderError.message
-          : String(renderError),
-      );
+      setError(errorMessage(renderError));
     }
   }
 
@@ -406,11 +353,7 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
       );
       setError(undefined);
     } catch (generationError) {
-      setError(
-        generationError instanceof Error
-          ? generationError.message
-          : String(generationError),
-      );
+      setError(errorMessage(generationError));
     }
   }
 
@@ -425,11 +368,7 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
       setNarrationCues(result.cues);
       setError(undefined);
     } catch (rewriteError) {
-      setError(
-        rewriteError instanceof Error
-          ? rewriteError.message
-          : String(rewriteError),
-      );
+      setError(errorMessage(rewriteError));
     } finally {
       setRewritingScript(false);
     }
@@ -442,13 +381,7 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
     audio.src = voiceoverCueUrl(recording.id, voiceover.id, cueId);
     void audio
       .play()
-      .catch((previewError) =>
-        setError(
-          previewError instanceof Error
-            ? previewError.message
-            : String(previewError),
-        ),
-      );
+      .catch((previewError) => setError(errorMessage(previewError)));
   }
 
   if (!state || !recipe)
@@ -482,11 +415,7 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
                   ? "Unsaved"
                   : "Saved"}
           </span>
-          <button
-            onClick={() =>
-              window.location.assign(`/?recordingId=${recording.id}&view=video`)
-            }
-          >
+          <button onClick={() => openRecording(recording.id, "video")}>
             Back to recording
           </button>
         </div>
@@ -591,9 +520,10 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
 
           <div className="video-timeline">
             <div className="timeline-summary">
-              <strong>{timeLabel(outputDuration)} edited</strong>
+              <strong>{videoTimeLabel(outputDuration)} edited</strong>
               <span>
-                {timeLabel(recipe.sourceDurationMs - outputDuration)} removed
+                {videoTimeLabel(recipe.sourceDurationMs - outputDuration)}{" "}
+                removed
               </span>
             </div>
             <input
@@ -627,7 +557,9 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
             <div className="cut-controls">
               <button
                 disabled={playheadMs <= 0}
-                onClick={() => change(subtractRange(recipe, 0, playheadMs))}
+                onClick={() =>
+                  change(subtractVideoRange(recipe, 0, playheadMs))
+                }
               >
                 Trim start to playhead
               </button>
@@ -635,7 +567,11 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
                 disabled={playheadMs >= recipe.sourceDurationMs}
                 onClick={() =>
                   change(
-                    subtractRange(recipe, playheadMs, recipe.sourceDurationMs),
+                    subtractVideoRange(
+                      recipe,
+                      playheadMs,
+                      recipe.sourceDurationMs,
+                    ),
                   )
                 }
               >
@@ -668,7 +604,7 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
               <button
                 disabled={cutEndMs <= cutStartMs}
                 onClick={() =>
-                  change(subtractRange(recipe, cutStartMs, cutEndMs))
+                  change(subtractVideoRange(recipe, cutStartMs, cutEndMs))
                 }
               >
                 Cut selection
@@ -942,7 +878,7 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
                     <small>
                       {outputMs === null
                         ? "Removed by cut"
-                        : `Edited time ${timeLabel(outputMs)}`}
+                        : `Edited time ${videoTimeLabel(outputMs)}`}
                     </small>
                     <button
                       onClick={() =>
@@ -969,7 +905,7 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
               <div className="caption-actions">
                 <button
                   onClick={() => {
-                    const cues = materializeCaptions(state, recipe);
+                    const cues = materializeVideoCaptions(state, recipe);
                     change({
                       ...recipe,
                       captions: {
@@ -1004,13 +940,13 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
               </div>
               {(recipe.captions.mode === "manual"
                 ? recipe.captions.cues
-                : materializeCaptions(state, recipe)
+                : materializeVideoCaptions(state, recipe)
               ).map((cue, index) => (
                 <div className="edit-row" key={cue.id}>
                   <textarea
                     value={cue.text}
                     onChange={(event) => {
-                      const cues = materializeCaptions(state, recipe).map(
+                      const cues = materializeVideoCaptions(state, recipe).map(
                         (item, itemIndex) =>
                           itemIndex === index
                             ? { ...item, text: event.target.value }
@@ -1024,14 +960,16 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
                       type="number"
                       value={cue.sourceStartMs}
                       onChange={(event) => {
-                        const cues = materializeCaptions(state, recipe).map(
-                          (item, itemIndex) =>
-                            itemIndex === index
-                              ? {
-                                  ...item,
-                                  sourceStartMs: Number(event.target.value),
-                                }
-                              : item,
+                        const cues = materializeVideoCaptions(
+                          state,
+                          recipe,
+                        ).map((item, itemIndex) =>
+                          itemIndex === index
+                            ? {
+                                ...item,
+                                sourceStartMs: Number(event.target.value),
+                              }
+                            : item,
                         );
                         change({
                           ...recipe,
@@ -1043,14 +981,16 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
                       type="number"
                       value={cue.sourceEndMs}
                       onChange={(event) => {
-                        const cues = materializeCaptions(state, recipe).map(
-                          (item, itemIndex) =>
-                            itemIndex === index
-                              ? {
-                                  ...item,
-                                  sourceEndMs: Number(event.target.value),
-                                }
-                              : item,
+                        const cues = materializeVideoCaptions(
+                          state,
+                          recipe,
+                        ).map((item, itemIndex) =>
+                          itemIndex === index
+                            ? {
+                                ...item,
+                                sourceEndMs: Number(event.target.value),
+                              }
+                            : item,
                         );
                         change({
                           ...recipe,
@@ -1065,7 +1005,7 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
                         ...recipe,
                         captions: {
                           mode: "manual",
-                          cues: materializeCaptions(state, recipe).filter(
+                          cues: materializeVideoCaptions(state, recipe).filter(
                             (_item, itemIndex) => itemIndex !== index,
                           ),
                         },
@@ -1080,7 +1020,7 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
                       const midpoint = Math.round(
                         (cue.sourceStartMs + cue.sourceEndMs) / 2,
                       );
-                      const cues = materializeCaptions(state, recipe);
+                      const cues = materializeVideoCaptions(state, recipe);
                       cues.splice(
                         index,
                         1,
@@ -1103,7 +1043,7 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
                   <button
                     disabled={index === 0}
                     onClick={() => {
-                      const cues = materializeCaptions(state, recipe);
+                      const cues = materializeVideoCaptions(state, recipe);
                       const previous = cues[index - 1];
                       cues.splice(index - 1, 2, {
                         ...previous,
@@ -1160,7 +1100,7 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
                 </label>
                 <button
                   onClick={() =>
-                    setNarrationCues(materializeCaptions(state, recipe))
+                    setNarrationCues(materializeVideoCaptions(state, recipe))
                   }
                 >
                   Use edited captions
@@ -1232,10 +1172,10 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
                       }
                     />
                     <small>
-                      {timeLabel(cue.sourceStartMs)}–
-                      {timeLabel(cue.sourceEndMs)}
+                      {videoTimeLabel(cue.sourceStartMs)}–
+                      {videoTimeLabel(cue.sourceEndMs)}
                       {generated?.durationMs
-                        ? ` · speech ${timeLabel(generated.durationMs)}`
+                        ? ` · speech ${videoTimeLabel(generated.durationMs)}`
                         : ""}
                     </small>
                     {Boolean(generated?.overlongByMs) && (
@@ -1285,7 +1225,9 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
                     void persist()
                       .then(() => createVideoEditVersion(recording.id, name))
                       .then(() => load())
-                      .catch((versionError) => setError(String(versionError)));
+                      .catch((versionError) =>
+                        setError(errorMessage(versionError)),
+                      );
                 }}
               >
                 Save named version
@@ -1303,7 +1245,9 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
                     onClick={() =>
                       void restoreVideoEditVersion(recording.id, version.id)
                         .then(() => load())
-                        .catch((restoreError) => setError(String(restoreError)))
+                        .catch((restoreError) =>
+                          setError(errorMessage(restoreError)),
+                        )
                     }
                   >
                     Restore to draft
@@ -1363,12 +1307,10 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
                         void publishVideoRender(recording.id, render.id)
                           .then((published) => {
                             onPublished(published);
-                            window.location.assign(
-                              `/?recordingId=${recording.id}&view=video`,
-                            );
+                            openRecording(recording.id, "video");
                           })
                           .catch((publishError) =>
-                            setError(String(publishError)),
+                            setError(errorMessage(publishError)),
                           )
                       }
                     >

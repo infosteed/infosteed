@@ -3,9 +3,10 @@ import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import type { PublicSystemInfo } from "@infosteed/shared";
 import { connectServer, disconnectServer } from "./apiClient";
+import { errorMessage } from "./errors";
 import "./options.css";
 
-function Options() {
+export function Options() {
   const [serverUrl, setServerUrl] = useState("");
   const [info, setInfo] = useState<PublicSystemInfo>();
   const [busy, setBusy] = useState(false);
@@ -38,7 +39,7 @@ function Options() {
       setServerUrl(connection.serverOrigin);
       setInfo(connection.systemInfo);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
+      setError(errorMessage(reason));
     } finally {
       setBusy(false);
     }
@@ -52,7 +53,7 @@ function Options() {
       setServerUrl("");
       setInfo(undefined);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
+      setError(errorMessage(reason));
     } finally {
       setBusy(false);
     }
@@ -131,4 +132,5 @@ function Options() {
   );
 }
 
-createRoot(document.getElementById("root")!).render(<Options />);
+const root = document.getElementById("root");
+if (root) createRoot(root).render(<Options />);

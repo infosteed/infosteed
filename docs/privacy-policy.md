@@ -1,6 +1,6 @@
-# Privacy Policy Template
+# Privacy notes
 
-This template must be completed with the final legal entity, contact details, domain, retention periods, and applicable jurisdiction before a public Store listing.
+Before a public browser-store listing, maintainers must publish a policy naming the responsible legal entity, contact details, service domain, retention periods, and applicable jurisdiction. The product behavior that policy must cover is summarized below.
 
 The browser extension sends captured data only to the server origin selected and approved by the user. The selected server can receive page titles and sanitized URLs, interaction metadata, screenshots, video, tab audio, microphone audio, webcam video, transcripts, narration text, and generated speech, depending on the capture choices and enabled server capabilities.
 

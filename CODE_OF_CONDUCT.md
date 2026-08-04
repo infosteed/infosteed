@@ -10,6 +10,6 @@ Be respectful, assume good intent while evaluating evidence, give actionable fee
 
 ## Enforcement
 
-Report conduct concerns privately to the final moderation contact. That contact must be added before public contributions are enabled. Maintainers may edit, reject, or remove contributions and may temporarily or permanently restrict participation when behavior is harmful.
+Conduct concerns must be reported through the private moderation contact published by the project. Public contributions remain closed until that channel is available. Maintainers may edit, reject, or remove contributions and may temporarily or permanently restrict participation when behavior is harmful.
 
 Enforcement decisions should be proportionate, documented privately, and protect the reporter from retaliation. This policy applies in project spaces and when someone is publicly representing the project.

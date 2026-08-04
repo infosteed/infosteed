@@ -1,0 +1,562 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`API route contract > preserves every registered method and path 1`] = `
+[
+  {
+    "method": "GET",
+    "url": "/admin/audit-events",
+  },
+  {
+    "method": "HEAD",
+    "url": "/admin/audit-events",
+  },
+  {
+    "method": "GET",
+    "url": "/admin/system/status",
+  },
+  {
+    "method": "HEAD",
+    "url": "/admin/system/status",
+  },
+  {
+    "method": "GET",
+    "url": "/auth/csrf",
+  },
+  {
+    "method": "HEAD",
+    "url": "/auth/csrf",
+  },
+  {
+    "method": "POST",
+    "url": "/auth/login",
+  },
+  {
+    "method": "POST",
+    "url": "/auth/logout-all",
+  },
+  {
+    "method": "POST",
+    "url": "/auth/logout",
+  },
+  {
+    "method": "GET",
+    "url": "/auth/me",
+  },
+  {
+    "method": "HEAD",
+    "url": "/auth/me",
+  },
+  {
+    "method": "PATCH",
+    "url": "/auth/me/password",
+  },
+  {
+    "method": "GET",
+    "url": "/capabilities",
+  },
+  {
+    "method": "HEAD",
+    "url": "/capabilities",
+  },
+  {
+    "method": "GET",
+    "url": "/capabilities/video",
+  },
+  {
+    "method": "HEAD",
+    "url": "/capabilities/video",
+  },
+  {
+    "method": "GET",
+    "url": "/health/live",
+  },
+  {
+    "method": "HEAD",
+    "url": "/health/live",
+  },
+  {
+    "method": "GET",
+    "url": "/health/ready",
+  },
+  {
+    "method": "HEAD",
+    "url": "/health/ready",
+  },
+  {
+    "method": "GET",
+    "url": "/projects",
+  },
+  {
+    "method": "HEAD",
+    "url": "/projects",
+  },
+  {
+    "method": "POST",
+    "url": "/projects",
+  },
+  {
+    "method": "PATCH",
+    "url": "/projects/:id",
+  },
+  {
+    "method": "GET",
+    "url": "/projects/:id/members",
+  },
+  {
+    "method": "HEAD",
+    "url": "/projects/:id/members",
+  },
+  {
+    "method": "PUT",
+    "url": "/projects/:id/members",
+  },
+  {
+    "method": "DELETE",
+    "url": "/projects/:id/members/:userId",
+  },
+  {
+    "method": "GET",
+    "url": "/recordings",
+  },
+  {
+    "method": "HEAD",
+    "url": "/recordings",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings",
+  },
+  {
+    "method": "DELETE",
+    "url": "/recordings/:id",
+  },
+  {
+    "method": "GET",
+    "url": "/recordings/:id",
+  },
+  {
+    "method": "HEAD",
+    "url": "/recordings/:id",
+  },
+  {
+    "method": "PATCH",
+    "url": "/recordings/:id",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/capture-sessions",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/capture-sessions/:sessionId/finalize",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/events",
+  },
+  {
+    "method": "GET",
+    "url": "/recordings/:id/export",
+  },
+  {
+    "method": "HEAD",
+    "url": "/recordings/:id/export",
+  },
+  {
+    "method": "GET",
+    "url": "/recordings/:id/export/html",
+  },
+  {
+    "method": "HEAD",
+    "url": "/recordings/:id/export/html",
+  },
+  {
+    "method": "GET",
+    "url": "/recordings/:id/export/pdf",
+  },
+  {
+    "method": "HEAD",
+    "url": "/recordings/:id/export/pdf",
+  },
+  {
+    "method": "GET",
+    "url": "/recordings/:id/export/sanity",
+  },
+  {
+    "method": "HEAD",
+    "url": "/recordings/:id/export/sanity",
+  },
+  {
+    "method": "GET",
+    "url": "/recordings/:id/export/word",
+  },
+  {
+    "method": "HEAD",
+    "url": "/recordings/:id/export/word",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/finalize",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/generate-guide",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/generate-overview",
+  },
+  {
+    "method": "GET",
+    "url": "/recordings/:id/images/:filename",
+  },
+  {
+    "method": "HEAD",
+    "url": "/recordings/:id/images/:filename",
+  },
+  {
+    "method": "GET",
+    "url": "/recordings/:id/images/:filename/edits",
+  },
+  {
+    "method": "HEAD",
+    "url": "/recordings/:id/images/:filename/edits",
+  },
+  {
+    "method": "PATCH",
+    "url": "/recordings/:id/images/:filename/edits",
+  },
+  {
+    "method": "GET",
+    "url": "/recordings/:id/images/:filename/source",
+  },
+  {
+    "method": "HEAD",
+    "url": "/recordings/:id/images/:filename/source",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/items",
+  },
+  {
+    "method": "DELETE",
+    "url": "/recordings/:id/items/:itemId",
+  },
+  {
+    "method": "PATCH",
+    "url": "/recordings/:id/items/:itemId",
+  },
+  {
+    "method": "DELETE",
+    "url": "/recordings/:id/items/:itemId/image",
+  },
+  {
+    "method": "PUT",
+    "url": "/recordings/:id/items/:itemId/image",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/items/reorder",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/pause",
+  },
+  {
+    "method": "GET",
+    "url": "/recordings/:id/project",
+  },
+  {
+    "method": "HEAD",
+    "url": "/recordings/:id/project",
+  },
+  {
+    "method": "PATCH",
+    "url": "/recordings/:id/project",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/restore",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/resume",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/screenshots",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/steps",
+  },
+  {
+    "method": "DELETE",
+    "url": "/recordings/:id/steps/:stepId",
+  },
+  {
+    "method": "PATCH",
+    "url": "/recordings/:id/steps/:stepId",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/steps/:stepId/merge-next",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/steps/:stepId/regenerate",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/steps/:stepId/split",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/steps/reorder",
+  },
+  {
+    "method": "GET",
+    "url": "/recordings/:id/versions",
+  },
+  {
+    "method": "HEAD",
+    "url": "/recordings/:id/versions",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/versions",
+  },
+  {
+    "method": "GET",
+    "url": "/recordings/:id/versions/:versionId",
+  },
+  {
+    "method": "HEAD",
+    "url": "/recordings/:id/versions/:versionId",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/versions/:versionId/restore",
+  },
+  {
+    "method": "DELETE",
+    "url": "/recordings/:id/video",
+  },
+  {
+    "method": "GET",
+    "url": "/recordings/:id/video",
+  },
+  {
+    "method": "HEAD",
+    "url": "/recordings/:id/video",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/video",
+  },
+  {
+    "method": "PUT",
+    "url": "/recordings/:id/video/assets/:assetId/parts/:partNumber",
+  },
+  {
+    "method": "GET",
+    "url": "/recordings/:id/video/assets/:kind/content",
+  },
+  {
+    "method": "HEAD",
+    "url": "/recordings/:id/video/assets/:kind/content",
+  },
+  {
+    "method": "GET",
+    "url": "/recordings/:id/video/captions.vtt",
+  },
+  {
+    "method": "HEAD",
+    "url": "/recordings/:id/video/captions.vtt",
+  },
+  {
+    "method": "GET",
+    "url": "/recordings/:id/video/content",
+  },
+  {
+    "method": "HEAD",
+    "url": "/recordings/:id/video/content",
+  },
+  {
+    "method": "GET",
+    "url": "/recordings/:id/video/edit-versions",
+  },
+  {
+    "method": "HEAD",
+    "url": "/recordings/:id/video/edit-versions",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/video/edit-versions",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/video/edit-versions/:versionId/restore",
+  },
+  {
+    "method": "GET",
+    "url": "/recordings/:id/video/editor",
+  },
+  {
+    "method": "HEAD",
+    "url": "/recordings/:id/video/editor",
+  },
+  {
+    "method": "PUT",
+    "url": "/recordings/:id/video/editor",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/video/editor/reset",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/video/finalize",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/video/publish",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/video/renders",
+  },
+  {
+    "method": "DELETE",
+    "url": "/recordings/:id/video/renders/:renderId",
+  },
+  {
+    "method": "GET",
+    "url": "/recordings/:id/video/renders/:renderId",
+  },
+  {
+    "method": "HEAD",
+    "url": "/recordings/:id/video/renders/:renderId",
+  },
+  {
+    "method": "GET",
+    "url": "/recordings/:id/video/renders/:renderId/content",
+  },
+  {
+    "method": "HEAD",
+    "url": "/recordings/:id/video/renders/:renderId/content",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/video/renders/:renderId/publish",
+  },
+  {
+    "method": "GET",
+    "url": "/recordings/:id/video/transcript",
+  },
+  {
+    "method": "HEAD",
+    "url": "/recordings/:id/video/transcript",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/video/transcript/retry",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/video/unpublish",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/video/voiceover/generations",
+  },
+  {
+    "method": "GET",
+    "url": "/recordings/:id/video/voiceover/generations/:generationId",
+  },
+  {
+    "method": "HEAD",
+    "url": "/recordings/:id/video/voiceover/generations/:generationId",
+  },
+  {
+    "method": "GET",
+    "url": "/recordings/:id/video/voiceover/generations/:generationId/cues/:cueId/content",
+  },
+  {
+    "method": "HEAD",
+    "url": "/recordings/:id/video/voiceover/generations/:generationId/cues/:cueId/content",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/video/voiceover/script",
+  },
+  {
+    "method": "GET",
+    "url": "/recordings/:id/video/voiceover/voices",
+  },
+  {
+    "method": "HEAD",
+    "url": "/recordings/:id/video/voiceover/voices",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/import",
+  },
+  {
+    "method": "GET",
+    "url": "/settings/branding",
+  },
+  {
+    "method": "HEAD",
+    "url": "/settings/branding",
+  },
+  {
+    "method": "PATCH",
+    "url": "/settings/branding",
+  },
+  {
+    "method": "POST",
+    "url": "/setup/admin",
+  },
+  {
+    "method": "GET",
+    "url": "/setup/status",
+  },
+  {
+    "method": "HEAD",
+    "url": "/setup/status",
+  },
+  {
+    "method": "GET",
+    "url": "/system/info",
+  },
+  {
+    "method": "HEAD",
+    "url": "/system/info",
+  },
+  {
+    "method": "GET",
+    "url": "/users",
+  },
+  {
+    "method": "HEAD",
+    "url": "/users",
+  },
+  {
+    "method": "POST",
+    "url": "/users",
+  },
+  {
+    "method": "PATCH",
+    "url": "/users/:id",
+  },
+  {
+    "method": "GET",
+    "url": "/users/directory",
+  },
+  {
+    "method": "HEAD",
+    "url": "/users/directory",
+  },
+]
+`;

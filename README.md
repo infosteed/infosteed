@@ -1,8 +1,8 @@
 # InfoSteed
 
-InfoSteed is a self-hosted Chromium Manifest V3 extension and backend for recording browser workflows as video, editable guides, or both.
+InfoSteed is a self-hosted browser recorder for teams that need to keep workflow documentation and source media under their own control. A Chromium extension captures the work; the web application turns it into an editable guide, a video, or both.
 
-The first vertical slice supports:
+## What it does
 
 - Choose Video + Guide (default), Video Only, or Guide Only from the extension setup page.
 - Capture active-tab video and audio with microphone narration and an optional webcam bubble.
@@ -11,7 +11,7 @@ The first vertical slice supports:
 - Capture one or more click actions from the active tab.
 - Capture a visible-tab screenshot for each click.
 - Upload events and screenshots to a Fastify API backed by PostgreSQL.
-- Generate deterministic guide instructions without an AI key.
+- Generate local guide instructions without an AI key.
 - Preview and edit generated steps in a React web editor.
 - Export a ZIP containing `guide.md`, `recording.json`, and local WebP images.
 - Export a Sanity CLI-compatible `.tar.gz` containing a Portable Text guide and its referenced images.
@@ -146,9 +146,9 @@ VIDEO_RENDER_RETENTION_DAYS=7
 
 The worker may run on another host as long as it can reach PostgreSQL and the configured S3-compatible bucket. Raw sources and recipe history remain until the recording is deleted. Superseded rendered objects are cleaned after the retention window and can be recreated from their saved recipe.
 
-## Fully local AI voiceovers
+## Local voiceovers
 
-The video editor's **AI voiceover** panel starts with the current edited captions. Editors can use them verbatim or choose **Rewrite with local model** to turn terse captions into a more natural, cue-aligned narration script. Script rewriting uses the configured `AI_*` Ollama/OpenAI-compatible endpoint; point it at a local model to keep text on the machine. Every rewritten cue remains editable before speech generation.
+The video editor's **AI voiceover** panel starts with the current edited captions. Editors can use them verbatim or choose **Rewrite with local model** to turn terse captions into cue-aligned narration. Script rewriting uses the configured `AI_*` Ollama/OpenAI-compatible endpoint. Every cue remains editable before speech generation.
 
 Speech generation uses a provider-neutral OpenAI-compatible `/v1/audio/speech` client. The optional Compose profile runs the CPU Kokoro-FastAPI image pinned to `v0.2.4`:
 
@@ -169,11 +169,11 @@ TTS_DEFAULT_VOICE=af_heart
 TTS_VOICES=af_heart,af_bella,af_nicole,am_adam,am_michael,bf_emma,bm_george
 ```
 
-`TTS_VOICES` is the server-side allow-list shown in the editor. Only stock installed voices are supported; InfoSteed does not upload, train, combine, or clone voices. `TTS_API_KEY`, `TTS_TIMEOUT_MS`, `TTS_MAX_RESPONSE_BYTES`, `TTS_FFMPEG_PATH`, `TTS_FFPROBE_PATH`, and `TTS_TEMP_DIR` are also configurable. Changing `TTS_BASE_URL`, `TTS_MODEL`, and the voice list is sufficient to use another OpenAI-compatible local provider; the worker/provider boundary is intentionally separate so Piper or a hosted provider can be added later.
+`TTS_VOICES` is the server-side allow-list shown in the editor. Only stock installed voices are supported; InfoSteed does not upload, train, combine, or clone voices. `TTS_API_KEY`, `TTS_TIMEOUT_MS`, `TTS_MAX_RESPONSE_BYTES`, `TTS_FFMPEG_PATH`, `TTS_FFPROBE_PATH`, and `TTS_TEMP_DIR` are also configurable. Another OpenAI-compatible provider can be used by changing `TTS_BASE_URL`, `TTS_MODEL`, and the voice list.
 
 Generation is a durable PostgreSQL job. It synthesizes and normalizes each cue to mono 24 kHz PCM WAV, caches clips by provider/model/voice/speed/text hash, probes real durations, and assembles a source-clock track with silence between cues. Unchanged cues reuse their cached clip. Speech is not clipped to a cue; overlong cues are reported in the editor and may overlap subsequent narration. The render worker applies the same keep-range cuts to the voiceover as video, tab audio, and microphone audio, then mixes all enabled inputs through the existing limiter.
 
-Automatic tab-audio ducking is not part of this MVP. The FFmpeg mix builder keeps voiceover and tab inputs as distinct labeled streams, with a documented insertion point for a future `sidechaincompress` stage; editors can currently set tab, microphone, and voiceover gains independently.
+InfoSteed does not automatically lower tab audio beneath narration. Editors set tab, microphone, and voiceover levels independently.
 
 Kokoro-FastAPI and Kokoro-82M are separate Apache-2.0 projects; review their upstream notices and the terms of any alternative model or voice pack before deployment. The pinned image includes stock model assets and is not part of InfoSteed. See [Kokoro-FastAPI](https://github.com/remsky/Kokoro-FastAPI) and [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M).
 

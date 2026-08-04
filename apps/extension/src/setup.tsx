@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import type { CaptureMode, VideoCaptureSettings } from "@infosteed/shared";
 import { getVideoCapability } from "./apiClient";
+import { errorMessage } from "./errors";
 import "./setup.css";
 
 interface DeviceChoice {
@@ -10,7 +11,7 @@ interface DeviceChoice {
   cameraDeviceId?: string;
 }
 
-function Setup() {
+export function Setup() {
   const [captureMode, setCaptureMode] = useState<CaptureMode>("both");
   const [videoEnabled, setVideoEnabled] = useState<boolean | undefined>();
   const [tabAudio, setTabAudio] = useState(true);
@@ -88,11 +89,7 @@ function Setup() {
         measure();
       }
     } catch (previewError) {
-      setError(
-        previewError instanceof Error
-          ? previewError.message
-          : String(previewError),
-      );
+      setError(errorMessage(previewError));
     }
   }
 
@@ -144,9 +141,7 @@ function Setup() {
         throw new Error(result?.error ?? "Could not start recording");
       window.close();
     } catch (startError) {
-      setError(
-        startError instanceof Error ? startError.message : String(startError),
-      );
+      setError(errorMessage(startError));
       setBusy(false);
     }
   }
@@ -173,9 +168,7 @@ function Setup() {
       } catch (loadError) {
         setVideoEnabled(false);
         setCaptureMode("guide");
-        setError(
-          loadError instanceof Error ? loadError.message : String(loadError),
-        );
+        setError(errorMessage(loadError));
       }
     })();
     return stopPreview;
@@ -220,7 +213,7 @@ function Setup() {
             [
               "guide",
               "Guide Only",
-              "The existing screenshot-based written guide workflow.",
+              "A screenshot-based guide you can review and edit.",
             ],
           ] as const
         ).map(([value, title, description]) => (
@@ -364,4 +357,5 @@ function Setup() {
   );
 }
 
-createRoot(document.getElementById("root")!).render(<Setup />);
+const root = document.getElementById("root");
+if (root) createRoot(root).render(<Setup />);

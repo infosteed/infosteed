@@ -1,5 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+@import "tailwindcss";
+@import "tw-animate-css";
 @import "./styles/base.css";
 @import "./styles/admin.css";
 @import "./styles/guide.css";
 @import "./styles/video.css";
+@import "./styles/tokens.css";
+@import "./styles/redesign.css";

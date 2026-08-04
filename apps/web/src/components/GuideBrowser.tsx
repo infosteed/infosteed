@@ -1,33 +1,52 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
-import type {
-  BrandingSettings,
-  CurrentUser,
-  Project,
-  RecordingListItem,
-  RecordingProject,
-} from "@infosteed/shared";
+import type { BrandingSettings, CurrentUser } from "@infosteed/shared";
 import {
-  createProject,
-  deleteRecording,
+  ArchiveRestore,
+  Grid2X2,
+  Import,
+  LayoutList,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react";
+import {
   confirmTwoFactorEnrollment,
   disableTwoFactor,
   getTwoFactorStatus,
   imageUrl,
-  importProject,
-  listProjects,
-  listRecordings,
   regenerateTwoFactorRecoveryCodes,
-  restoreRecording,
   startTwoFactorEnrollment,
 } from "../api";
 import { errorMessage } from "../errors";
 import { plural, t } from "../i18n";
-import { openRecording, recordingUrl } from "../navigation";
+import {
+  recordingAge,
+  recordingDaysUntil,
+  type LibraryScope,
+  type LibrarySort,
+} from "../features/library/model";
+import { useLibraryController } from "../features/library/useLibraryController";
+import { recordingUrl } from "../navigation";
 import { BrandMark, productLogoUrl } from "./BrandMark";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { LanguageSelect } from "./LanguageSelect";
+import { ActionMenu } from "./design/ActionMenu";
+import { AppShell } from "./design/AppShell";
+import { EmptyState } from "./design/EmptyState";
+import { PageHeader } from "./design/PageHeader";
+import { StatusBadge } from "./design/StatusBadge";
+import { Button } from "./ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "./ui/dialog";
+import { DropdownMenuItem, DropdownMenuSeparator } from "./ui/dropdown-menu";
 
 function AccountSecurityDialog({ onClose }: { onClose: () => void }) {
   const [status, setStatus] =
@@ -234,23 +253,6 @@ function versionedImageUrl(
     : imageUrl(recordingId, filename);
 }
 
-function age(value: string): string {
-  const diffMs = Date.now() - new Date(value).getTime();
-  const days = Math.max(0, Math.floor(diffMs / 86_400_000));
-  if (days === 0) return t("today");
-  if (days === 1) return t("1 day ago");
-  if (days < 31) return plural("{count} day ago", "{count} days ago", days);
-  const months = Math.floor(days / 30);
-  return plural("{count} month ago", "{count} months ago", months);
-}
-
-function daysUntil(value: string | null | undefined): string {
-  if (!value) return "";
-  const days = Math.ceil((new Date(value).getTime() - Date.now()) / 86_400_000);
-  if (days <= 0) return t("expires today");
-  return plural("{count} day left", "{count} days left", days);
-}
-
 export function GuideBrowser({
   user,
   branding,
@@ -264,119 +266,155 @@ export function GuideBrowser({
   onLogout: () => void;
   onLogoutAll: () => void;
 }) {
-  const [guides, setGuides] = useState<RecordingListItem[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [search, setSearch] = useState("");
-  const [projectId, setProjectId] = useState("");
-  const [scope, setScope] = useState<"all" | "owned" | "shared" | "trash">(
-    "all",
-  );
-  const [sort, setSort] = useState<"recent" | "title">("recent");
-  const [view, setView] = useState<"grid" | "list">("grid");
-  const [error, setError] = useState<string | undefined>();
-  const [newProjectName, setNewProjectName] = useState("");
-  const [deleteCandidate, setDeleteCandidate] = useState<
-    RecordingListItem | undefined
-  >();
+  const {
+    guides,
+    projects,
+    search,
+    setSearch,
+    projectId,
+    setProjectId,
+    scope,
+    setScope,
+    sort,
+    setSort,
+    view,
+    setView,
+    error,
+    newProjectName,
+    setNewProjectName,
+    deleteCandidate,
+    setDeleteCandidate,
+    addProject,
+    importRecordingProject,
+    deleteGuide,
+    restoreGuide,
+  } = useLibraryController();
   const [securityOpen, setSecurityOpen] = useState(false);
+  const [projectDialogOpen, setProjectDialogOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
 
-  const load = useCallback(async () => {
-    try {
-      const [guideResult, projectResult] = await Promise.all([
-        listRecordings({ search, projectId, scope, sort }),
-        listProjects(),
-      ]);
-      setGuides(guideResult.items);
-      setProjects(projectResult.projects);
-      setError(undefined);
-    } catch (loadError) {
-      setError(errorMessage(loadError));
-    }
-  }, [projectId, scope, search, sort]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  async function addProject(event: React.FormEvent) {
-    event.preventDefault();
-    if (!newProjectName.trim()) return;
-    await createProject({ name: newProjectName.trim(), private: true });
-    setNewProjectName("");
-    await load();
-  }
-
   async function handleImport(file?: File) {
-    if (!file) return;
     try {
-      const project = JSON.parse(await file.text()) as RecordingProject;
-      const imported = await importProject(project, projectId || undefined);
-      openRecording(imported.id);
-    } catch (importError) {
-      setError(errorMessage(importError));
+      await importRecordingProject(file);
     } finally {
       if (importInputRef.current) importInputRef.current.value = "";
     }
   }
 
-  async function deleteGuide(guide: RecordingListItem) {
-    const response = await deleteRecording(guide.id);
-    if (!response.ok) {
-      setError(await response.text());
-      return;
-    }
-    setDeleteCandidate(undefined);
-    await load();
-  }
-
-  async function restoreGuide(guide: RecordingListItem) {
-    await restoreRecording(guide.id);
-    await load();
-  }
-
   return (
-    <main className="browser-page">
-      <header>
-        <div>
-          <p>{t("Library")}</p>
-          <div className="brand-heading">
-            <BrandMark src={branding.iconDataUrl || productLogoUrl} />
-            <h1>{branding.displayName || "InfoSteed"}</h1>
+    <AppShell
+      user={user}
+      branding={branding}
+      active="library"
+      collapsed={sidebarCollapsed}
+      onCollapsedChange={setSidebarCollapsed}
+      onOpenAdmin={user.role === "admin" ? onOpenAdmin : undefined}
+      onOpenSecurity={() => setSecurityOpen(true)}
+      onLogout={onLogout}
+      onLogoutAll={onLogoutAll}
+      topbar={
+        <>
+          <nav className="breadcrumbs" aria-label={t("Breadcrumbs")}>
+            <span>{t("Library")}</span>
+            <span>{scope === "trash" ? t("Trash") : t("Recordings")}</span>
+          </nav>
+          <div className="topbar-actions">
+            <LanguageSelect compact />
           </div>
-        </div>
-        <div className="header-actions">
-          <span className="user-chip">{user.displayName}</span>
-          {user.role === "admin" && (
-            <button onClick={onOpenAdmin}>{t("Admin")}</button>
-          )}
-          <button onClick={() => setSecurityOpen(true)}>{t("Security")}</button>
-          <LanguageSelect compact />
-          <button onClick={onLogout}>{t("Log Out")}</button>
-          <button onClick={onLogoutAll}>{t("Log Out All Sessions")}</button>
-        </div>
-      </header>
-      <section className="browser-shell">
+        </>
+      }
+    >
+      <section className="browser-page">
         {securityOpen && (
           <AccountSecurityDialog onClose={() => setSecurityOpen(false)} />
         )}
-        <div className="browser-head">
-          <div>
-            <h2>{scope === "trash" ? t("Trash") : t("Recordings")}</h2>
-            <p>
+        <PageHeader
+          eyebrow={t("Library")}
+          title={scope === "trash" ? t("Trash") : t("Recordings")}
+          description={
+            <>
               {plural(
                 "{count} accessible recording",
                 "{count} accessible recordings",
                 guides.length,
               )}
-            </p>
-          </div>
-          <div className="browser-controls">
-            <input
-              placeholder={t("Search recordings")}
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
+            </>
+          }
+          actions={
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => importInputRef.current?.click()}
+              >
+                <Import className="size-4" />
+                {t("Import Project")}
+              </Button>
+              <Dialog
+                open={projectDialogOpen}
+                onOpenChange={setProjectDialogOpen}
+              >
+                <DialogTrigger asChild>
+                  <Button type="button">
+                    <Plus className="size-4" />
+                    {t("New project")}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>{t("New project")}</DialogTitle>
+                    <DialogDescription>
+                      {t(
+                        "Create a private project for a focused set of recordings.",
+                      )}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form
+                    className="new-project-dialog"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void addProject().then(() => setProjectDialogOpen(false));
+                    }}
+                  >
+                    <label>
+                      {t("Project name")}
+                      <input
+                        autoFocus
+                        placeholder={t("New private project")}
+                        value={newProjectName}
+                        onChange={(event) =>
+                          setNewProjectName(event.target.value)
+                        }
+                      />
+                    </label>
+                    <div className="dialog-actions">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setProjectDialogOpen(false)}
+                      >
+                        {t("Cancel")}
+                      </Button>
+                      <Button type="submit">{t("Create Project")}</Button>
+                    </div>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </>
+          }
+        />
+        <div className="browser-shell">
+          <div className="library-filterbar">
+            <label className="library-search">
+              <Search className="size-4" aria-hidden="true" />
+              <span>{t("Search recordings")}</span>
+              <input
+                placeholder={t("Search recordings")}
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </label>
             <select
               value={projectId}
               onChange={(event) => setProjectId(event.target.value)}
@@ -388,9 +426,6 @@ export function GuideBrowser({
                 </option>
               ))}
             </select>
-            <button onClick={() => importInputRef.current?.click()}>
-              {t("Import Project")}
-            </button>
             <input
               ref={importInputRef}
               className="hidden-file"
@@ -400,7 +435,7 @@ export function GuideBrowser({
             />
             <select
               value={scope}
-              onChange={(event) => setScope(event.target.value as typeof scope)}
+              onChange={(event) => setScope(event.target.value as LibraryScope)}
             >
               <option value="all">{t("All access")}</option>
               <option value="owned">{t("Owned")}</option>
@@ -409,29 +444,33 @@ export function GuideBrowser({
             </select>
             <select
               value={sort}
-              onChange={(event) => setSort(event.target.value as typeof sort)}
+              onChange={(event) => setSort(event.target.value as LibrarySort)}
             >
               <option value="recent">{t("Recent")}</option>
               <option value="title">{t("Title")}</option>
             </select>
-            <button onClick={() => setView(view === "grid" ? "list" : "grid")}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setView(view === "grid" ? "list" : "grid")}
+            >
+              {view === "grid" ? (
+                <LayoutList className="size-4" />
+              ) : (
+                <Grid2X2 className="size-4" />
+              )}
               {view === "grid" ? t("List") : t("Grid")}
-            </button>
+            </Button>
           </div>
         </div>
-        <form
-          className="quick-project"
-          onSubmit={(event) => void addProject(event)}
-        >
-          <input
-            placeholder={t("New private project")}
-            value={newProjectName}
-            onChange={(event) => setNewProjectName(event.target.value)}
-          />
-          <button>{t("Create Project")}</button>
-        </form>
         {error && <p className="error">{error}</p>}
         <div className={view === "grid" ? "guide-grid" : "guide-list"}>
+          {guides.length === 0 && (
+            <EmptyState
+              title={t("No recordings found")}
+              description={t("Try another search, project, or access filter.")}
+            />
+          )}
           {guides.map((guide) => (
             <article
               key={guide.id}
@@ -450,6 +489,13 @@ export function GuideBrowser({
                 ) : (
                   <span>{guide.title.slice(0, 1).toUpperCase()}</span>
                 )}
+                <StatusBadge className="guide-type-badge" variant="secondary">
+                  {guide.captureMode === "both"
+                    ? t("Video + Guide")
+                    : guide.captureMode === "video"
+                      ? t("Video")
+                      : t("Guide")}
+                </StatusBadge>
               </div>
               <a
                 className="guide-open"
@@ -470,31 +516,53 @@ export function GuideBrowser({
                 {guide.overview && (
                   <p className="guide-snippet">{guide.overview}</p>
                 )}
-                <small>
-                  {guide.deletedAt
-                    ? t("Deleted {age} · {remaining}", {
-                        age: age(guide.deletedAt),
-                        remaining: daysUntil(guide.restorableUntil),
-                      })
-                    : age(guide.updatedAt)}{" "}
-                  · {guide.ownerDisplayName ?? t("Unknown owner")} ·{" "}
-                  {plural("{count} step", "{count} steps", guide.stepCount)} ·{" "}
-                  {t(guide.userRole)}
-                </small>
+                <div className="guide-meta-grid">
+                  <span>{guide.projectName ?? t("Private")}</span>
+                  <span>{guide.ownerDisplayName ?? t("Unknown owner")}</span>
+                  <span>
+                    {guide.deletedAt
+                      ? t("Deleted {age} · {remaining}", {
+                          age: recordingAge(guide.deletedAt),
+                          remaining: recordingDaysUntil(guide.restorableUntil),
+                        })
+                      : recordingAge(guide.updatedAt)}
+                  </span>
+                  <span>
+                    {plural("{count} step", "{count} steps", guide.stepCount)}
+                  </span>
+                </div>
               </a>
               <div className="guide-card-actions">
-                {guide.deletedAt ? (
-                  <button onClick={() => void restoreGuide(guide)}>
-                    {t("Restore")}
-                  </button>
-                ) : (
-                  <button
-                    className="danger-action"
-                    onClick={() => setDeleteCandidate(guide)}
-                  >
-                    {t("Delete")}
-                  </button>
-                )}
+                <StatusBadge variant="outline">{t(guide.userRole)}</StatusBadge>
+                <ActionMenu label={t("Recording actions")}>
+                  <DropdownMenuItem asChild>
+                    <a
+                      href={recordingUrl(
+                        guide.id,
+                        guide.captureMode === "guide" ? undefined : "video",
+                      )}
+                    >
+                      {t("Open")}
+                    </a>
+                  </DropdownMenuItem>
+                  {guide.deletedAt ? (
+                    <DropdownMenuItem onSelect={() => void restoreGuide(guide)}>
+                      <ArchiveRestore className="mr-2 size-4" />
+                      {t("Restore")}
+                    </DropdownMenuItem>
+                  ) : (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-red-700 focus:text-red-700"
+                        onSelect={() => setDeleteCandidate(guide)}
+                      >
+                        <Trash2 className="mr-2 size-4" />
+                        {t("Delete")}
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </ActionMenu>
               </div>
             </article>
           ))}
@@ -515,6 +583,6 @@ export function GuideBrowser({
           onConfirm={() => void deleteGuide(deleteCandidate)}
         />
       )}
-    </main>
+    </AppShell>
   );
 }

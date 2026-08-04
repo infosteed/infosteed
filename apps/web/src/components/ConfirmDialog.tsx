@@ -1,4 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
+import { Button } from "./ui/button";
 import { t } from "../i18n";
 
 export function ConfirmDialog({
@@ -17,25 +26,27 @@ export function ConfirmDialog({
   onConfirm: () => void;
 }) {
   return (
-    <div className="modal-backdrop" role="presentation">
-      <div
-        className="confirm-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="confirm-title"
-      >
-        <h2 id="confirm-title">{title}</h2>
-        <p>{body}</p>
+    <AlertDialog open onOpenChange={(open) => !open && onCancel()}>
+      <AlertDialogContent className="confirm-dialog">
+        <AlertDialogTitle id="confirm-title">{title}</AlertDialogTitle>
+        <AlertDialogDescription>{body}</AlertDialogDescription>
         <div className="confirm-actions">
-          <button onClick={onCancel}>{t("Cancel")}</button>
-          <button
-            className={tone === "danger" ? "danger-action" : undefined}
-            onClick={onConfirm}
-          >
-            {confirmLabel}
-          </button>
+          <AlertDialogCancel asChild>
+            <Button type="button" variant="outline">
+              {t("Cancel")}
+            </Button>
+          </AlertDialogCancel>
+          <AlertDialogAction asChild>
+            <Button
+              type="button"
+              variant={tone === "danger" ? "destructive" : "default"}
+              onClick={onConfirm}
+            >
+              {confirmLabel}
+            </Button>
+          </AlertDialogAction>
         </div>
-      </div>
-    </div>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

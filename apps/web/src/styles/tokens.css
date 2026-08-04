@@ -1,0 +1,53 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+:root {
+  --background: 220 33% 98%;
+  --surface: 0 0% 100%;
+  --muted-surface: 220 20% 96%;
+  --foreground: 222 47% 11%;
+  --muted-foreground: 220 9% 46%;
+  --border: 220 13% 91%;
+  --primary: 238 82% 62%;
+  --primary-foreground: 0 0% 100%;
+  --success: 158 64% 39%;
+  --warning: 35 92% 50%;
+  --danger: 0 72% 51%;
+  --ring: 238 82% 62%;
+  --studio-background: 224 26% 8%;
+  --studio-surface: 224 22% 12%;
+  --studio-muted: 225 18% 17%;
+  --studio-border: 224 16% 24%;
+  --studio-foreground: 220 25% 94%;
+  --studio-muted-foreground: 220 12% 70%;
+  --radius: 0.625rem;
+  --shadow-soft:
+    0 1px 2px rgb(15 23 42 / 0.06), 0 16px 40px rgb(15 23 42 / 0.08);
+  --shadow-panel: 0 20px 60px rgb(15 23 42 / 0.18);
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--surface));
+  --color-card-foreground: hsl(var(--foreground));
+  --color-popover: hsl(var(--surface));
+  --color-popover-foreground: hsl(var(--foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--muted-surface));
+  --color-secondary-foreground: hsl(var(--foreground));
+  --color-muted: hsl(var(--muted-surface));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--muted-surface));
+  --color-accent-foreground: hsl(var(--foreground));
+  --color-destructive: hsl(var(--danger));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--border));
+  --color-ring: hsl(var(--ring));
+}
+
+.dark,
+.studio-dark {
+  --background: var(--studio-background);
+  --surface: var(--studio-surface);
+  --muted-surface: var(--studio-muted);
+  --foreground: var(--studio-foreground);
+  --muted-foreground: var(--studio-muted-foreground);
+  --border: var(--studio-border);
+}

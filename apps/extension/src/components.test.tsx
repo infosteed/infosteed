@@ -47,6 +47,8 @@ describe("extension presentation", () => {
       displayName: "Recording Owner",
       role: "admin",
       enabled: true,
+      twoFactorRequired: false,
+      twoFactorEnabled: false,
     });
     vi.mocked(getVideoCapability).mockResolvedValue({
       enabled: true,

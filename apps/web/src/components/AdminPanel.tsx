@@ -1,146 +1,41 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import React, { useEffect, useState } from "react";
-import type {
-  BrandingSettings,
-  CurrentUser,
-  Project,
-  ProjectMember,
-} from "@infosteed/shared";
-import {
-  createUser,
-  getAdminSystemStatus,
-  getBranding,
-  listProjectMembers,
-  listProjects,
-  listUsers,
-  removeProjectMember,
-  resetUserTwoFactor,
-  setProjectMember,
-  updateBranding,
-  updateProject,
-  updateUser,
-} from "../api";
-import { errorMessage } from "../errors";
+import { useAdminController } from "../features/admin/useAdminController";
 import { plural, t } from "../i18n";
 import { BrandMark, productLogoUrl } from "./BrandMark";
 
 export function AdminPanel({ onClose }: { onClose: () => void }) {
-  const [users, setUsers] = useState<CurrentUser[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [members, setMembers] = useState<ProjectMember[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState("");
-  const [memberUserId, setMemberUserId] = useState("");
-  const [memberRole, setMemberRole] = useState<"editor" | "viewer">("viewer");
-  const [branding, setBranding] = useState<BrandingSettings>({
-    displayName: "InfoSteed",
-    iconDataUrl: null,
-  });
-  const [newUser, setNewUser] = useState({
-    username: "",
-    displayName: "",
-    password: "",
-    role: "user" as "admin" | "user",
-  });
-  const [error, setError] = useState<string | undefined>();
-  const [systemStatus, setSystemStatus] =
-    useState<Awaited<ReturnType<typeof getAdminSystemStatus>>>();
-  const [twoFactorResetUser, setTwoFactorResetUser] = useState<
-    CurrentUser | undefined
-  >();
-  const [twoFactorResetProof, setTwoFactorResetProof] = useState({
-    currentPassword: "",
-    code: "",
-  });
-
-  async function load() {
-    try {
-      const [userResult, brandingResult, projectResult, nextSystemStatus] =
-        await Promise.all([
-          listUsers(),
-          getBranding(),
-          listProjects(),
-          getAdminSystemStatus(),
-        ]);
-      setUsers(userResult.users);
-      setBranding(brandingResult);
-      setProjects(projectResult.projects);
-      setSystemStatus(nextSystemStatus);
-      const nextProjectId =
-        selectedProjectId || projectResult.projects[0]?.id || "";
-      setSelectedProjectId(nextProjectId);
-      if (nextProjectId) {
-        setMembers((await listProjectMembers(nextProjectId)).members);
-      } else {
-        setMembers([]);
-      }
-      setError(undefined);
-    } catch (loadError) {
-      setError(errorMessage(loadError));
-    }
-  }
-
-  useEffect(() => {
-    void load();
-  }, []);
-
-  useEffect(() => {
-    if (!selectedProjectId) {
-      setMembers([]);
-      return;
-    }
-    void listProjectMembers(selectedProjectId).then((result) =>
-      setMembers(result.members),
-    );
-  }, [selectedProjectId]);
-
-  async function addUser(event: React.FormEvent) {
-    event.preventDefault();
-    await createUser(newUser);
-    setNewUser({ username: "", displayName: "", password: "", role: "user" });
-    await load();
-  }
-
-  async function readIcon(file?: File) {
-    if (!file) return;
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-    setBranding(await updateBranding({ iconDataUrl: dataUrl }));
-  }
-
-  async function addMember(event: React.FormEvent) {
-    event.preventDefault();
-    if (!selectedProjectId || !memberUserId) return;
-    await setProjectMember(selectedProjectId, {
-      userId: memberUserId,
-      role: memberRole,
-    });
-    setMembers((await listProjectMembers(selectedProjectId)).members);
-  }
-
-  async function toggleProjectPrivate(project: Project) {
-    await updateProject(project.id, { private: !project.private });
-    await load();
-  }
-
-  async function confirmTwoFactorReset(event: React.FormEvent) {
-    event.preventDefault();
-    if (!twoFactorResetUser) return;
-    try {
-      await resetUserTwoFactor(twoFactorResetUser.id, {
-        currentPassword: twoFactorResetProof.currentPassword,
-        code: twoFactorResetProof.code || undefined,
-      });
-      setTwoFactorResetUser(undefined);
-      setTwoFactorResetProof({ currentPassword: "", code: "" });
-      await load();
-    } catch (resetError) {
-      setError(errorMessage(resetError));
-    }
-  }
+  const controller = useAdminController();
+  const {
+    users,
+    projects,
+    members,
+    selectedProjectId,
+    setSelectedProjectId,
+    memberUserId,
+    setMemberUserId,
+    memberRole,
+    setMemberRole,
+    branding,
+    setBranding,
+    newUser,
+    setNewUser,
+    error,
+    systemStatus,
+    twoFactorResetUser,
+    setTwoFactorResetUser,
+    twoFactorResetProof,
+    setTwoFactorResetProof,
+    addUser,
+    readIcon,
+    updateBrandingName,
+    addMember,
+    toggleProjectPrivate,
+    updateUserRole,
+    toggleUserEnabled,
+    toggleTwoFactorRequirement,
+    removeMember,
+    confirmTwoFactorReset,
+  } = controller;
 
   return (
     <main className="admin-page">
@@ -248,9 +143,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                       displayName: event.target.value,
                     })
                   }
-                  onBlur={() =>
-                    void updateBranding({ displayName: branding.displayName })
-                  }
+                  onBlur={() => void updateBrandingName()}
                 />
               </label>
               <label className="file-picker">
@@ -276,7 +169,10 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
             </div>
             <form
               className="create-user-bar"
-              onSubmit={(event) => void addUser(event)}
+              onSubmit={(event) => {
+                event.preventDefault();
+                void addUser();
+              }}
             >
               <input
                 placeholder={t("Username")}
@@ -334,32 +230,19 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                   <select
                     value={user.role}
                     onChange={(event) =>
-                      void updateUser(user.id, {
-                        role: event.target.value as "admin" | "user",
-                      }).then(load)
+                      void updateUserRole(
+                        user.id,
+                        event.target.value as "admin" | "user",
+                      )
                     }
                   >
                     <option value="user">{t("User")}</option>
                     <option value="admin">{t("Admin")}</option>
                   </select>
-                  <button
-                    onClick={() =>
-                      void updateUser(user.id, { enabled: !user.enabled }).then(
-                        load,
-                      )
-                    }
-                  >
+                  <button onClick={() => void toggleUserEnabled(user)}>
                     {user.enabled ? t("Disable") : t("Enable")}
                   </button>
-                  <button
-                    onClick={() =>
-                      void updateUser(user.id, {
-                        twoFactorRequired: !user.twoFactorRequired,
-                      }).then(load, (updateError) =>
-                        setError(errorMessage(updateError)),
-                      )
-                    }
-                  >
+                  <button onClick={() => void toggleTwoFactorRequirement(user)}>
                     {user.twoFactorRequired
                       ? t("Make 2FA Optional")
                       : t("Require 2FA")}
@@ -419,7 +302,10 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                   ))}
                 <form
                   className="member-form"
-                  onSubmit={(event) => void addMember(event)}
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void addMember();
+                  }}
                 >
                   <select
                     value={memberUserId}
@@ -462,16 +348,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                       </span>
                       <button
                         disabled={member.role === "owner"}
-                        onClick={() =>
-                          void removeProjectMember(
-                            member.projectId,
-                            member.userId,
-                          ).then(() =>
-                            listProjectMembers(member.projectId).then(
-                              (result) => setMembers(result.members),
-                            ),
-                          )
-                        }
+                        onClick={() => void removeMember(member)}
                       >
                         {t("Remove")}
                       </button>
@@ -488,7 +365,10 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
         <div className="modal-backdrop">
           <form
             className="confirm-dialog two-factor-reset-dialog"
-            onSubmit={(event) => void confirmTwoFactorReset(event)}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void confirmTwoFactorReset();
+            }}
           >
             <h2>{t("Reset 2FA")}</h2>
             <p>

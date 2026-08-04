@@ -1,41 +1,28 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import React, { useEffect, useRef, useState } from "react";
-import type {
-  GuideItem,
-  GuideItemKind,
-  NormalizedRect,
-  Recording,
-  RecordingTranscript,
-  RecordingVideo,
-  ScreenshotEditOperations,
-} from "@infosteed/shared";
+import React, { useRef } from "react";
+import type { GuideItem, Recording, RecordingVideo } from "@infosteed/shared";
 import { PRODUCT_IDENTIFIERS } from "@infosteed/shared";
 import {
-  addItem,
-  deleteItem,
-  deleteItemImage,
-  deleteRecordingVideo,
-  generateOverview,
-  getImageEdits,
-  getRecordingTranscript,
-  getRecordingVideo,
   imageUrl,
-  publishRecordingVideo,
   recordingCaptionsUrl,
   recordingVideoContentUrl,
-  regenerateStep,
-  replaceItemImage,
-  retryRecordingTranscript,
-  sourceImageUrl,
-  unpublishRecordingVideo,
-  updateImageEdits,
-  updateItem,
-  updateRecording,
 } from "../api";
-import { errorMessage } from "../errors";
+import { orderedItems } from "../guide/model";
+export { orderedItems } from "../guide/model";
+export type { DropPosition } from "../guide/model";
 import { guideSourceLabel } from "../guide/source";
 import { plural, t } from "../i18n";
 import { currentRecordingId } from "../navigation";
+import {
+  ImageEditor,
+  MarkdownAssistantField,
+} from "../features/guide/GuideEditorFields";
+import {
+  useGuideItemEditorController,
+  useGuideOverviewController,
+  useInsertController,
+  useVideoGuidePlayerController,
+} from "../features/guide/useGuideWorkspaceControllers";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 interface GuideSection {
@@ -47,32 +34,6 @@ interface GuideSection {
 export function useRecordingId() {
   return currentRecordingId();
 }
-
-function itemFromStep(step: Recording["steps"][number]): GuideItem {
-  return {
-    id: step.id,
-    recordingId: step.recordingId,
-    eventId: step.eventId,
-    ordinal: step.ordinal,
-    kind: "step",
-    title: step.title,
-    body: step.instruction,
-    imageFilename: step.imageFilename,
-    altText: step.altText,
-    source: step.source,
-    userEdited: step.userEdited,
-  };
-}
-
-export function orderedItems(recording: Recording): GuideItem[] {
-  const items =
-    recording.items.length > 0
-      ? recording.items
-      : recording.steps.map(itemFromStep);
-  return items.slice().sort((a, b) => a.ordinal - b.ordinal);
-}
-
-export type DropPosition = "before" | "after";
 
 function sectionsForItems(items: GuideItem[]): GuideSection[] {
   const sections: GuideSection[] = [];
@@ -172,16 +133,6 @@ export function startExistingCapture(recordingId: string): Promise<void> {
       window.location.origin,
     );
   });
-}
-
-async function fileToBase64(file: File): Promise<string> {
-  const dataUrl = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-  return dataUrl.slice(dataUrl.indexOf(",") + 1);
 }
 
 export function GuideDisplayPreview({
@@ -302,40 +253,22 @@ export function VideoGuidePlayer({
   onVideoDeleted: () => void;
 }) {
   const player = useRef<HTMLVideoElement>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string>();
-  const [panel, setPanel] = useState<"chapters" | "transcript">("chapters");
-  const [transcript, setTranscript] = useState<RecordingTranscript>();
-
-  useEffect(() => {
-    let disposed = false;
-    let timer: number | undefined;
-    const load = async () => {
-      try {
-        const next = await getRecordingTranscript(recording.id);
-        if (disposed) return;
-        setTranscript(next);
-        if (next.status === "ready" || next.status === "failed") {
-          if (video.transcriptionStatus !== next.status)
-            onVideoChanged(await getRecordingVideo(recording.id));
-          if (recording.captureMode === "both") onRecordingChanged();
-        }
-      } catch {
-        // Video playback does not depend on transcript availability.
-      }
-    };
-    void load();
-    if (
-      video.transcriptionStatus === "pending" ||
-      video.transcriptionStatus === "processing"
-    ) {
-      timer = window.setInterval(() => void load(), 3_000);
-    }
-    return () => {
-      disposed = true;
-      if (timer) window.clearInterval(timer);
-    };
-  }, [recording.id, video.transcriptionStatus]);
+  const {
+    busy,
+    error,
+    panel,
+    setPanel,
+    transcript,
+    togglePublished,
+    discard,
+    retryTranscript,
+  } = useVideoGuidePlayerController({
+    recording,
+    video,
+    onVideoChanged,
+    onRecordingChanged,
+    onVideoDeleted,
+  });
 
   function openChapter(offsetMs: number, guideItemId: string | null) {
     if (player.current) {
@@ -353,59 +286,10 @@ export function VideoGuidePlayer({
     }
   }
 
-  async function togglePublished() {
-    setBusy(true);
-    setError(undefined);
-    try {
-      onVideoChanged(
-        video.status === "published"
-          ? await unpublishRecordingVideo(recording.id)
-          : await publishRecordingVideo(recording.id),
-      );
-    } catch (actionError) {
-      setError(errorMessage(actionError));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function discard() {
-    const consequence =
-      recording.captureMode === "video"
-        ? t("This removes the video and moves the empty recording to Trash.")
-        : t(
-            "This removes the video and raw tracks. The written guide will remain.",
-          );
-    if (!window.confirm(t("{consequence} Continue?", { consequence }))) return;
-    setBusy(true);
-    try {
-      const response = await deleteRecordingVideo(recording.id);
-      if (!response.ok) throw new Error(await response.text());
-      onVideoDeleted();
-    } catch (actionError) {
-      setError(errorMessage(actionError));
-      setBusy(false);
-    }
-  }
-
   function seek(offsetMs: number) {
     if (!player.current) return;
     player.current.currentTime = offsetMs / 1000;
     void player.current.play();
-  }
-
-  async function retryTranscript() {
-    setBusy(true);
-    setError(undefined);
-    try {
-      const next = await retryRecordingTranscript(recording.id);
-      setTranscript(next);
-      onVideoChanged(await getRecordingVideo(recording.id));
-    } catch (actionError) {
-      setError(errorMessage(actionError));
-    } finally {
-      setBusy(false);
-    }
   }
 
   const playable = video.status === "ready" || video.status === "published";
@@ -588,10 +472,7 @@ export function InsertBar({
   afterItemId?: string | null;
   onAdded: () => void;
 }) {
-  async function insert(kind: GuideItemKind) {
-    await addItem(recordingId, { kind, afterItemId });
-    onAdded();
-  }
+  const insert = useInsertController({ recordingId, afterItemId, onAdded });
 
   return (
     <div className="insert-bar">
@@ -599,289 +480,6 @@ export function InsertBar({
       <button onClick={() => void insert("tip")}>{t("Tip")}</button>
       <button onClick={() => void insert("alert")}>{t("Alert")}</button>
       <button onClick={() => void insert("header")}>{t("Header")}</button>
-    </div>
-  );
-}
-
-function clampRect(rect: NormalizedRect): NormalizedRect {
-  return {
-    x: Math.max(0, Math.min(1, rect.x)),
-    y: Math.max(0, Math.min(1, rect.y)),
-    width: Math.max(0.01, Math.min(1 - rect.x, rect.width)),
-    height: Math.max(0.01, Math.min(1 - rect.y, rect.height)),
-  };
-}
-
-function ImageEditor({
-  recordingId,
-  filename,
-  onClose,
-  onSaved,
-}: {
-  recordingId: string;
-  filename: string;
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const imageRef = useRef<HTMLImageElement>(null);
-  const dragStart = useRef<{ x: number; y: number } | undefined>();
-  const [mode, setMode] = useState<"crop" | "redact">("crop");
-  const [operations, setOperations] = useState<ScreenshotEditOperations>({
-    redactions: [],
-  });
-
-  useEffect(() => {
-    void getImageEdits(recordingId, filename).then(setOperations);
-  }, [filename, recordingId]);
-
-  function point(
-    event: React.PointerEvent,
-  ): { x: number; y: number } | undefined {
-    const rect = imageRef.current?.getBoundingClientRect();
-    if (!rect) return undefined;
-    return {
-      x: Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)),
-      y: Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)),
-    };
-  }
-
-  function finishDrag(event: React.PointerEvent) {
-    const start = dragStart.current;
-    const end = point(event);
-    dragStart.current = undefined;
-    if (!start || !end) return;
-    const rect = clampRect({
-      x: Math.min(start.x, end.x),
-      y: Math.min(start.y, end.y),
-      width: Math.abs(end.x - start.x),
-      height: Math.abs(end.y - start.y),
-    });
-    if (mode === "crop") setOperations({ ...operations, crop: rect });
-    else
-      setOperations({
-        ...operations,
-        redactions: [...(operations.redactions ?? []), rect],
-      });
-  }
-
-  async function save() {
-    await updateImageEdits(recordingId, filename, operations);
-    onSaved();
-    onClose();
-  }
-
-  return (
-    <div className="modal-backdrop">
-      <div className="image-editor">
-        <div className="modal-head">
-          <h2>{t("Edit Image")}</h2>
-          <button onClick={onClose}>{t("Close")}</button>
-        </div>
-        <div className="editor-tools">
-          <button
-            className={mode === "crop" ? "active" : undefined}
-            onClick={() => setMode("crop")}
-          >
-            {t("Crop / Zoom")}
-          </button>
-          <button
-            className={mode === "redact" ? "active" : undefined}
-            onClick={() => setMode("redact")}
-          >
-            {t("Redact")}
-          </button>
-          <button
-            onClick={() =>
-              setOperations({ redactions: operations.redactions ?? [] })
-            }
-          >
-            {t("Clear Crop")}
-          </button>
-          <button
-            onClick={() => setOperations({ ...operations, redactions: [] })}
-          >
-            {t("Clear Redactions")}
-          </button>
-        </div>
-        <div
-          className="image-edit-surface"
-          onPointerDown={(event) => {
-            dragStart.current = point(event);
-          }}
-          onPointerUp={finishDrag}
-        >
-          <img
-            ref={imageRef}
-            src={sourceImageUrl(recordingId, filename)}
-            alt=""
-            draggable={false}
-          />
-          {operations.crop && (
-            <span className="crop-box" style={rectStyle(operations.crop)} />
-          )}
-          {(operations.redactions ?? []).map((redaction, index) => (
-            <span
-              key={index}
-              className="redact-box"
-              style={rectStyle(redaction)}
-            />
-          ))}
-        </div>
-        <div className="actions">
-          <button onClick={() => void save()}>{t("Save Image Edits")}</button>
-          <button onClick={onClose}>{t("Cancel")}</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function rectStyle(rect: NormalizedRect): React.CSSProperties {
-  return {
-    left: `${rect.x * 100}%`,
-    top: `${rect.y * 100}%`,
-    width: `${rect.width * 100}%`,
-    height: `${rect.height * 100}%`,
-  };
-}
-
-function MarkdownAssistantField({
-  value,
-  onChange,
-  rows,
-  ariaLabel,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  rows: number;
-  ariaLabel: string;
-}) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  function replaceRange(nextValue: string, start: number, end: number) {
-    onChange(nextValue);
-    requestAnimationFrame(() => {
-      textareaRef.current?.focus();
-      textareaRef.current?.setSelectionRange(start, end);
-    });
-  }
-
-  function wrap(prefix: string, suffix = prefix) {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selected = value.slice(start, end) || "text";
-    const replacement = `${prefix}${selected}${suffix}`;
-    replaceRange(
-      value.slice(0, start) + replacement + value.slice(end),
-      start + prefix.length,
-      start + prefix.length + selected.length,
-    );
-  }
-
-  function link() {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selected = value.slice(start, end) || "link text";
-    const url = window.prompt(t("Link URL"), "https://");
-    if (!url) return;
-    const replacement = `[${selected}](${url})`;
-    replaceRange(
-      value.slice(0, start) + replacement + value.slice(end),
-      start + 1,
-      start + 1 + selected.length,
-    );
-  }
-
-  function list(ordered: boolean) {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const lineStart = value.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
-    const nextBreak = value.indexOf("\n", end);
-    const lineEnd = nextBreak === -1 ? value.length : nextBreak;
-    const block = value.slice(lineStart, lineEnd);
-    const lines = block.split("\n");
-    const replacement = lines
-      .map((line, index) => {
-        const cleaned = line.replace(/^\s*(?:[-*]|\d+\.)\s+/, "");
-        if (!cleaned.trim()) return line;
-        return ordered ? `${index + 1}. ${cleaned}` : `- ${cleaned}`;
-      })
-      .join("\n");
-    replaceRange(
-      value.slice(0, lineStart) + replacement + value.slice(lineEnd),
-      lineStart,
-      lineStart + replacement.length,
-    );
-  }
-
-  return (
-    <div className="markdown-field">
-      <div
-        className="markdown-toolbar"
-        aria-label={t("{field} formatting", { field: ariaLabel })}
-      >
-        <button
-          type="button"
-          aria-label={t("Bold")}
-          title={t("Bold")}
-          onClick={() => wrap("**")}
-        >
-          B
-        </button>
-        <button
-          type="button"
-          aria-label={t("Italic")}
-          title={t("Italic")}
-          onClick={() => wrap("*")}
-        >
-          I
-        </button>
-        <button
-          type="button"
-          aria-label={t("Link")}
-          title={t("Link")}
-          onClick={link}
-        >
-          link
-        </button>
-        <button
-          type="button"
-          aria-label={t("Code")}
-          title={t("Code")}
-          onClick={() => wrap("`")}
-        >
-          &lt;/&gt;
-        </button>
-        <button
-          type="button"
-          aria-label={t("Bullet list")}
-          title={t("Bullet list")}
-          onClick={() => list(false)}
-        >
-          -
-        </button>
-        <button
-          type="button"
-          aria-label={t("Numbered list")}
-          title={t("Numbered list")}
-          onClick={() => list(true)}
-        >
-          1.
-        </button>
-      </div>
-      <textarea
-        ref={textareaRef}
-        aria-label={ariaLabel}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        rows={rows}
-      />
     </div>
   );
 }
@@ -913,20 +511,28 @@ export function GuideItemEditor({
   onDraftChange: (item: GuideItem) => void;
   onSaved: () => void;
 }) {
-  const [draft, setDraft] = useState(item);
-  const [editingImage, setEditingImage] = useState(false);
-  const [deleteImageOpen, setDeleteImageOpen] = useState(false);
-  const [imageBusy, setImageBusy] = useState(false);
-  const [imageError, setImageError] = useState<string | undefined>();
-  const [saveState, setSaveState] = useState<"saved" | "saving" | "error">(
-    "saved",
-  );
-  const lastSavedRef = useRef(item);
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const dirty =
-    draft.title !== lastSavedRef.current.title ||
-    draft.body !== lastSavedRef.current.body ||
-    draft.altText !== lastSavedRef.current.altText;
+  const {
+    draft,
+    editingImage,
+    setEditingImage,
+    deleteImageOpen,
+    setDeleteImageOpen,
+    imageBusy,
+    imageError,
+    saveState,
+    imageInputRef,
+    updateDraft,
+    remove,
+    uploadImage,
+    deleteImage,
+    regenerate,
+  } = useGuideItemEditorController({
+    recordingId,
+    item,
+    onImageSaved,
+    onDraftChange,
+    onSaved,
+  });
   const needsReview =
     item.kind === "step" &&
     (item.source === "deterministic" ||
@@ -934,84 +540,6 @@ export function GuideItemEditor({
       /^(div|span|i|svg|path|canvas|field|element)$/i.test(
         event.elementRole ?? "",
       ));
-
-  useEffect(() => {
-    setDraft(item);
-    lastSavedRef.current = item;
-    setSaveState("saved");
-  }, [item.id]);
-
-  useEffect(() => {
-    if (!dirty) return undefined;
-    setSaveState("saving");
-    const timeout = window.setTimeout(() => {
-      void updateItem(recordingId, draft)
-        .then(() => {
-          lastSavedRef.current = draft;
-          setSaveState("saved");
-        })
-        .catch(() => setSaveState("error"));
-    }, 700);
-    return () => window.clearTimeout(timeout);
-  }, [dirty, draft, recordingId]);
-
-  function updateDraft(patch: Partial<GuideItem>) {
-    const next = { ...draft, ...patch };
-    setDraft(next);
-    onDraftChange(next);
-  }
-
-  async function remove() {
-    await deleteItem(recordingId, item.id);
-    onSaved();
-  }
-
-  async function uploadImage(file?: File) {
-    if (!file) return;
-    if (
-      file.type !== "image/png" &&
-      file.type !== "image/jpeg" &&
-      file.type !== "image/webp"
-    ) {
-      setImageError(t("Upload a PNG, JPEG, or WebP image."));
-      return;
-    }
-    setImageBusy(true);
-    try {
-      const updated = await replaceItemImage(recordingId, item.id, {
-        contentType: file.type,
-        imageBase64: await fileToBase64(file),
-      });
-      setDraft(updated);
-      lastSavedRef.current = updated;
-      onDraftChange(updated);
-      if (updated.imageFilename) onImageSaved(updated.imageFilename);
-      onSaved();
-      setImageError(undefined);
-    } catch (uploadError) {
-      setImageError(errorMessage(uploadError));
-    } finally {
-      setImageBusy(false);
-      if (imageInputRef.current) imageInputRef.current.value = "";
-    }
-  }
-
-  async function deleteImage() {
-    setImageBusy(true);
-    try {
-      const updated = await deleteItemImage(recordingId, item.id);
-      setDraft(updated);
-      lastSavedRef.current = updated;
-      onDraftChange(updated);
-      setDeleteImageOpen(false);
-      onSaved();
-      setImageError(undefined);
-    } catch (deleteError) {
-      setImageError(errorMessage(deleteError));
-    } finally {
-      setImageBusy(false);
-    }
-  }
 
   const imageFilename = item.imageFilename;
 
@@ -1203,12 +731,7 @@ export function GuideItemEditor({
               : t("Saved")}
         </span>
         <button onClick={onCloseEdit}>{t("Done")}</button>
-        <button
-          disabled={!item.eventId}
-          onClick={async () =>
-            void (await regenerateStep(recordingId, item.id), onSaved())
-          }
-        >
+        <button disabled={!item.eventId} onClick={() => void regenerate()}>
           {t("Regenerate")}
         </button>
         <button onClick={() => void remove()}>{t("Delete")}</button>
@@ -1257,74 +780,8 @@ export function GuideOverviewEditor({
   onDraftChange: (recording: Recording) => void;
   onSaved: (recording: Recording) => void;
 }) {
-  const [draft, setDraft] = useState({
-    title: recording.title,
-    purpose: recording.purpose ?? "",
-  });
-  const [generating, setGenerating] = useState(false);
-  const [saveState, setSaveState] = useState<"saved" | "saving" | "error">(
-    "saved",
-  );
-  const lastSavedRef = useRef({
-    title: recording.title,
-    purpose: recording.purpose ?? "",
-  });
-  const dirty =
-    draft.title !== lastSavedRef.current.title ||
-    draft.purpose !== lastSavedRef.current.purpose;
-
-  useEffect(() => {
-    setDraft({ title: recording.title, purpose: recording.purpose ?? "" });
-    lastSavedRef.current = {
-      title: recording.title,
-      purpose: recording.purpose ?? "",
-    };
-    setSaveState("saved");
-  }, [recording.id]);
-
-  useEffect(() => {
-    if (!dirty) return undefined;
-    setSaveState("saving");
-    const timeout = window.setTimeout(() => {
-      void updateRecording(recording.id, {
-        title: draft.title,
-        purpose: draft.purpose.trim() || null,
-      })
-        .then(() => {
-          lastSavedRef.current = draft;
-          setSaveState("saved");
-        })
-        .catch(() => setSaveState("error"));
-    }, 700);
-    return () => window.clearTimeout(timeout);
-  }, [dirty, draft, recording.id]);
-
-  function updateDraft(patch: Partial<typeof draft>) {
-    const next = { ...draft, ...patch };
-    setDraft(next);
-    onDraftChange({
-      ...recording,
-      title: next.title,
-      purpose: next.purpose.trim() || null,
-    });
-  }
-
-  async function generate() {
-    setGenerating(true);
-    try {
-      const updated = await generateOverview(recording.id);
-      const nextDraft = {
-        title: updated.title,
-        purpose: updated.purpose ?? "",
-      };
-      setDraft(nextDraft);
-      lastSavedRef.current = nextDraft;
-      setSaveState("saved");
-      onSaved(updated);
-    } finally {
-      setGenerating(false);
-    }
-  }
+  const { draft, generating, saveState, updateDraft, generate } =
+    useGuideOverviewController({ recording, onDraftChange, onSaved });
 
   if (!isSelected) {
     return (

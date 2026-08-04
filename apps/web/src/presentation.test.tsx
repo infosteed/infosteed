@@ -9,6 +9,7 @@ import { guideSourceLabel } from "./guide/source";
 import { recordingUrl } from "./navigation";
 import { RecordingGenerationStatus } from "./components/RecordingGenerationStatus";
 import {
+  createProject,
   getBranding,
   listProjects,
   listRecordings,
@@ -22,6 +23,10 @@ vi.mock("./api", () => ({
   getBranding: vi.fn(),
   listRecordings: vi.fn(),
   listProjects: vi.fn(),
+  createProject: vi.fn(),
+  importProject: vi.fn(),
+  deleteRecording: vi.fn(),
+  restoreRecording: vi.fn(),
 }));
 
 const currentUser = {
@@ -55,10 +60,13 @@ describe("web presentation", () => {
   it("uses the recording library vocabulary", async () => {
     render(<App />);
 
-    expect(await screen.findByText("Library")).toBeTruthy();
     expect(
-      document.querySelector(".brand-heading .brand-mark")?.getAttribute("src"),
+      await screen.findByRole("navigation", { name: "Primary navigation" }),
+    ).toBeTruthy();
+    expect(
+      document.querySelector(".app-brand .brand-mark")?.getAttribute("src"),
     ).toContain("infosteed-horse-logo.svg");
+    expect(screen.getAllByText("Library").length).toBeGreaterThan(0);
     expect(
       await screen.findByRole("heading", { name: "Recordings" }),
     ).toBeTruthy();
@@ -76,6 +84,34 @@ describe("web presentation", () => {
       expect(listRecordings).toHaveBeenLastCalledWith(
         expect.objectContaining({ search: "onboarding" }),
       ),
+    );
+  });
+
+  it("creates a project from the primary dialog", async () => {
+    const input = userEvent.setup();
+    vi.mocked(createProject).mockResolvedValue({
+      id: "00000000-0000-4000-8000-000000000010",
+      name: "Launch guides",
+      description: null,
+      private: true,
+      ownerUserId: currentUser.id,
+      role: "owner",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    render(<App />);
+
+    await input.click(
+      await screen.findByRole("button", { name: "New project" }),
+    );
+    await input.type(screen.getByLabelText("Project name"), "Launch guides");
+    await input.click(screen.getByRole("button", { name: "Create Project" }));
+
+    await waitFor(() =>
+      expect(createProject).toHaveBeenCalledWith({
+        name: "Launch guides",
+        private: true,
+      }),
     );
   });
 
@@ -97,11 +133,9 @@ describe("web presentation", () => {
     });
     render(<App />);
 
+    expect(await screen.findByText("Acme Support")).toBeTruthy();
     expect(
-      await screen.findByRole("heading", { name: "Acme Support" }),
-    ).toBeTruthy();
-    expect(
-      document.querySelector(".brand-heading .brand-mark")?.getAttribute("src"),
+      document.querySelector(".app-brand .brand-mark")?.getAttribute("src"),
     ).toBe(customIcon);
   });
 

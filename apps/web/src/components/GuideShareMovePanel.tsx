@@ -1,22 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import React, { useCallback, useEffect, useState } from "react";
-import type {
-  CurrentUser,
-  Project,
-  ProjectMember,
-  Recording,
-  UserDirectoryEntry,
-} from "@infosteed/shared";
-import {
-  listProjectMembers,
-  listProjects,
-  listUserDirectory,
-  moveRecordingToProject,
-  removeProjectMember,
-  setProjectMember,
-} from "../api";
-import { errorMessage } from "../errors";
+import React from "react";
+import type { CurrentUser, Recording } from "@infosteed/shared";
+import { Shield, UserMinus } from "lucide-react";
+import { useAccessController } from "../features/access/useAccessController";
 import { t } from "../i18n";
+import { Button } from "./ui/button";
+import { StatusBadge } from "./design/StatusBadge";
+import { UserAvatar } from "./design/UserAvatar";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 export function GuideShareMovePanel({
@@ -28,99 +18,29 @@ export function GuideShareMovePanel({
   user: CurrentUser;
   onChanged: (recording: Recording) => void;
 }) {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [members, setMembers] = useState<ProjectMember[]>([]);
-  const [directory, setDirectory] = useState<UserDirectoryEntry[]>([]);
-  const [memberUserId, setMemberUserId] = useState("");
-  const [memberRole, setMemberRole] = useState<"viewer" | "editor">("viewer");
-  const [destinationProjectId, setDestinationProjectId] = useState(
-    recording.projectId ?? "",
-  );
-  const [error, setError] = useState<string | undefined>();
-  const [memberRemoveCandidate, setMemberRemoveCandidate] = useState<
-    ProjectMember | undefined
-  >();
-  const [moveCandidateProjectId, setMoveCandidateProjectId] = useState<
-    string | undefined
-  >();
-  const currentProject = projects.find(
-    (project) => project.id === recording.projectId,
-  );
-  const canManageMembers =
-    user.role === "admin" || currentProject?.role === "owner";
-  const canMoveGuide =
-    recording.userRole === "admin" ||
-    recording.userRole === "owner" ||
-    recording.userRole === "editor";
-  const editableProjects = projects.filter(
-    (project) => project.role === "owner" || project.role === "editor",
-  );
-  const existingMemberIds = new Set(members.map((member) => member.userId));
-  const memberOptions = directory.filter(
-    (entry) => !existingMemberIds.has(entry.id),
-  );
-
-  const load = useCallback(async () => {
-    try {
-      const [projectResult, directoryResult] = await Promise.all([
-        listProjects(),
-        listUserDirectory(),
-      ]);
-      setProjects(projectResult.projects);
-      setDirectory(directoryResult.users);
-      if (recording.projectId) {
-        const memberResult = await listProjectMembers(recording.projectId);
-        setMembers(memberResult.members);
-      } else {
-        setMembers([]);
-      }
-      setDestinationProjectId(recording.projectId ?? "");
-      setError(undefined);
-    } catch (loadError) {
-      setError(errorMessage(loadError));
-    }
-  }, [recording.projectId]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  async function addMember(event: React.FormEvent) {
-    event.preventDefault();
-    if (!recording.projectId || !memberUserId) return;
-    try {
-      await setProjectMember(recording.projectId, {
-        userId: memberUserId,
-        role: memberRole,
-      });
-      setMemberUserId("");
-      await load();
-    } catch (addError) {
-      setError(errorMessage(addError));
-    }
-  }
-
-  async function removeMember(member: ProjectMember) {
-    const response = await removeProjectMember(member.projectId, member.userId);
-    if (!response.ok) {
-      setError(await response.text());
-      return;
-    }
-    setMemberRemoveCandidate(undefined);
-    await load();
-  }
-
-  async function moveGuide(projectId: string) {
-    if (!projectId || projectId === recording.projectId) return;
-    try {
-      const updated = await moveRecordingToProject(recording.id, projectId);
-      setMoveCandidateProjectId(undefined);
-      onChanged(updated);
-      setError(undefined);
-    } catch (moveError) {
-      setError(errorMessage(moveError));
-    }
-  }
+  const {
+    projects,
+    members,
+    memberUserId,
+    setMemberUserId,
+    memberRole,
+    setMemberRole,
+    destinationProjectId,
+    setDestinationProjectId,
+    error,
+    memberRemoveCandidate,
+    setMemberRemoveCandidate,
+    moveCandidateProjectId,
+    setMoveCandidateProjectId,
+    currentProject,
+    canManageMembers,
+    canMoveGuide,
+    editableProjects,
+    memberOptions,
+    addMember,
+    removeMember,
+    moveGuide,
+  } = useAccessController({ recording, user, onChanged });
 
   return (
     <section className="share-panel">
@@ -130,9 +50,11 @@ export function GuideShareMovePanel({
           <h2>{currentProject?.name ?? t("No project")}</h2>
         </div>
         {currentProject && (
-          <span className="status-pill neutral">
+          <StatusBadge
+            variant={currentProject.role === "owner" ? "default" : "outline"}
+          >
             {t(currentProject.role ?? "viewer")}
-          </span>
+          </StatusBadge>
         )}
       </div>
       <div className="share-panel-grid">
@@ -144,7 +66,10 @@ export function GuideShareMovePanel({
           {canManageMembers && recording.projectId && (
             <form
               className="member-form compact"
-              onSubmit={(event) => void addMember(event)}
+              onSubmit={(event) => {
+                event.preventDefault();
+                void addMember();
+              }}
             >
               <select
                 value={memberUserId}
@@ -166,35 +91,48 @@ export function GuideShareMovePanel({
                 <option value="viewer">{t("Viewer")}</option>
                 <option value="editor">{t("Editor")}</option>
               </select>
-              <button>{t("Add")}</button>
+              <Button type="submit" size="sm">
+                {t("Add")}
+              </Button>
             </form>
           )}
           <div className="compact-member-list">
             {members.map((member) => (
               <div key={member.userId} className="compact-member-row">
+                <UserAvatar name={member.displayName} />
                 <div>
                   <strong>{member.displayName}</strong>
                   <span>{member.username}</span>
                 </div>
-                <span
-                  className={`status-pill ${member.role === "owner" ? "owner" : "neutral"}`}
+                <StatusBadge
+                  variant={member.role === "owner" ? "default" : "outline"}
                 >
+                  {member.role === "owner" && (
+                    <Shield className="mr-1 size-3" />
+                  )}
                   {t(member.role)}
-                </span>
+                </StatusBadge>
                 {canManageMembers && member.role !== "owner" && (
-                  <button onClick={() => setMemberRemoveCandidate(member)}>
-                    {t("Remove")}
-                  </button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    aria-label={t("Remove")}
+                    onClick={() => setMemberRemoveCandidate(member)}
+                  >
+                    <UserMinus className="size-4" />
+                  </Button>
                 )}
               </div>
             ))}
           </div>
         </div>
-        <div className="share-box">
+        <div className="share-box advanced">
           <div className="share-box-head">
-            <strong>{t("Move Guide")}</strong>
+            <strong>{t("Advanced")}</strong>
             <span>{t("Access follows project")}</span>
           </div>
+          <h3>{t("Move Guide")}</h3>
           <div className="move-controls">
             <select
               disabled={!canMoveGuide}

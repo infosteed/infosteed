@@ -25,6 +25,7 @@ import {
   getVideoMp4Export,
   getVideoRender,
   generateVoiceover,
+  getRecordingVideo,
   getVoiceoverGeneration,
   listVoiceoverVoices,
   publishVideoRender,
@@ -44,14 +45,21 @@ import {
   subtractVideoRange,
   videoTimeLabel,
 } from "./video-editor/model";
+import { RecordingGenerationStatus } from "./components/RecordingGenerationStatus";
 
 interface Props {
   recording: Recording;
   video: RecordingVideo;
   onPublished(video: RecordingVideo): void;
+  onGenerationFinished(): void;
 }
 
-export function VideoEditor({ recording, video, onPublished }: Props) {
+export function VideoEditor({
+  recording,
+  video,
+  onPublished,
+  onGenerationFinished,
+}: Props) {
   const [state, setState] = useState<VideoEditorState>();
   const [recipe, setRecipe] = useState<VideoEditRecipe>();
   const [revision, setRevision] = useState(0);
@@ -117,6 +125,51 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
   useEffect(() => {
     void load().catch((loadError) => setError(errorMessage(loadError)));
   }, [load]);
+
+  useEffect(() => {
+    if (
+      video.transcriptionStatus !== "pending" &&
+      video.transcriptionStatus !== "processing"
+    )
+      return;
+
+    let disposed = false;
+    let polling = false;
+    const refreshGeneration = async () => {
+      if (polling) return;
+      polling = true;
+      try {
+        const nextVideo = await getRecordingVideo(recording.id);
+        if (disposed) return;
+        if (
+          nextVideo.transcriptionStatus === "ready" ||
+          nextVideo.transcriptionStatus === "failed"
+        ) {
+          const latest = await getVideoEditor(recording.id);
+          if (disposed) return;
+          setState((current) =>
+            current
+              ? { ...current, transcriptCues: latest.transcriptCues }
+              : latest,
+          );
+          onPublished(nextVideo);
+          onGenerationFinished();
+        } else {
+          onPublished(nextVideo);
+        }
+      } catch {
+        // The next poll can recover from a temporary request failure.
+      } finally {
+        polling = false;
+      }
+    };
+
+    const timer = window.setInterval(() => void refreshGeneration(), 3_000);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, [recording.id, video.transcriptionStatus]);
 
   function change(next: VideoEditRecipe) {
     if (!recipe) return;
@@ -469,6 +522,11 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
           </button>
         </div>
       </header>
+
+      <RecordingGenerationStatus
+        captureMode={recording.captureMode}
+        status={video.transcriptionStatus}
+      />
 
       {error && (
         <div className="capture-status error">

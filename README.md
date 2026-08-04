@@ -38,7 +38,7 @@ Load `apps/extension/dist` as an unpacked extension in Chromium after running th
 
 ## Self-hosted deployment
 
-Use the supported local and production instructions in [docs/deployment.md](docs/deployment.md). Production uses Caddy-managed HTTPS, versioned GHCR images by default, an equivalent source-build fallback, internal-only API/PostgreSQL/MinIO ports, and a mandatory 32-byte first-admin setup token. Back up before every upgrade using [docs/backup-and-upgrade.md](docs/backup-and-upgrade.md).
+Use the supported local and production instructions in [docs/deployment.md](docs/deployment.md). Production uses Caddy-managed public or internal HTTPS, versioned GHCR images by default, an equivalent source-build fallback, internal-only application data services, and a mandatory 32-byte first-admin setup token. Ollama, Whisper, and Kokoro can each be managed locally, connected externally, or disabled; see [AI services](docs/ai-services.md). Back up before every upgrade using [docs/backup-and-upgrade.md](docs/backup-and-upgrade.md).
 
 Connect the extension to your server from its Options page. The extension requests access only to that origin, verifies `/api/system/info` and protocol compatibility, and injects the recorder only after you start a recording. See [Privacy and data handling](docs/privacy-policy.md).
 
@@ -150,7 +150,7 @@ Ready renders keep WebM as their preview and publication format. Editors can cho
 
 ## Local voiceovers
 
-The video editor's **AI voiceover** panel starts with the current edited captions. Editors can use them verbatim or choose **Rewrite with local model** to turn terse captions into cue-aligned narration. Script rewriting uses the configured `AI_*` Ollama/OpenAI-compatible endpoint. Every cue remains editable before speech generation.
+The video editor's **AI voiceover** panel starts with the current edited captions. Editors can use them verbatim or choose **Rewrite with local model** to turn terse captions into cue-aligned narration. Script rewriting uses the configured `AI_*` Ollama/OpenAI-compatible endpoint and has a separate `AI_SCRIPT_TIMEOUT_MS` limit (five minutes by default) because rewriting a complete caption track takes longer than generating one guide step. Every cue remains editable before speech generation.
 
 Speech generation uses a provider-neutral OpenAI-compatible `/v1/audio/speech` client. The optional Compose profile runs the CPU Kokoro-FastAPI image pinned to `v0.2.4`:
 
@@ -188,6 +188,7 @@ AI_ENDPOINT=http://127.0.0.1:11434/v1
 AI_MODEL=qwen3-vl:8b
 AI_API_KEY=
 AI_TIMEOUT_MS=30000
+AI_SCRIPT_TIMEOUT_MS=300000
 ```
 
 The API calls `/chat/completions` and validates the returned JSON with Zod. If Ollama is unavailable, the model is missing, the request times out, or the response is invalid, guide generation falls back to deterministic local instructions.

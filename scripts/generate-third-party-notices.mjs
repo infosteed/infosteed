@@ -72,6 +72,8 @@ The faster-whisper runtime downloads a separately licensed Whisper model selecte
 | PostgreSQL | database | PostgreSQL Licence |
 | MinIO server and client | bundled object storage | AGPL-3.0-only; administrators may instead configure an external S3-compatible service |
 | NVIDIA CUDA runtime image | optional GPU transcription base | NVIDIA container/CUDA terms; redistribution approval must be checked for the chosen image |
+| Ollama v0.32.3 | optional managed LLM server | MIT plus bundled notices |
+| Ollama-managed models | optional LLM assets selected by the administrator | Model-specific terms and model-card notices apply |
 | Kokoro-FastAPI v0.2.4 | optional local TTS server | Apache-2.0 |
 | Kokoro-82M and stock voices | optional TTS model assets | Apache-2.0; retain its upstream model card and attribution notices |
 

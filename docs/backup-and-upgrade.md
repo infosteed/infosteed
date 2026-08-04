@@ -24,7 +24,7 @@ Fetch tags and check out the new official release, leaving the existing `deploy/
 
 ```bash
 git fetch --tags
-git checkout v0.1.1
+git checkout v0.1.0-beta.2
 scripts/upgrade-production.sh
 ```
 
@@ -37,3 +37,32 @@ scripts/restore.sh --confirm-replace-target /srv/backups/infosteed/TIMESTAMP
 ```
 
 Run that command only with the pre-upgrade backup named by the failed upgrade. It clears current data, restores both stores, and starts the previous image set. Never start older images against a database that may contain newer migrations.
+
+## Upgrade from beta.1
+
+Beta.1 installations may have a temporary `deploy/compose.hotfix.yml`, a `COMPOSE_FILE` entry in `production.env`, and a manually edited Caddyfile. Before changing tags, preserve those files and verify the working tree:
+
+```bash
+cp -p deploy/production.env deploy/production.env.beta1-backup
+cp -p deploy/Caddyfile deploy/Caddyfile.beta1-backup
+git status --short
+```
+
+If `deploy/Caddyfile` is the only tracked change and contains the intentional `tls internal` workaround, preserve the backup and restore the tracked file before checking out beta.2:
+
+```bash
+git restore deploy/Caddyfile
+git fetch --tags
+git checkout v0.1.0-beta.2
+```
+
+Then run `scripts/upgrade-production.sh`. It derives the existing AI modes, adds explicit beta.2 mode fields, validates the candidate configuration and backup, removes the known beta.1 hotfix from the active Compose selection, and moves the old overlay to a timestamped recoverable filename. Set `TLS_MODE=internal` in the protected environment before the upgrade if the previous Caddyfile workaround cannot be detected after checkout.
+
+After success:
+
+```bash
+scripts/doctor-production.sh
+curl -I https://YOUR_INFOSTEED_HOST
+```
+
+Do not delete the beta.1 environment backup or retired hotfix until the application, database, stored media, TLS, and configured providers have been verified.

@@ -309,12 +309,10 @@ export function VideoGuidePlayer({
         const next = await getRecordingTranscript(recording.id);
         if (disposed) return;
         setTranscript(next);
-        if (
-          (next.status === "ready" || next.status === "failed") &&
-          video.transcriptionStatus !== next.status
-        ) {
-          onVideoChanged(await getRecordingVideo(recording.id));
-          onRecordingChanged();
+        if (next.status === "ready" || next.status === "failed") {
+          if (video.transcriptionStatus !== next.status)
+            onVideoChanged(await getRecordingVideo(recording.id));
+          if (recording.captureMode === "both") onRecordingChanged();
         }
       } catch {
         // Video playback does not depend on transcript availability.

@@ -11,8 +11,45 @@ cat >"$test_root/bin/docker" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 printf '%s\n' "$*" >>"$DOCKER_LOG"
+if [[ ${1:-} == info ]]; then
+  printf '{"nvidia":{}}\n'
+fi
+if [[ ${1:-} == inspect ]]; then
+  printf 'healthy\n'
+fi
+if [[ " $* " == *" ps -q "* ]]; then
+  printf 'fake-container-id\n'
+fi
+if [[ " $* " == *" cp "* ]]; then
+  destination=${!#}
+  printf 'test certificate\n' >"$destination"
+fi
 EOF
 chmod 755 "$test_root/bin/docker"
+
+cat >"$test_root/bin/nvidia-smi" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '0, GPU-test-0000, Test GPU\n'
+EOF
+chmod 755 "$test_root/bin/nvidia-smi"
+
+cat >"$test_root/bin/ss" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+chmod 755 "$test_root/bin/ss"
+
+cat >"$test_root/bin/openssl" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ ${1:-} == x509 ]]; then
+  printf 'sha256 Fingerprint=00:11\n'
+else
+  exec /usr/bin/openssl "$@"
+fi
+EOF
+chmod 755 "$test_root/bin/openssl"
 
 export PATH="$test_root/bin:$PATH"
 export DOCKER_LOG="$test_root/docker.log"
@@ -31,6 +68,8 @@ grep -Eq '^RELEASE_COMMIT=[0-9a-f]{40}$' "$ENV_FILE"
 grep -Eq '^LOCAL_IMAGE_TAG=sha-[0-9a-f]{12}$' "$ENV_FILE"
 grep -Eq '^SETUP_TOKEN=[0-9a-f]{64}$' "$ENV_FILE"
 grep -Eq '^POSTGRES_PASSWORD=[0-9a-f]{64}$' "$ENV_FILE"
+grep -q '^TLS_MODE=public$' "$ENV_FILE"
+grep -q '^LLM_MODE=off$' "$ENV_FILE"
 grep -q -- '-f deploy/compose.production.yml -f deploy/compose.build.yml' "$DOCKER_LOG"
 grep -q 'build --pull' "$DOCKER_LOG"
 grep -q 'up -d --remove-orphans --pull never --wait' "$DOCKER_LOG"
@@ -47,12 +86,90 @@ if "$script_dir/install-production.sh" --allow-dirty >/dev/null 2>&1; then
 fi
 chmod 600 "$ENV_FILE"
 
+"$script_dir/configure-ai-services.sh" \
+  --llm off --transcription off --voiceover off >/dev/null
+grep -q '^LLM_MODE=off$' "$ENV_FILE"
+grep -q '^TRANSCRIPTION_MODE=off$' "$ENV_FILE"
+grep -q '^VOICEOVER_MODE=off$' "$ENV_FILE"
+test -n "$(find "$test_root" -maxdepth 1 -name 'production.env.backup.*' -print -quit)"
+
+token_file="$test_root/transcription.token"
+printf 'test-token-012345678901234567890123456789\n' >"$token_file"
+chmod 600 "$token_file"
+
+internal_env="$test_root/internal-production.env"
+internal_ca="$test_root/infosteed-local-ca.crt"
+ENV_FILE="$internal_env" INTERNAL_CA_FILE="$internal_ca" "$script_dir/install-production.sh" \
+  --source build --allow-dirty --tls internal \
+  --domain internal.example.test \
+  --extension-origin chrome-extension://abcdefghijklmnopabcdefghijklmnop >/dev/null
+grep -q '^TLS_MODE=internal$' "$internal_env"
+grep -q '^ACME_EMAIL=$' "$internal_env"
+test -f "$internal_ca"
+
+ENV_FILE="$ENV_FILE" "$script_dir/configure-ai-services.sh" \
+  --llm managed --llm-model qwen3-vl:8b --llm-gpu 0 \
+  --transcription managed --transcription-model large-v3-turbo --transcription-gpu 0 \
+  --voiceover managed >/dev/null
+grep -q '^LLM_MODE=managed$' "$ENV_FILE"
+grep -q '^TRANSCRIPTION_MODE=managed$' "$ENV_FILE"
+grep -q '^VOICEOVER_MODE=managed$' "$ENV_FILE"
+grep -Eq '^TRANSCRIPTION_API_KEY=[0-9a-f]{64}$' "$ENV_FILE"
+
+legacy_env="$test_root/legacy-production.env"
+awk '
+  /^RELEASE_VERSION=/ { print "RELEASE_VERSION=0.1.0-beta.1"; next }
+  { print }
+  END { print "COMPOSE_FILE=deploy/compose.production.yml:deploy/compose.hotfix.yml" }
+' "$ENV_FILE" >"$legacy_env"
+chmod 600 "$legacy_env"
+ENV_FILE="$legacy_env" "$script_dir/upgrade-production.sh" \
+  --allow-dirty --allow-without-backup >/dev/null
+grep -q '^RELEASE_VERSION=0.1.0-beta.2$' "$legacy_env"
+if grep -q '^COMPOSE_FILE=' "$legacy_env"; then
+  echo "upgrade-production.sh retained the known beta.1 hotfix selector" >&2
+  exit 1
+fi
+grep -q '^LLM_MODE=managed$' "$legacy_env"
+"$script_dir/configure-ai-services.sh" \
+  --llm external --llm-provider ollama --llm-endpoint http://192.0.2.10:11434 --llm-model qwen3-vl:8b \
+  --transcription external --transcription-endpoint http://192.0.2.10:8787/v1 \
+  --transcription-model large-v3-turbo --transcription-token-file "$token_file" \
+  --voiceover external --voiceover-endpoint http://192.0.2.10:8880/v1 >/dev/null
+grep -q '^LLM_MODE=external$' "$ENV_FILE"
+grep -q '^AI_ENDPOINT=http://192.0.2.10:11434$' "$ENV_FILE"
+grep -q '^TRANSCRIPTION_API_KEY=test-token-' "$ENV_FILE"
+grep -q '^TTS_BASE_URL=http://192.0.2.10:8880/v1$' "$ENV_FILE"
+
+AI_ENV_FILE="$test_root/ai-services.env" \
+AI_CONNECTION_FILE="$test_root/ai-services.connection.env" \
+  "$script_dir/install-ai-services.sh" \
+    --bind-address 192.0.2.20 --allow-client 192.0.2.10 \
+    --ollama off --transcription off --voiceover managed >/dev/null
+[[ $(stat -c '%a' "$test_root/ai-services.env") == 600 ]]
+[[ $(stat -c '%a' "$test_root/ai-services.connection.env") == 600 ]]
+grep -q '^VOICEOVER_MODE=external$' "$test_root/ai-services.connection.env"
+grep -q '^TTS_BASE_URL=http://192.0.2.20:8880/v1$' "$test_root/ai-services.connection.env"
+
+chmod 644 "$token_file"
+if "$script_dir/configure-ai-services.sh" \
+  --llm off --transcription external --transcription-endpoint http://192.0.2.10:8787/v1 \
+  --transcription-token-file "$token_file" --voiceover off >/dev/null 2>&1; then
+  echo "configure-ai-services.sh accepted a readable secret file" >&2
+  exit 1
+fi
+chmod 600 "$token_file"
+
 if "$script_dir/deploy-production.sh" --unknown >/dev/null 2>&1; then
   echo "deploy-production.sh accepted an unknown option" >&2
   exit 1
 fi
 if "$script_dir/restore.sh" >/dev/null 2>&1; then
   echo "restore.sh accepted missing confirmation arguments" >&2
+  exit 1
+fi
+if "$script_dir/install-ai-services.sh" --help >/dev/null 2>&1; then :; else
+  echo "install-ai-services.sh --help failed" >&2
   exit 1
 fi
 

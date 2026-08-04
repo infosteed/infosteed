@@ -37,6 +37,7 @@ export async function rewriteNarrationScript(
       statusCode: 503,
     });
   const prompt = [
+    "/no_think",
     "Rewrite caption cues into a polished spoken narration script.",
     `Style: ${input.style}. Keep each cue concise enough for its available time.`,
     "Preserve every cue id and cue count. Do not change timestamps. Do not add markdown.",
@@ -48,46 +49,64 @@ export async function rewriteNarrationScript(
         text: cue.text,
       })),
     ),
+    "/no_think",
   ].join("\n");
-  const controller = AbortSignal.timeout(config.AI_TIMEOUT_MS);
+  const controller = AbortSignal.timeout(config.AI_SCRIPT_TIMEOUT_MS);
   const base = config.AI_ENDPOINT.replace(/\/$/, "");
   const ollama = config.AI_PROVIDER === "ollama";
-  const response = await fetcher(
-    ollama ? `${base}/api/chat` : `${base}/chat/completions`,
-    {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        ...(config.AI_API_KEY
-          ? { authorization: `Bearer ${config.AI_API_KEY}` }
-          : {}),
+  const maxTokens = Math.min(8_192, Math.max(1_024, input.cues.length * 96));
+  let response: Response;
+  try {
+    response = await fetcher(
+      ollama ? `${base}/api/chat` : `${base}/chat/completions`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(config.AI_API_KEY
+            ? { authorization: `Bearer ${config.AI_API_KEY}` }
+            : {}),
+        },
+        body: JSON.stringify(
+          ollama
+            ? {
+                model: config.AI_MODEL,
+                stream: false,
+                format: "json",
+                think: false,
+                options: { temperature: 0.2, num_predict: maxTokens },
+                messages: [{ role: "user", content: prompt }],
+              }
+            : {
+                model: config.AI_MODEL,
+                temperature: 0.2,
+                max_tokens: maxTokens,
+                response_format: { type: "json_object" },
+                messages: [{ role: "user", content: prompt }],
+              },
+        ),
+        signal: controller,
       },
-      body: JSON.stringify(
-        ollama
-          ? {
-              model: config.AI_MODEL,
-              stream: false,
-              format: "json",
-              messages: [{ role: "user", content: prompt }],
-            }
-          : {
-              model: config.AI_MODEL,
-              temperature: 0.2,
-              response_format: { type: "json_object" },
-              messages: [{ role: "user", content: prompt }],
-            },
-      ),
-      signal: controller,
-    },
-  );
+    );
+  } catch (error) {
+    if (controller.aborted) {
+      throw Object.assign(
+        new Error(
+          `The local model did not finish rewriting the captions within ${Math.round(config.AI_SCRIPT_TIMEOUT_MS / 1_000)} seconds. Increase AI_SCRIPT_TIMEOUT_MS for slower hardware.`,
+        ),
+        { statusCode: 504 },
+      );
+    }
+    throw error;
+  }
   if (!response.ok)
     throw new Error(`Local script model returned HTTP ${response.status}`);
   const body = (await response.json()) as {
-    message?: { content?: string };
+    message?: { content?: string; thinking?: string };
     choices?: Array<{ message?: { content?: string } }>;
   };
   const content = ollama
-    ? body.message?.content
+    ? body.message?.content || body.message?.thinking
     : body.choices?.[0]?.message?.content;
   if (!content)
     throw new Error("The local model returned an empty narration script");

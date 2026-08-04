@@ -60,6 +60,7 @@ import {
 } from "./api";
 import "./styles.css";
 import { VideoEditor } from "./VideoEditor";
+import { RecordingGenerationStatus } from "./components/RecordingGenerationStatus";
 import { errorMessage } from "./errors";
 import { guideSourceLabel } from "./guide/source";
 import { AuthForm } from "./components/AuthForm";
@@ -481,7 +482,12 @@ export function App() {
     recording.captureMode !== "guide"
   ) {
     return (
-      <VideoEditor recording={recording} video={video} onPublished={setVideo} />
+      <VideoEditor
+        recording={recording}
+        video={video}
+        onPublished={setVideo}
+        onGenerationFinished={() => void load()}
+      />
     );
   }
 
@@ -611,6 +617,13 @@ export function App() {
           )}
         </div>
       </header>
+
+      {recording.captureMode !== "guide" && video && (
+        <RecordingGenerationStatus
+          captureMode={recording.captureMode}
+          status={video.transcriptionStatus}
+        />
+      )}
 
       {viewOnly && recording.captureMode !== "guide" && video && (
         <VideoGuidePlayer

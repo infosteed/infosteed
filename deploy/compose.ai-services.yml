@@ -1,0 +1,97 @@
+name: infosteed-ai
+
+services:
+  ollama:
+    profiles: ["ollama"]
+    image: ${OLLAMA_IMAGE:-ollama/ollama:0.32.3@sha256:ec24bcaa2a810eb74171ce7c517813ef4821ed678988845e8d76cf62467036d4}
+    restart: unless-stopped
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+    ports: ["${AI_BIND_ADDRESS:?Set AI_BIND_ADDRESS}:11434:11434"]
+    volumes: ["ollama-models:/root/.ollama"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            [
+              {
+                driver: nvidia,
+                device_ids: ["${LLM_GPU_DEVICE:-0}"],
+                capabilities: ["gpu"],
+              },
+            ]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+
+  ollama-model-init:
+    profiles: ["ollama"]
+    image: ${OLLAMA_IMAGE:-ollama/ollama:0.32.3@sha256:ec24bcaa2a810eb74171ce7c517813ef4821ed678988845e8d76cf62467036d4}
+    depends_on: { ollama: { condition: service_healthy } }
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c"]
+    command: ['OLLAMA_HOST=http://ollama:11434 ollama pull "$${OLLAMA_MODEL}"']
+    environment:
+      OLLAMA_MODEL: ${AI_MODEL:-qwen3-vl:8b}
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
+  transcription:
+    profiles: ["transcription"]
+    image: ${TRANSCRIPTION_IMAGE:-ghcr.io/infosteed/infosteed-transcription:${RELEASE_VERSION:?Set RELEASE_VERSION}}
+    restart: unless-stopped
+    ports: ["${AI_BIND_ADDRESS:?Set AI_BIND_ADDRESS}:8787:8787"]
+    environment:
+      WHISPER_MODEL: ${TRANSCRIPTION_MODEL:-large-v3-turbo}
+      WHISPER_API_TOKEN: ${TRANSCRIPTION_API_KEY:?Set TRANSCRIPTION_API_KEY}
+      WHISPER_MAX_UPLOAD_BYTES: ${TRANSCRIPTION_MAX_UPLOAD_BYTES:-25000000}
+      WHISPER_PRELOAD: "true"
+      HF_HUB_DISABLE_XET: ${HF_HUB_DISABLE_XET:-1}
+      HF_TOKEN: ${HF_TOKEN:-}
+      HF_HOME: /models
+      WHISPER_MODEL_CACHE: /models
+    volumes: ["transcription-models:/models"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            [
+              {
+                driver: nvidia,
+                device_ids: ["${TRANSCRIPTION_GPU_DEVICE:-0}"],
+                capabilities: ["gpu"],
+              },
+            ]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'python -c ''import urllib.request; urllib.request.urlopen("http://127.0.0.1:8787/health", timeout=4)''',
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 240
+      start_period: 30s
+
+  voiceover:
+    profiles: ["voiceover"]
+    image: ${KOKORO_IMAGE:-ghcr.io/remsky/kokoro-fastapi-cpu:v0.2.4@sha256:c8812546d358cbfd6a5c4087a28795b2b001d8e32d7a322eedd246e6bc13cb55}
+    restart: unless-stopped
+    ports: ["${AI_BIND_ADDRESS:?Set AI_BIND_ADDRESS}:8880:8880"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8880/health >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 40
+
+volumes:
+  ollama-models:
+  transcription-models:

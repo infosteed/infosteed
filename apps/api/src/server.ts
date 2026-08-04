@@ -31,6 +31,7 @@ app.log.info(
     aiProvider:
       config.AI_ENDPOINT && config.AI_MODEL ? config.AI_PROVIDER : "disabled",
     aiTimeoutMs: config.AI_TIMEOUT_MS,
+    aiScriptTimeoutMs: config.AI_SCRIPT_TIMEOUT_MS,
     transcriptionProvider: config.TRANSCRIPTION_ENDPOINT
       ? config.TRANSCRIPTION_PROVIDER
       : "disabled",

@@ -10,6 +10,7 @@ requested_source=""
 domain=""
 email=""
 extension_origin=""
+tls_mode=""
 allow_dirty=false
 
 usage() {
@@ -19,19 +20,21 @@ Usage: scripts/install-production.sh [options]
   --domain HOSTNAME
   --email ACME_EMAIL
   --extension-origin chrome-extension://ID
+  --tls public|internal
   --allow-dirty
 EOF
 }
 
 while (($#)); do
   case $1 in
-    --source | --domain | --email | --extension-origin)
+    --source | --domain | --email | --extension-origin | --tls)
       (($# >= 2)) || { usage; exit 2; }
       case $1 in
         --source) requested_source=$2 ;;
         --domain) domain=$2 ;;
         --email) email=$2 ;;
         --extension-origin) extension_origin=$2 ;;
+        --tls) tls_mode=$2 ;;
       esac
       shift 2
       ;;
@@ -55,6 +58,9 @@ if [[ -f $env_file ]]; then
   if [[ -n $requested_source && $requested_source != "${IMAGE_SOURCE:-ghcr}" ]]; then
     production_die "existing $env_file uses IMAGE_SOURCE=${IMAGE_SOURCE:-ghcr}; edit it explicitly to change deployment source"
   fi
+  if [[ -n $tls_mode && $tls_mode != "${TLS_MODE:-public}" ]]; then
+    production_die "existing $env_file uses TLS_MODE=${TLS_MODE:-public}; change it with the documented migration or edit it explicitly"
+  fi
   printf 'Using existing production configuration: %s\n' "$env_file"
   args=()
   [[ $allow_dirty == true ]] && args+=(--allow-dirty)
@@ -62,7 +68,9 @@ if [[ -f $env_file ]]; then
 fi
 
 image_source=${requested_source:-ghcr}
+tls_mode=${tls_mode:-public}
 [[ $image_source == ghcr || $image_source == build ]] || production_die "--source must be ghcr or build"
+[[ $tls_mode == public || $tls_mode == internal ]] || production_die "--tls must be public or internal"
 production_check_platform
 production_checkout_metadata
 production_assert_checkout "$image_source" "$production_version" "$production_commit" "$allow_dirty"
@@ -80,12 +88,16 @@ prompt_required() {
   [[ -n $current ]] || production_die "$variable_name cannot be empty"
 }
 
-prompt_required domain "Public hostname"
-prompt_required email "Email for HTTPS certificate notices"
+prompt_required domain "Application hostname"
+if [[ $tls_mode == public ]]; then
+  prompt_required email "Email for HTTPS certificate notices"
+fi
 prompt_required extension_origin "Official Chrome extension origin"
 
 [[ $domain =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ ]] || production_die "invalid hostname: $domain"
-[[ $email =~ ^[^[:space:]@]+@[^[:space:]@]+$ ]] || production_die "invalid email address: $email"
+if [[ $tls_mode == public ]]; then
+  [[ $email =~ ^[^[:space:]@]+@[^[:space:]@]+$ ]] || production_die "invalid email address: $email"
+fi
 [[ $extension_origin =~ ^chrome-extension://[a-p]{32}$ ]] ||
   production_die "extension origin must be chrome-extension:// followed by the 32-character Chrome extension ID"
 
@@ -102,12 +114,18 @@ IMAGE_SOURCE=$image_source
 RELEASE_VERSION=$production_version
 RELEASE_COMMIT=$production_commit
 LOCAL_IMAGE_TAG=sha-$production_short_commit
+DEPLOY_WAIT_TIMEOUT=300
 
 APP_DOMAIN=$domain
+TLS_MODE=$tls_mode
 ACME_EMAIL=$email
 APP_SOURCE_URL=https://github.com/infosteed/infosteed
 EXTENSION_ORIGINS=$extension_origin
 SETUP_TOKEN=$setup_token
+
+LLM_MODE=off
+TRANSCRIPTION_MODE=off
+VOICEOVER_MODE=off
 
 POSTGRES_USER=app
 POSTGRES_PASSWORD=$postgres_password
@@ -128,3 +146,4 @@ args=()
 ENV_FILE="$env_file" "$script_dir/deploy-production.sh" "${args[@]}"
 
 printf '\nFirst-admin setup token (also stored in %s):\n%s\n' "$env_file" "$setup_token"
+printf '\nConfigure optional AI services when ready:\n  scripts/configure-ai-services.sh\n'

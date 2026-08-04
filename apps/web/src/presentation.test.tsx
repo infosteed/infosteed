@@ -7,6 +7,7 @@ import { App } from "./App";
 import { errorMessage } from "./errors";
 import { guideSourceLabel } from "./guide/source";
 import { recordingUrl } from "./navigation";
+import { RecordingGenerationStatus } from "./components/RecordingGenerationStatus";
 import {
   getBranding,
   listProjects,
@@ -114,5 +115,21 @@ describe("web presentation", () => {
     );
     expect(errorMessage(new Error("Unavailable"))).toBe("Unavailable");
     expect(errorMessage("Unavailable")).toBe("Unavailable");
+  });
+
+  it("shows progress while the transcript and AI guide are generated", () => {
+    const { rerender } = render(
+      <RecordingGenerationStatus captureMode="both" status="processing" />,
+    );
+
+    expect(screen.getByRole("status").textContent).toContain(
+      "Generating your transcript and AI guide",
+    );
+    expect(
+      document.querySelector(".recording-generation-spinner"),
+    ).toBeTruthy();
+
+    rerender(<RecordingGenerationStatus captureMode="both" status="ready" />);
+    expect(screen.queryByRole("status")).toBeNull();
   });
 });

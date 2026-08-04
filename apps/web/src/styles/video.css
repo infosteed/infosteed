@@ -98,6 +98,44 @@
 .save-state.conflict {
   color: #b42318;
 }
+.recording-generation-status {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 28px;
+  border-bottom: 1px solid #b2ccff;
+  background: #eff4ff;
+  color: #1849a9;
+}
+.recording-generation-status strong,
+.recording-generation-status p {
+  margin: 0;
+}
+.recording-generation-status p {
+  margin-top: 2px;
+  color: #475467;
+  font-size: 13px;
+}
+.recording-generation-spinner {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  border: 3px solid #b2ccff;
+  border-top-color: #155eef;
+  border-radius: 50%;
+  animation: recording-generation-spin 0.8s linear infinite;
+}
+@keyframes recording-generation-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .recording-generation-spinner {
+    animation-duration: 1.8s;
+  }
+}
 .video-editor-shell > .capture-status {
   flex: 0 0 auto;
   margin: 8px 22px 0;
@@ -248,6 +286,17 @@
   flex: 0 0 auto;
   padding: 10px 14px;
   border-bottom: 1px solid #d0d5dd;
+}
+.video-editor-sidebar .video-panel-tabs button {
+  color: #667085;
+}
+.video-editor-sidebar .video-panel-tabs button:hover {
+  background: #f9fafb;
+  color: #344054;
+}
+.video-editor-sidebar .video-panel-tabs button.active {
+  border-bottom-color: #2e62e8;
+  color: #1849a9;
 }
 .video-edit-list {
   display: flex;

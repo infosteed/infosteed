@@ -59,31 +59,79 @@ jobs:
       - run: docker compose --env-file docker.env.example --profile transcription --profile voiceover config --quiet
       - run: >-
           CADDY_IMAGE=caddy:2.10.2@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          WEB_IMAGE=example/web:0.1.0-beta.1@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          API_IMAGE=example/api:0.1.0-beta.1@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          RENDER_IMAGE=example/render:0.1.0-beta.1@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          WEB_IMAGE=example/web:0.1.0-beta.2@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          API_IMAGE=example/api:0.1.0-beta.2@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          RENDER_IMAGE=example/render:0.1.0-beta.2@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           POSTGRES_IMAGE=postgres:16-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           MINIO_IMAGE=minio/minio:latest@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           MINIO_MC_IMAGE=minio/mc:latest@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          TRANSCRIPTION_IMAGE=example/transcription:0.1.0-beta.1@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          TRANSCRIPTION_IMAGE=example/transcription:0.1.0-beta.2@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           KOKORO_IMAGE=example/kokoro:v0.2.4@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          OLLAMA_IMAGE=example/ollama:0.32.3@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           APP_DOMAIN=guides.example.test ACME_EMAIL=admin@example.test
-          APP_SOURCE_URL=https://github.com/example/project RELEASE_VERSION=0.1.0-beta.1 RELEASE_COMMIT=abc
+          APP_SOURCE_URL=https://github.com/example/project RELEASE_VERSION=0.1.0-beta.2 RELEASE_COMMIT=abc
           EXTENSION_ORIGINS=chrome-extension://abcdefghijklmnop
           SETUP_TOKEN=01234567890123456789012345678901
           POSTGRES_PASSWORD=test-password MINIO_ROOT_USER=root MINIO_ROOT_PASSWORD=test-root-password
           S3_ACCESS_KEY_ID=app S3_SECRET_ACCESS_KEY=test-app-password
-          docker compose -f deploy/compose.production.yml --profile transcription-gpu --profile voiceover-cpu config --quiet
+          TRANSCRIPTION_API_KEY=test-token
+          docker compose -f deploy/compose.production.yml --profile llm-local --profile transcription-local --profile voiceover-local config --quiet
       - run: >-
           IMAGE_SOURCE=build LOCAL_IMAGE_TAG=sha-abc
           APP_DOMAIN=guides.example.test ACME_EMAIL=admin@example.test
-          APP_SOURCE_URL=https://github.com/infosteed/infosteed RELEASE_VERSION=0.1.0-beta.1 RELEASE_COMMIT=abc
+          APP_SOURCE_URL=https://github.com/infosteed/infosteed RELEASE_VERSION=0.1.0-beta.2 RELEASE_COMMIT=abc
           EXTENSION_ORIGINS=chrome-extension://abcdefghijklmnopabcdefghijklmnop
           SETUP_TOKEN=01234567890123456789012345678901
           POSTGRES_PASSWORD=test-password MINIO_ROOT_USER=root MINIO_ROOT_PASSWORD=test-root-password
           S3_ACCESS_KEY_ID=app S3_SECRET_ACCESS_KEY=test-app-password
           docker compose -f deploy/compose.production.yml -f deploy/compose.build.yml
           --profile transcription-gpu --profile voiceover-cpu config --quiet
+      - name: Validate standalone AI service Compose
+        run: >-
+          AI_BIND_ADDRESS=192.0.2.20 RELEASE_VERSION=0.1.0-beta.2 TRANSCRIPTION_API_KEY=test-token
+          docker compose -f deploy/compose.ai-services.yml
+          --profile ollama --profile transcription --profile voiceover config --quiet
+      - name: Validate Caddy configurations
+        run: |
+          docker run --rm -e APP_DOMAIN=guides.example.test -e ACME_EMAIL=admin@example.test \
+            -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            caddy:2.10.2@sha256:c3d7ee5d2b11f9dc54f947f68a734c84e9c9666c92c88a7f30b9cba5da182adb caddy validate --config /etc/caddy/Caddyfile
+          docker run --rm -e APP_DOMAIN=guides.example.test \
+            -v "$PWD/deploy/Caddyfile.internal:/etc/caddy/Caddyfile:ro" \
+            caddy:2.10.2@sha256:c3d7ee5d2b11f9dc54f947f68a734c84e9c9666c92c88a7f30b9cba5da182adb caddy validate --config /etc/caddy/Caddyfile
+      - name: Smoke test production data services
+        env:
+          APP_DOMAIN: guides.example.test
+          ACME_EMAIL: admin@example.test
+          APP_SOURCE_URL: https://github.com/infosteed/infosteed
+          RELEASE_VERSION: 0.1.0-beta.2
+          RELEASE_COMMIT: abc
+          EXTENSION_ORIGINS: chrome-extension://abcdefghijklmnopabcdefghijklmnop
+          SETUP_TOKEN: 01234567890123456789012345678901
+          POSTGRES_PASSWORD: test-database-password
+          MINIO_ROOT_USER: test-root
+          MINIO_ROOT_PASSWORD: test-root-password
+          S3_ACCESS_KEY_ID: test-app
+          S3_SECRET_ACCESS_KEY: test-app-password
+        run: |
+          docker compose -f deploy/compose.production.yml up -d --wait --wait-timeout 120 postgres minio minio-init
+          docker compose -f deploy/compose.production.yml run --rm minio-init
+          docker compose -f deploy/compose.production.yml exec -T postgres pg_isready -U app -d app
+      - if: always()
+        env:
+          APP_DOMAIN: guides.example.test
+          ACME_EMAIL: admin@example.test
+          APP_SOURCE_URL: https://github.com/infosteed/infosteed
+          RELEASE_VERSION: 0.1.0-beta.2
+          RELEASE_COMMIT: abc
+          EXTENSION_ORIGINS: chrome-extension://abcdefghijklmnopabcdefghijklmnop
+          SETUP_TOKEN: 01234567890123456789012345678901
+          POSTGRES_PASSWORD: test-database-password
+          MINIO_ROOT_USER: test-root
+          MINIO_ROOT_PASSWORD: test-root-password
+          S3_ACCESS_KEY_ID: test-app
+          S3_SECRET_ACCESS_KEY: test-app-password
+        run: docker compose -f deploy/compose.production.yml down -v
 
   containers:
     runs-on: ubuntu-24.04

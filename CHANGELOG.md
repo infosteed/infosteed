@@ -4,11 +4,14 @@ All notable changes are documented here. The project uses Semantic Versioning on
 
 ## [Unreleased]
 
+## [0.1.0-beta.2] - Unreleased
+
 ### Changed
 
-- Clarified the self-hosted deployment and upgrade documentation.
-- Standardized product language across the web app and browser extension.
-- Added optional local transcription and voiceover services while preserving local guide generation.
+- Fixed hardened PostgreSQL and MinIO initialization on clean production hosts.
+- Added public and private-CA HTTPS modes without requiring tracked-file edits.
+- Added independently managed, external, or disabled Ollama, Whisper, and Kokoro services.
+- Added transactional AI configuration, split-host installation, diagnostics, and beta.1 migration guidance.
 
 ## [0.1.0-beta.1] - Unreleased
 

@@ -1,58 +1,116 @@
 # Deploy InfoSteed
 
-## Local evaluation
+InfoSteed installs the core application first. LLM, transcription, and voiceover services are configured afterward and can each be managed by InfoSteed, supplied by another host, or disabled.
 
-Use `docker-compose.yml` to evaluate InfoSteed from a local checkout. It publishes the web application on `127.0.0.1:8080` and contains development credentials, so never use it on an internet-facing host.
+## Choose a topology
 
-## Production requirements
+| Layout            | Application host                                          | AI configuration                             |
+| ----------------- | --------------------------------------------------------- | -------------------------------------------- |
+| Core only         | App, PostgreSQL, MinIO, Caddy, renderer                   | All services `off`                           |
+| One host          | Core plus selected Ollama, Whisper, and Kokoro containers | Selected services `managed`                  |
+| Split hosts       | Core on one machine; selected AI containers on another    | App uses `external` endpoints                |
+| Existing services | Core plus operator-provided Ollama or compatible APIs     | Matching services `external`                 |
+| Cloud provider    | Core only                                                 | OpenAI-compatible endpoint and protected key |
 
-Production supports Linux amd64 with Docker Engine, Docker Compose v2, Git, OpenSSL, a public DNS record pointing at the host, and inbound TCP ports 80 and 443. Caddy obtains and renews HTTPS certificates. PostgreSQL, MinIO, the API, transcription, TTS, and render-worker ports remain internal.
+The addresses `192.168.0.156` and `192.168.0.183` below are examples, not defaults.
 
-Check out an official version tag before installation:
+## Requirements
+
+- Linux amd64, Docker Engine, Docker Compose v2, Git, and OpenSSL.
+- A clean checkout of the exact release tag.
+- A hostname resolving to the application host.
+- TCP 80 and 443 reachable by intended clients.
+- NVIDIA drivers and NVIDIA Container Toolkit only when a managed GPU service is selected.
+
+Do not run the development `docker-compose.yml` on an exposed host. It contains development credentials.
+
+## Install the core application
 
 ```bash
 git clone https://github.com/infosteed/infosteed.git
 cd infosteed
-git checkout v0.1.0-beta.1
+git checkout v0.1.0-beta.2
 ```
 
-### Install from GHCR
-
-The default path pulls versioned public images from GitHub Container Registry:
+For a publicly resolvable host, use public ACME certificates:
 
 ```bash
 ./scripts/install-production.sh \
+  --source ghcr \
+  --tls public \
   --domain guides.example.com \
   --email admin@example.com \
   --extension-origin chrome-extension://abcdefghijklmnopabcdefghijklmnop
 ```
 
-### Build locally
-
-To avoid any registry dependency, build the identical production services from the checked-out source:
+For private DNS or a LAN-only host, use Caddy's internal CA:
 
 ```bash
 ./scripts/install-production.sh \
-  --source build \
-  --domain guides.example.com \
-  --email admin@example.com \
+  --source ghcr \
+  --tls internal \
+  --domain mtl.infosteed.com \
   --extension-origin chrome-extension://abcdefghijklmnopabcdefghijklmnop
 ```
 
-The installer supports interactive prompts when these values are omitted. In a non-interactive shell all three flags are required. It creates `deploy/production.env` with mode `0600`, generates independent secrets, validates the release checkout and Compose configuration, prepares images, starts the stack, and waits for health checks. Re-running it uses the existing configuration without replacing secrets.
+To avoid a registry dependency, replace `--source ghcr` with `--source build`. A source build requires a clean checkout unless `--allow-dirty` is explicitly accepted.
 
-Open the HTTPS domain and create the first administrator with the setup token printed by the installer. Rotate `SETUP_TOKEN` in `deploy/production.env` after setup.
+The installer creates `deploy/production.env` with mode `0600`, generates independent database, object-storage, and setup secrets, validates Compose, starts the stack, and waits for health. It never overwrites an existing environment file. Save the printed setup token, open the HTTPS URL, create the first administrator, and then rotate `SETUP_TOKEN` in the environment file.
 
-Set `IMAGE_SOURCE=ghcr` or `IMAGE_SOURCE=build` to persist the deployment path. Full `WEB_IMAGE`, `API_IMAGE`, `RENDER_IMAGE`, and `TRANSCRIPTION_IMAGE` overrides remain available for mirrors or digest-pinned deployments. Optional profiles are enabled with `COMPOSE_PROFILES=transcription-gpu`, `COMPOSE_PROFILES=voiceover-cpu`, or a comma-separated combination.
+For internal TLS, the installer exports the public root certificate to `deploy/infosteed-local-ca.crt`. Trust it on each client using [Internal HTTPS](internal-https.md).
 
-For a small team, start with 4 CPU cores, 8 GB RAM, 40 GB of application and database storage, and temporary render space at least three times the size of the largest recording. A local source build needs additional temporary disk and memory. Allow another 4 cores and 4 GB RAM for the optional CPU voiceover profile. GPU transcription requirements depend on the selected model and NVIDIA runtime.
+## Configure AI services
 
-The readiness check covers PostgreSQL and configured object storage. Optional AI, transcription, TTS, and rendering report status separately; guide generation, recording playback, and the standard editor remain usable if an optional provider is unavailable.
+Run the interactive wizard after the core is healthy:
 
-## GHCR package visibility and cost control
+```bash
+./scripts/configure-ai-services.sh
+```
 
-The first tagged release creates `infosteed-api`, `infosteed-web`, `infosteed-video-render-worker`, and `infosteed-transcription` packages under the `infosteed` organization. An organization owner must open each package's settings once, connect it to this repository if necessary, set visibility to **Public**, and enable inherited repository permissions. Public images can then be pulled anonymously.
+For each service, choose:
 
-GitHub currently documents public packages and standard Actions runners for public repositories as free. To prevent accidental paid usage if policy or configuration changes, set Actions and Packages budgets to `$0` in the organization billing settings, do not enable larger runners, and retain the source-build installation path. See [GitHub Packages billing](https://docs.github.com/en/billing/concepts/product-billing/github-packages) and [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions).
+- `managed`: start the service inside the application Compose project.
+- `external`: use a URL on this host, another host, or the internet.
+- `off`: disable the integration.
 
-Before an upgrade, follow [Back up, restore, and upgrade](backup-and-upgrade.md). For service and storage details, see the [architecture summary](architecture.md).
+Managed defaults are Ollama with `qwen3-vl:8b`, GPU Whisper with `large-v3-turbo`, and CPU Kokoro. A non-interactive single-host configuration is:
+
+```bash
+./scripts/configure-ai-services.sh \
+  --llm managed --llm-model qwen3-vl:8b --llm-gpu 0 \
+  --transcription managed --transcription-model large-v3-turbo --transcription-gpu 0 \
+  --voiceover managed
+```
+
+Managed Ollama and Whisper require the NVIDIA container runtime. A GPU UUID is safer than an index when hardware order may change:
+
+```bash
+nvidia-smi --query-gpu=index,uuid,name,memory.total --format=csv
+```
+
+The services may share a GPU, but simultaneous requests can exhaust VRAM. Select separate indices or UUIDs when available.
+
+For existing or split-host services, follow [AI services](ai-services.md). Credentials must be entered at the silent prompt, read from a mode-`0600` file, or imported from the protected connection file. They are not accepted directly as command arguments.
+
+## Operate the stack
+
+All production operations use the source and profiles recorded in `production.env`:
+
+```bash
+./scripts/doctor-production.sh
+./scripts/doctor-production.sh --deep
+./scripts/backup.sh /srv/backups/infosteed
+./scripts/upgrade-production.sh
+```
+
+The normal doctor checks configuration, DNS, HTTPS, containers, and provider reachability. `--deep` performs small billable or compute-consuming LLM, transcription, and voiceover requests.
+
+Do not delete versioned images or named volumes during routine upgrades. See [Back up, restore, and upgrade](backup-and-upgrade.md) and [Deployment troubleshooting](deployment-troubleshooting.md).
+
+## Capacity guidance
+
+Start the core application with 4 CPU cores, 8 GB RAM, 40 GB persistent storage, and render scratch space at least three times the largest recording. Allow additional disk for local builds and model caches. CPU Kokoro benefits from another 4 CPU cores and 4 GB RAM. Ollama and Whisper requirements depend on model and quantization.
+
+## GHCR visibility and zero-cost controls
+
+The organization owner must make the four InfoSteed GHCR packages public and enable inherited repository permissions. Public images can then be pulled anonymously. Set GitHub Actions and Packages spending budgets to `$0`, do not enable larger runners, and retain the local source-build path if GitHub policy changes.

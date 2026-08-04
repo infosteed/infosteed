@@ -9,13 +9,13 @@ services:
       web: { condition: service_healthy }
     environment:
       APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN}
-      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL}
+      ACME_EMAIL: ${ACME_EMAIL:-}
     ports:
       - "80:80"
       - "443:443"
       - "443:443/udp"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${CADDY_CONFIG_FILE:-./Caddyfile}:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
     security_opt: ["no-new-privileges:true"]
@@ -25,6 +25,8 @@ services:
   web:
     image: ${WEB_IMAGE:-ghcr.io/infosteed/infosteed-web:${RELEASE_VERSION:?Set RELEASE_VERSION}}
     restart: unless-stopped
+    depends_on:
+      api: { condition: service_healthy }
     read_only: true
     tmpfs:
       - /tmp:size=16m,mode=1777
@@ -55,7 +57,7 @@ services:
       RELEASE_VERSION: ${RELEASE_VERSION:?Set RELEASE_VERSION}
       RELEASE_COMMIT: ${RELEASE_COMMIT:?Set RELEASE_COMMIT}
       APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN}
-      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL}
+      ACME_EMAIL: ${ACME_EMAIL:-}
       SETUP_TOKEN: ${SETUP_TOKEN:?Set a random token of at least 32 bytes}
       TRUST_PROXY_HOPS: 1
       COOKIE_SECURE: "true"
@@ -64,21 +66,40 @@ services:
       AI_ENDPOINT: ${AI_ENDPOINT:-}
       AI_API_KEY: ${AI_API_KEY:-}
       AI_MODEL: ${AI_MODEL:-}
+      AI_TIMEOUT_MS: ${AI_TIMEOUT_MS:-30000}
+      AI_SCRIPT_TIMEOUT_MS: ${AI_SCRIPT_TIMEOUT_MS:-300000}
+      TRANSCRIPTION_PROVIDER: ${TRANSCRIPTION_PROVIDER:-openai-compatible}
       TRANSCRIPTION_ENDPOINT: ${TRANSCRIPTION_ENDPOINT:-}
       TRANSCRIPTION_API_KEY: ${TRANSCRIPTION_API_KEY:-}
       TRANSCRIPTION_MODEL: ${TRANSCRIPTION_MODEL:-large-v3-turbo}
+      TRANSCRIPTION_TIMEOUT_MS: ${TRANSCRIPTION_TIMEOUT_MS:-5400000}
+      TRANSCRIPTION_MAX_UPLOAD_BYTES: ${TRANSCRIPTION_MAX_UPLOAD_BYTES:-25000000}
       TTS_BASE_URL: ${TTS_BASE_URL:-}
       TTS_API_KEY: ${TTS_API_KEY:-}
       TTS_MODEL: ${TTS_MODEL:-kokoro}
       TTS_DEFAULT_VOICE: ${TTS_DEFAULT_VOICE:-af_heart}
       TTS_VOICES: ${TTS_VOICES:-af_heart,af_bella,af_nicole,am_adam,am_michael,bf_emma,bm_george}
+      TTS_TIMEOUT_MS: ${TTS_TIMEOUT_MS:-120000}
+      TTS_MAX_RESPONSE_BYTES: ${TTS_MAX_RESPONSE_BYTES:-25000000}
+      TTS_FFMPEG_PATH: ${TTS_FFMPEG_PATH:-ffmpeg}
+      TTS_FFPROBE_PATH: ${TTS_FFPROBE_PATH:-ffprobe}
+      TTS_TEMP_DIR: ${TTS_TEMP_DIR:-}
       VIDEO_RENDER_ENABLED: "true"
+      VIDEO_RENDER_CONCURRENCY: ${VIDEO_RENDER_CONCURRENCY:-1}
+      VIDEO_RENDER_FFMPEG_PATH: ${VIDEO_RENDER_FFMPEG_PATH:-ffmpeg}
+      VIDEO_RENDER_FFPROBE_PATH: ${VIDEO_RENDER_FFPROBE_PATH:-ffprobe}
+      VIDEO_RENDER_TEMP_DIR: ${VIDEO_RENDER_TEMP_DIR:-}
+      VIDEO_RENDER_TIMEOUT_MS: ${VIDEO_RENDER_TIMEOUT_MS:-14400000}
+      VIDEO_RENDER_STALE_MS: ${VIDEO_RENDER_STALE_MS:-300000}
+      VIDEO_RENDER_RETENTION_DAYS: ${VIDEO_RENDER_RETENTION_DAYS:-7}
       S3_ENDPOINT: http://minio:9000
       S3_REGION: ${S3_REGION:-us-east-1}
       S3_BUCKET: ${S3_BUCKET:-app-media}
       S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?Set a non-root MinIO application user}
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?Set the MinIO application secret}
       S3_FORCE_PATH_STYLE: "true"
+    extra_hosts:
+      - host.docker.internal:host-gateway
     read_only: true
     tmpfs: ["/tmp:size=2g,mode=1777"]
     security_opt: ["no-new-privileges:true"]
@@ -107,6 +128,8 @@ services:
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?Set S3_SECRET_ACCESS_KEY}
       S3_FORCE_PATH_STYLE: "true"
       VIDEO_RENDER_CONCURRENCY: ${VIDEO_RENDER_CONCURRENCY:-1}
+      VIDEO_RENDER_TIMEOUT_MS: ${VIDEO_RENDER_TIMEOUT_MS:-14400000}
+      VIDEO_RENDER_STALE_MS: ${VIDEO_RENDER_STALE_MS:-300000}
     read_only: true
     tmpfs: ["/tmp:size=4g,mode=1777"]
     security_opt: ["no-new-privileges:true"]
@@ -115,6 +138,7 @@ services:
   postgres:
     image: ${POSTGRES_IMAGE:-postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777}
     restart: unless-stopped
+    user: postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-app}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
@@ -150,6 +174,7 @@ services:
         'until mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"; do sleep 1; done; mc mb --ignore-existing local/"$${S3_BUCKET}"; mc admin user add local "$${S3_ACCESS_KEY_ID}" "$${S3_SECRET_ACCESS_KEY}" || true; mc admin policy attach local readwrite --user "$${S3_ACCESS_KEY_ID}"',
       ]
     environment:
+      MC_CONFIG_DIR: /tmp/.mc
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD}
       S3_BUCKET: ${S3_BUCKET:-app-media}
@@ -158,29 +183,94 @@ services:
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
 
+  ollama-local:
+    profiles: ["llm-local"]
+    image: ${OLLAMA_IMAGE:-ollama/ollama:0.32.3@sha256:ec24bcaa2a810eb74171ce7c517813ef4821ed678988845e8d76cf62467036d4}
+    restart: unless-stopped
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+    volumes: ["ollama-models:/root/.ollama"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            [
+              {
+                driver: nvidia,
+                device_ids: ["${LLM_GPU_DEVICE:-0}"],
+                capabilities: ["gpu"],
+              },
+            ]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+
+  ollama-model-init:
+    profiles: ["llm-local"]
+    image: ${OLLAMA_IMAGE:-ollama/ollama:0.32.3@sha256:ec24bcaa2a810eb74171ce7c517813ef4821ed678988845e8d76cf62467036d4}
+    depends_on: { ollama-local: { condition: service_healthy } }
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      ['OLLAMA_HOST=http://ollama-local:11434 ollama pull "$${OLLAMA_MODEL}"']
+    environment:
+      OLLAMA_MODEL: ${AI_MODEL:-qwen3-vl:8b}
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
   transcription-gpu:
-    profiles: ["transcription-gpu"]
+    profiles: ["transcription-local", "transcription-gpu"]
     image: ${TRANSCRIPTION_IMAGE:-ghcr.io/infosteed/infosteed-transcription:${RELEASE_VERSION:?Set RELEASE_VERSION}}
     restart: unless-stopped
     environment:
       WHISPER_MODEL: ${TRANSCRIPTION_MODEL:-large-v3-turbo}
       WHISPER_API_TOKEN: ${TRANSCRIPTION_API_KEY:-}
+      WHISPER_MAX_UPLOAD_BYTES: ${TRANSCRIPTION_MAX_UPLOAD_BYTES:-25000000}
       WHISPER_PRELOAD: "true"
+      HF_HUB_DISABLE_XET: ${HF_HUB_DISABLE_XET:-1}
+      HF_TOKEN: ${HF_TOKEN:-}
       HF_HOME: /models
+      WHISPER_MODEL_CACHE: /models
     volumes: ["transcription-models:/models"]
     deploy:
       resources:
         reservations:
-          devices: [{ driver: nvidia, count: 1, capabilities: ["gpu"] }]
+          devices:
+            [
+              {
+                driver: nvidia,
+                device_ids: ["${TRANSCRIPTION_GPU_DEVICE:-0}"],
+                capabilities: ["gpu"],
+              },
+            ]
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'python -c ''import urllib.request; urllib.request.urlopen("http://127.0.0.1:8787/health", timeout=4)''',
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 240
+      start_period: 30s
 
   voiceover-cpu:
-    profiles: ["voiceover-cpu"]
+    profiles: ["voiceover-local", "voiceover-cpu"]
     image: ${KOKORO_IMAGE:-ghcr.io/remsky/kokoro-fastapi-cpu:v0.2.4@sha256:c8812546d358cbfd6a5c4087a28795b2b001d8e32d7a322eedd246e6bc13cb55}
     restart: unless-stopped
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8880/health >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 40
 
 volumes:
   caddy-data:
@@ -188,3 +278,4 @@ volumes:
   postgres-data:
   minio-data:
   transcription-models:
+  ollama-models:

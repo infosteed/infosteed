@@ -6,6 +6,12 @@ dist/
 !.env.example
 deploy/production.env
 deploy/.production.env.*
+deploy/production.env.backup.*
+deploy/ai-services.env
+deploy/ai-services.connection.env
+deploy/.ai-services.env.*
+deploy/.ai-services.connection.*
+deploy/infosteed-local-ca.crt
 /backups/
 playwright-report/
 test-results/

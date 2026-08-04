@@ -17,6 +17,12 @@ describe("video storage configuration", () => {
     expect(readConfig({}).TRANSCRIPTION_ENDPOINT).toBeUndefined();
   });
 
+  it("allows longer local-model caption rewrites by default", () => {
+    const config = readConfig({});
+    expect(config.AI_TIMEOUT_MS).toBe(30_000);
+    expect(config.AI_SCRIPT_TIMEOUT_MS).toBe(300_000);
+  });
+
   it("accepts an external S3 bucket without static credentials for workload identity", () => {
     const config = readConfig({
       S3_BUCKET: "videos",

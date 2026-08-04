@@ -23,7 +23,8 @@ done
 production_check_platform
 production_load_compose
 
-required=(RELEASE_VERSION RELEASE_COMMIT APP_DOMAIN ACME_EMAIL EXTENSION_ORIGINS SETUP_TOKEN POSTGRES_PASSWORD MINIO_ROOT_USER MINIO_ROOT_PASSWORD S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY)
+required=(RELEASE_VERSION RELEASE_COMMIT APP_DOMAIN EXTENSION_ORIGINS SETUP_TOKEN POSTGRES_PASSWORD MINIO_ROOT_USER MINIO_ROOT_PASSWORD S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY)
+[[ $TLS_MODE == public ]] && required+=(ACME_EMAIL)
 [[ $IMAGE_SOURCE == build ]] && required+=(LOCAL_IMAGE_TAG)
 for name in "${required[@]}"; do
   [[ -n ${!name:-} ]] || production_die "$name is required in $production_env_file"
@@ -38,5 +39,13 @@ if [[ $prepare_only == true ]]; then
   exit 0
 fi
 
-production_start
+if ! production_start; then
+  printf 'Production services did not become healthy. Container state:\n' >&2
+  "${production_compose[@]}" ps -a >&2 || true
+  printf 'Run the full safe diagnostic:\n  scripts/doctor-production.sh\n' >&2
+  printf 'Inspect one service without exposing the environment file:\n  docker compose --env-file deploy/production.env -f deploy/compose.production.yml logs --tail=200 SERVICE\n' >&2
+  "$script_dir/doctor-production.sh" || true
+  exit 1
+fi
+production_export_internal_ca
 printf 'InfoSteed %s is healthy at https://%s\n' "$RELEASE_VERSION" "$APP_DOMAIN"

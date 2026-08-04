@@ -9,8 +9,8 @@ From a clean checkout, run the formatting, SPDX, licence-notice, type, unit, Pyt
 The root package version must exactly match the tag without its `v` prefix:
 
 ```bash
-git tag -s v0.1.0-beta.1
-git push origin v0.1.0-beta.1
+git tag -s v0.1.0-beta.2
+git push origin v0.1.0-beta.2
 ```
 
 The tag workflow verifies the version, publishes Linux amd64 API, web, render-worker, and transcription images to GHCR, attaches SBOM and provenance metadata, and creates a draft GitHub Release containing extension packages, checksums, deployment files, and image references. Release tags and `sha-<commit>` tags are never overwritten; there is no floating `latest` or `edge` tag.

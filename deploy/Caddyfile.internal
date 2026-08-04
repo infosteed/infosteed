@@ -1,9 +1,9 @@
 {
-	email {$ACME_EMAIL}
 	admin off
 }
 
 {$APP_DOMAIN} {
+	tls internal
 	encode zstd gzip
 
 	header {

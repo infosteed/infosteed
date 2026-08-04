@@ -21,9 +21,17 @@ while (($#)); do
 done
 
 production_check_platform
+legacy_internal_tls=false
+if [[ -z ${TLS_MODE:-} && -f $production_root/deploy/Caddyfile ]] && grep -Eq '^[[:space:]]*tls internal[[:space:]]*$' "$production_root/deploy/Caddyfile"; then
+  legacy_internal_tls=true
+fi
 production_load_compose
 current_env=$production_env_file
 current_version=$RELEASE_VERSION
+legacy_hotfix=""
+if grep -qx 'COMPOSE_FILE=deploy/compose.production.yml:deploy/compose.hotfix.yml' "$current_env"; then
+  legacy_hotfix=$production_root/deploy/compose.hotfix.yml
+fi
 
 if grep -Eq '^(WEB_IMAGE|API_IMAGE|RENDER_IMAGE|TRANSCRIPTION_IMAGE)=' "$current_env"; then
   production_die "explicit first-party image overrides must be updated or removed before an automated upgrade"
@@ -46,15 +54,28 @@ cleanup() {
 }
 trap cleanup EXIT
 
-awk -v version="$new_version" -v commit="$new_commit" -v image_tag="sha-$new_short_commit" '
+candidate_tls=$TLS_MODE
+[[ $legacy_internal_tls == false ]] || candidate_tls=internal
+awk -v version="$new_version" -v commit="$new_commit" -v image_tag="sha-$new_short_commit" \
+  -v tls_mode="$candidate_tls" -v llm_mode="$LLM_MODE" -v transcription_mode="$TRANSCRIPTION_MODE" \
+  -v voiceover_mode="$VOICEOVER_MODE" '
   /^RELEASE_VERSION=/ { print "RELEASE_VERSION=" version; found_version=1; next }
   /^RELEASE_COMMIT=/ { print "RELEASE_COMMIT=" commit; found_commit=1; next }
   /^LOCAL_IMAGE_TAG=/ { print "LOCAL_IMAGE_TAG=" image_tag; found_image_tag=1; next }
+  /^TLS_MODE=/ { print "TLS_MODE=" tls_mode; found_tls=1; next }
+  /^LLM_MODE=/ { print "LLM_MODE=" llm_mode; found_llm=1; next }
+  /^TRANSCRIPTION_MODE=/ { print "TRANSCRIPTION_MODE=" transcription_mode; found_transcription=1; next }
+  /^VOICEOVER_MODE=/ { print "VOICEOVER_MODE=" voiceover_mode; found_voiceover=1; next }
+  /^COMPOSE_FILE=deploy\/compose.production.yml:deploy\/compose.hotfix.yml$/ { next }
   { print }
   END {
     if (!found_version) print "RELEASE_VERSION=" version
     if (!found_commit) print "RELEASE_COMMIT=" commit
     if (!found_image_tag) print "LOCAL_IMAGE_TAG=" image_tag
+    if (!found_tls) print "TLS_MODE=" tls_mode
+    if (!found_llm) print "LLM_MODE=" llm_mode
+    if (!found_transcription) print "TRANSCRIPTION_MODE=" transcription_mode
+    if (!found_voiceover) print "VOICEOVER_MODE=" voiceover_mode
   }
 ' "$current_env" >"$candidate_env"
 chmod 600 "$candidate_env"
@@ -86,5 +107,12 @@ if ! ENV_FILE="$current_env" "$script_dir/deploy-production.sh" "${deploy_args[@
 fi
 
 rm -f "$old_env"
+if [[ -n $legacy_hotfix && -f $legacy_hotfix ]]; then
+  retired_hotfix="$legacy_hotfix.retired.$(date -u +%Y%m%dT%H%M%SZ)"
+  mv "$legacy_hotfix" "$retired_hotfix"
+  printf 'Retired the beta.1 Compose hotfix to: %s\n' "$retired_hotfix"
+fi
 printf 'Upgrade complete: %s -> %s\n' "$current_version" "$new_version"
-[[ -n $backup_dir ]] && printf 'Pre-upgrade backup: %s\n' "$backup_dir"
+if [[ -n $backup_dir ]]; then
+  printf 'Pre-upgrade backup: %s\n' "$backup_dir"
+fi

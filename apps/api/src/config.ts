@@ -42,6 +42,7 @@ const configSchema = z
     AI_API_KEY: optionalEnv,
     AI_MODEL: optionalEnv,
     AI_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
+    AI_SCRIPT_TIMEOUT_MS: z.coerce.number().int().positive().default(300_000),
     TRANSCRIPTION_PROVIDER: z
       .enum(["openai-compatible"])
       .default("openai-compatible"),
@@ -106,7 +107,7 @@ const configSchema = z
     WEB_ORIGIN: z.string().default("http://localhost:5173"),
     EXTENSION_ORIGINS: commaSeparatedOrigins,
     APP_SOURCE_URL: optionalUrlEnv,
-    RELEASE_VERSION: z.string().trim().min(1).default("0.1.0-beta.1"),
+    RELEASE_VERSION: z.string().trim().min(1).default("0.1.0-beta.2"),
     RELEASE_COMMIT: z.string().trim().min(1).default("development"),
     APP_DOMAIN: optionalEnv,
     ACME_EMAIL: z.preprocess(

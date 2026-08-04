@@ -105,7 +105,7 @@ jobs:
           file: /tmp/${{ matrix.name }}.tar
           format: cyclonedx-json
           output-file: /tmp/${{ matrix.name }}.cdx.json
-      - uses: aquasecurity/trivy-action@0.33.1
+      - uses: aquasecurity/trivy-action@v0.36.0
         with:
           input: /tmp/${{ matrix.name }}.tar
           format: sarif

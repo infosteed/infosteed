@@ -341,6 +341,13 @@
 .render-status progress {
   width: 100%;
 }
+.mp4-export-status {
+  display: grid;
+  gap: 7px;
+}
+.mp4-export-status progress {
+  width: 100%;
+}
 .video-editor-live-note {
   flex: 0 0 auto;
   padding: 7px 22px;

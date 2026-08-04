@@ -158,6 +158,12 @@ export const videoRenderStatusSchema = z.enum([
   "canceled",
   "expired",
 ]);
+export const videoMp4ExportStatusSchema = z.enum([
+  "queued",
+  "processing",
+  "ready",
+  "failed",
+]);
 export const voiceoverGenerationStatusSchema = z.enum([
   "queued",
   "processing",
@@ -516,6 +522,17 @@ export const videoRenderSchema = z.object({
   byteSize: z.number().int().nonnegative(),
   errorMessage: z.string().nullable(),
   stale: z.boolean(),
+  createdAt: z.string(),
+  completedAt: z.string().nullable(),
+});
+
+export const videoMp4ExportSchema = z.object({
+  id: z.string().uuid(),
+  renderId: z.string().uuid(),
+  status: videoMp4ExportStatusSchema,
+  progress: z.number().min(0).max(1),
+  byteSize: z.number().int().nonnegative(),
+  errorMessage: z.string().nullable(),
   createdAt: z.string(),
   completedAt: z.string().nullable(),
 });
@@ -1010,6 +1027,8 @@ export type VideoEditVersion = z.infer<typeof videoEditVersionSchema>;
 export type VideoRender = z.infer<typeof videoRenderSchema>;
 export type VideoRenderStatus = z.infer<typeof videoRenderStatusSchema>;
 export type VideoEditorState = z.infer<typeof videoEditorStateSchema>;
+export type VideoMp4Export = z.infer<typeof videoMp4ExportSchema>;
+export type VideoMp4ExportStatus = z.infer<typeof videoMp4ExportStatusSchema>;
 export type VoiceoverCueInput = z.infer<typeof voiceoverCueInputSchema>;
 export type CreateVoiceoverRequest = z.infer<
   typeof createVoiceoverRequestSchema

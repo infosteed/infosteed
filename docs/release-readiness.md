@@ -1,10 +1,12 @@
-# Release readiness
+# Official release status
 
-InfoSteed is preparing its first supported self-hosted beta for Linux amd64. The source tree includes the application, production Compose configuration, extension packaging, backup tools, CI checks, and release-evidence workflow.
+InfoSteed has not yet published its first supported self-hosted beta. The current target is Linux amd64. You can use the repository for development and private evaluation, but do not treat an untagged checkout as a supported release.
 
-## Publication requirements
+The repository already includes the application, production Compose configuration, extension packaging, backup tools, automated checks, and release-evidence workflow.
 
-Publication remains closed until maintainers record:
+## What remains before the first public beta
+
+The project owner still needs to confirm and publish the following project details:
 
 - legal clearance for the product name and slug;
 - the copyright holder and, if commercial terms are offered, the contracting entity and approved licence;
@@ -12,16 +14,16 @@ Publication remains closed until maintainers record:
 - the stable extension ID and public manifest key;
 - approved contributor, security, and moderation contacts.
 
-These are release controls, not runtime configuration. Development and private evaluation do not depend on them.
+These are publication controls, not settings that you need to run InfoSteed. They do not block local development or private evaluation.
 
-## Candidate exercises
+## Evidence provided with an official candidate
 
-Before publishing a candidate, maintainers must:
+An official candidate will not be published until the release owner has:
 
-- exercise guide, video, and combined capture with the signed extension, including permission loss, child-tab handoff, recovery, and server changes;
-- test transcription, voiceover, and rendering through success, failure, retry, restart, and cache reuse;
-- restore a realistic backup after rebuilding the deployment and compare database records and stored objects;
-- scan and sign the final images and verify their SBOMs and provenance;
-- complete a one-week private installation soak before opening the public beta.
+- exercised guide, video, and combined capture with the signed extension, including permission loss, child-tab handoff, recovery, and server changes;
+- tested transcription, voiceover, and rendering through success, failure, retry, restart, and cache reuse;
+- restored a realistic backup after rebuilding the deployment and compared database records with stored objects;
+- scanned and signed the final images and verified their SBOMs and provenance;
+- completed a one-week private installation soak.
 
-Evidence must identify the candidate commit and immutable image digests. Upgrade testing from a previous beta begins once a previous beta exists.
+The resulting evidence will identify the candidate commit and immutable image digests. Upgrade testing from a previous beta will begin when there is a previous beta to test.

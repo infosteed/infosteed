@@ -8,4 +8,4 @@ When contributions open, the published CLA will explain the rights needed to dis
 
 For now, use issues for reproducible bug reports and design discussion. Do not include private recordings, credentials, access tokens, customer data, or third-party confidential information.
 
-Maintainers require a clean checkout to pass the checks in `docs/release-process.md`. Releases are performed by the repository owner.
+When contributions open, run the checks described in [`docs/release-process.md`](docs/release-process.md) from a clean checkout before submitting a pull request. Only the repository owner publishes official releases.

@@ -165,6 +165,11 @@ import {
   saveVideoEditDraft,
   videoRenderWorkerAvailable,
 } from "./repositories/videoEditing.js";
+import {
+  getVideoMp4Export,
+  listExportStorageForVideo,
+  queueVideoMp4Export,
+} from "./repositories/videoExports.js";
 import { createTtsProvider } from "./ttsProvider.js";
 import { VoiceoverWorker } from "./voiceoverWorker.js";
 import { rewriteNarrationScript } from "./narrationScript.js";
@@ -1462,6 +1467,83 @@ export function buildApp(
   );
 
   app.post<{ Params: { id: string; renderId: string } }>(
+    "/recordings/:id/video/renders/:renderId/mp4-export",
+    async (request, reply) => {
+      await requireRecordingWrite(request, request.params.id);
+      if (!config.VIDEO_RENDER_ENABLED || !videoStorage.enabled)
+        throw httpError(503, "MP4 export is not configured");
+      const exported = await queueVideoMp4Export(
+        pool,
+        request.params.id,
+        request.params.renderId,
+      );
+      if (!exported)
+        throw httpError(409, "A ready video render is required for MP4 export");
+      await audit(
+        request,
+        exported.status === "ready"
+          ? "video_mp4_export_reused"
+          : "video_mp4_export_queued",
+        "recording",
+        request.params.id,
+        { renderId: request.params.renderId, exportId: exported.id },
+      );
+      return reply.code(exported.status === "ready" ? 200 : 202).send(exported);
+    },
+  );
+
+  app.get<{ Params: { id: string; renderId: string } }>(
+    "/recordings/:id/video/renders/:renderId/mp4-export",
+    async (request) => {
+      await requireRecordingWrite(request, request.params.id);
+      const exported = await getVideoMp4Export(
+        pool,
+        request.params.id,
+        request.params.renderId,
+      );
+      if (!exported) throw httpError(404, "MP4 export not found");
+      const { storageKey: _storageKey, ...publicExport } = exported;
+      return publicExport;
+    },
+  );
+
+  app.get<{ Params: { id: string; renderId: string } }>(
+    "/recordings/:id/video/renders/:renderId/mp4-export/content",
+    async (request, reply) => {
+      await requireRecordingWrite(request, request.params.id);
+      const exported = await getVideoMp4Export(
+        pool,
+        request.params.id,
+        request.params.renderId,
+      );
+      if (!exported || exported.status !== "ready" || !exported.storageKey)
+        throw httpError(404, "Completed MP4 export not found");
+      const recording = await getRecording(pool, request.params.id);
+      if (!recording) throw httpError(404, "Recording not found");
+      const filename =
+        recording.title.replace(/[^a-z0-9-_]+/gi, "-").slice(0, 120) || "video";
+      const rangeHeader = request.headers.range;
+      const object = await videoStorage.getObject(
+        exported.storageKey,
+        rangeHeader,
+      );
+      reply.header("content-type", "video/mp4");
+      reply.header(
+        "content-disposition",
+        `attachment; filename="${filename}.mp4"`,
+      );
+      reply.header("accept-ranges", "bytes");
+      if (object.contentLength !== undefined)
+        reply.header("content-length", object.contentLength);
+      if (object.contentRange)
+        reply.header("content-range", object.contentRange);
+      if (object.etag) reply.header("etag", object.etag);
+      if (rangeHeader && object.contentRange) reply.code(206);
+      return reply.send(object.body);
+    },
+  );
+
+  app.post<{ Params: { id: string; renderId: string } }>(
     "/recordings/:id/video/renders/:renderId/publish",
     async (request) => {
       await requireRecordingWrite(request, request.params.id);
@@ -1533,6 +1615,7 @@ export function buildApp(
       if (!recording || !rows) throw httpError(404, "Video not found");
       transcriptionWorker.cancel(request.params.id);
       const derived = await listRenderStorageForVideo(pool, request.params.id);
+      const exports = await listExportStorageForVideo(pool, request.params.id);
       const deletionResults = await Promise.allSettled([
         ...rows.assets.map((asset) =>
           asset.multipart_upload_id
@@ -1543,6 +1626,7 @@ export function buildApp(
             : videoStorage.deleteObject(asset.storage_key),
         ),
         ...derived.map((asset) => videoStorage.deleteObject(asset.storageKey)),
+        ...exports.map((asset) => videoStorage.deleteObject(asset.storageKey)),
       ]);
       if (deletionResults.some((result) => result.status === "rejected")) {
         throw httpError(

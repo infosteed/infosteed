@@ -447,6 +447,26 @@ exports[`API route contract > preserves every registered method and path 1`] = `
     "url": "/recordings/:id/video/renders/:renderId/content",
   },
   {
+    "method": "GET",
+    "url": "/recordings/:id/video/renders/:renderId/mp4-export",
+  },
+  {
+    "method": "HEAD",
+    "url": "/recordings/:id/video/renders/:renderId/mp4-export",
+  },
+  {
+    "method": "POST",
+    "url": "/recordings/:id/video/renders/:renderId/mp4-export",
+  },
+  {
+    "method": "GET",
+    "url": "/recordings/:id/video/renders/:renderId/mp4-export/content",
+  },
+  {
+    "method": "HEAD",
+    "url": "/recordings/:id/video/renders/:renderId/mp4-export/content",
+  },
+  {
     "method": "POST",
     "url": "/recordings/:id/video/renders/:renderId/publish",
   },

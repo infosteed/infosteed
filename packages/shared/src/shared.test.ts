@@ -10,6 +10,7 @@ import {
   recordingEventSchema,
   videoEditRecipeSchema,
   videoEditedDurationMs,
+  videoMp4ExportSchema,
   videoOutputToSourceMs,
   videoRecipeCaptions,
   videoRecipeChapters,
@@ -243,5 +244,32 @@ describe("shared schemas", () => {
       captions: { mode: "transcript" },
     };
     expect(() => videoEditRecipeSchema.parse(base)).toThrow();
+  });
+
+  it("validates the public MP4 export progress contract", () => {
+    expect(
+      videoMp4ExportSchema.parse({
+        id: "00000000-0000-4000-8000-000000000010",
+        renderId: "00000000-0000-4000-8000-000000000020",
+        status: "processing",
+        progress: 0.5,
+        byteSize: 0,
+        errorMessage: null,
+        createdAt: "2026-08-04T10:00:00.000Z",
+        completedAt: null,
+      }).status,
+    ).toBe("processing");
+    expect(() =>
+      videoMp4ExportSchema.parse({
+        id: "00000000-0000-4000-8000-000000000010",
+        renderId: "00000000-0000-4000-8000-000000000020",
+        status: "uploading",
+        progress: 2,
+        byteSize: 0,
+        errorMessage: null,
+        createdAt: "2026-08-04T10:00:00.000Z",
+        completedAt: null,
+      }),
+    ).toThrow();
   });
 });

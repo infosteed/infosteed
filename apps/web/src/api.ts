@@ -15,6 +15,7 @@ import type {
   VideoEditRecipe,
   VideoEditVersion,
   VideoEditorState,
+  VideoMp4Export,
   VideoRender,
   VoiceoverCueInput,
   VoiceoverGeneration,
@@ -451,6 +452,32 @@ export function recordingVideoRenderUrl(
   renderId: string,
 ): string {
   return `${API_BASE}/recordings/${recordingId}/video/renders/${renderId}/content`;
+}
+
+export function createVideoMp4Export(
+  recordingId: string,
+  renderId: string,
+): Promise<VideoMp4Export> {
+  return request(
+    `/recordings/${recordingId}/video/renders/${renderId}/mp4-export`,
+    { method: "POST" },
+  );
+}
+
+export function getVideoMp4Export(
+  recordingId: string,
+  renderId: string,
+): Promise<VideoMp4Export> {
+  return request(
+    `/recordings/${recordingId}/video/renders/${renderId}/mp4-export`,
+  );
+}
+
+export function recordingVideoMp4ExportUrl(
+  recordingId: string,
+  renderId: string,
+): string {
+  return `${API_BASE}/recordings/${recordingId}/video/renders/${renderId}/mp4-export/content`;
 }
 
 export function listVoiceoverVoices(

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { describe, expect, it } from "vitest";
 import { videoEditRecipeSchema } from "@infosteed/shared";
-import { buildFfmpegArguments } from "./render";
+import { buildFfmpegArguments, buildMp4ExportArguments } from "./render";
 
 function recipe() {
   return videoEditRecipeSchema.parse({
@@ -100,5 +100,32 @@ describe("FFmpeg render arguments", () => {
     });
     expect(args).toContain("[outa]");
     expect(args).toContain("libopus");
+  });
+});
+
+describe("MP4 export arguments", () => {
+  it("creates a broadly compatible H.264/AAC download", () => {
+    const args = buildMp4ExportArguments({
+      sourcePath: "/tmp/source.webm",
+      outputPath: "/tmp/export.mp4",
+      hasAudio: true,
+    });
+    expect(args).toContain("libx264");
+    expect(args).toContain("aac");
+    expect(args).toContain("yuv420p");
+    expect(args).toContain("+faststart");
+    expect(args).toContain("0:a:0");
+    expect(args.at(-1)).toBe("/tmp/export.mp4");
+  });
+
+  it("does not add an audio stream to a silent export", () => {
+    const args = buildMp4ExportArguments({
+      sourcePath: "/tmp/source.webm",
+      outputPath: "/tmp/export.mp4",
+      hasAudio: false,
+    });
+    expect(args).not.toContain("0:a:0");
+    expect(args).not.toContain("aac");
+    expect(args).toContain("libx264");
   });
 });

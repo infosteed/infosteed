@@ -1,11 +1,11 @@
-# Privacy notes
+# Privacy and data handling
 
-Before a public browser-store listing, maintainers must publish a policy naming the responsible legal entity, contact details, service domain, retention periods, and applicable jurisdiction. The product behavior that policy must cover is summarized below.
+This page describes the data handled by a standard InfoSteed deployment. If you operate InfoSteed for other people, publish a privacy notice that identifies your organization, contact details, InfoSteed domain, retention periods, external service providers, and the law that applies to your deployment.
 
-The browser extension sends captured data only to the server origin selected and approved by the user. The selected server can receive page titles and sanitized URLs, interaction metadata, screenshots, video, tab audio, microphone audio, webcam video, transcripts, narration text, and generated speech, depending on the capture choices and enabled server capabilities.
+The browser extension sends captured data only to the server that a user selects and approves. Depending on the chosen recording mode and the capabilities you enable, your server can receive page titles, sanitized URLs, interaction metadata, screenshots, video, tab audio, microphone audio, webcam video, transcripts, narration text, and generated speech.
 
-The project does not enable telemetry by default and does not require a hosted AI service. Administrators may configure external S3-compatible storage, transcription, language-model, or text-to-speech providers. When they do, the administrator is responsible for disclosing those processors and their data handling terms to users.
+InfoSteed does not enable telemetry by default and does not require a hosted AI service. If you configure external S3-compatible storage, transcription, language-model, or text-to-speech services, tell your users which providers receive their data and link to those providers' data-handling terms.
 
-The extension requests access to the selected server and to the active recording tab only after a user action. Disconnecting a server clears cached authentication state in the extension. Server-side retention and deletion are controlled by the administrator.
+The extension asks for access to the selected server and active recording tab only after a user action. Disconnecting a server clears the extension's cached authentication state. You control server-side retention and deletion through your deployment and its storage systems.
 
-Users should contact their server administrator to access, correct, export, or delete their data. Security reports must follow `SECURITY.md` and must not include recorded content.
+Tell your users how to request access, correction, export, or deletion of their data. Report security issues using the process in [`SECURITY.md`](../SECURITY.md), without attaching recorded content.

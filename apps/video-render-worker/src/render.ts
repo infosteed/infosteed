@@ -14,6 +14,12 @@ export interface RenderInputs {
   outputPath: string;
 }
 
+export interface Mp4ExportInputs {
+  sourcePath: string;
+  outputPath: string;
+  hasAudio: boolean;
+}
+
 function seconds(milliseconds: number): string {
   return (milliseconds / 1000).toFixed(3);
 }
@@ -154,5 +160,30 @@ export function buildFfmpegArguments(input: RenderInputs): string[] {
   );
   if (hasAudio) args.push("-c:a", "libopus", "-b:a", "128k");
   args.push("-progress", "pipe:1", "-nostats", input.outputPath);
+  return args;
+}
+
+export function buildMp4ExportArguments(input: Mp4ExportInputs): string[] {
+  const args = ["-hide_banner", "-y", "-i", input.sourcePath, "-map", "0:v:0"];
+  if (input.hasAudio) args.push("-map", "0:a:0");
+  args.push(
+    "-c:v",
+    "libx264",
+    "-preset",
+    "medium",
+    "-crf",
+    "23",
+    "-pix_fmt",
+    "yuv420p",
+  );
+  if (input.hasAudio) args.push("-c:a", "aac", "-b:a", "160k");
+  args.push(
+    "-movflags",
+    "+faststart",
+    "-progress",
+    "pipe:1",
+    "-nostats",
+    input.outputPath,
+  );
   return args;
 }

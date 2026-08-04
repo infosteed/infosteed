@@ -12,4 +12,4 @@ All notable changes are documented here. The project uses Semantic Versioning on
 
 ## [0.1.0-beta.1] - Unreleased
 
-This release is not yet published. See `docs/release-readiness.md` for the publication requirements that remain open.
+This release is not yet published. See the [official release status](docs/release-readiness.md) for current availability.

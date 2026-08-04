@@ -1,6 +1,8 @@
-# Backup, Restore, and Upgrade
+# Back up, restore, and upgrade InfoSteed
 
-The supported backup is a matched PostgreSQL custom-format dump and object-store mirror. A database-only backup is incomplete. The scripts stop web/API/worker writes while the snapshot is made and record release, migration, size, and checksum metadata.
+Back up PostgreSQL and object storage together. A database-only backup is incomplete because its records refer to media in the object store. The backup script pauses web, API, and worker writes while it takes the snapshot, then records the release, migrations, sizes, and checksums.
+
+## Create a backup
 
 Copy `deploy/production.env.example` to `deploy/production.env`, fill it with the exact deployed image references and secrets, then run:
 
@@ -8,18 +10,22 @@ Copy `deploy/production.env.example` to `deploy/production.env`, fill it with th
 scripts/backup.sh /srv/backups/infosteed
 ```
 
-Encrypt backups before sending them off-host. Keep at least one tested copy outside the deployment host and apply retention appropriate to the captured data. Monitor PostgreSQL, object storage, temporary render space, and backup destination capacity. Run a destructive restore drill on an isolated empty deployment at least quarterly.
+Encrypt backups before sending them off-host. Keep at least one tested copy outside the deployment host and choose a retention period appropriate for the data you record. Monitor PostgreSQL, object storage, temporary render space, and backup destination capacity.
 
-Restore accepts only an explicitly confirmed empty target:
+Test a restore at least once per quarter. Always use an isolated, empty deployment for the test because restoration replaces the target data.
+
+## Restore a backup
+
+Choose a backup directory and pass the explicit empty-target confirmation:
 
 ```bash
 scripts/restore.sh --confirm-empty-target /srv/backups/infosteed/20260804T120000Z
 ```
 
-The restore validates checksums, refuses non-empty stores, restores both stores, compares object counts, and then starts the core services. Application-level reference verification is also exercised by the release integration suite.
+The restore command validates checksums, refuses non-empty stores, restores the database and object store, compares object counts, and then starts the core services.
 
-Use `scripts/pre-upgrade.sh` for upgrades. It refuses to proceed unless the backup completes. `--allow-without-backup` exists only for a documented emergency where data loss is accepted.
+## Upgrade
 
-Migrations are forward-only. Rollback means restoring the pre-upgrade backup and its previous immutable image set. Never run the previous images against an already migrated database.
+Run `scripts/pre-upgrade.sh` before an upgrade. It creates a backup and stops if that backup fails. Use `--allow-without-backup` only during a documented emergency in which you have explicitly accepted the risk of data loss.
 
-Before each release, test upgrade from the preceding supported beta using persisted users, projects, guides, screenshots, videos, transcripts, voiceovers, edits, publications, and deleted items.
+Migrations are forward-only. To return to an earlier version, restore the pre-upgrade database and object-store backup and use the previous immutable image set. Never run previous images against an already migrated database.

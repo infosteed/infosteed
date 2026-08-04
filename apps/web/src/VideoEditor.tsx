@@ -10,6 +10,7 @@ import {
   type VideoEditDraft,
   type VideoEditRecipe,
   type VideoEditorState,
+  type VideoMp4Export,
   type VideoRender,
   type VoiceoverCueInput,
   type VoiceoverGeneration,
@@ -17,15 +18,18 @@ import {
 } from "@infosteed/shared";
 import {
   cancelVideoRender,
+  createVideoMp4Export,
   createVideoEditVersion,
   createVideoRender,
   getVideoEditor,
+  getVideoMp4Export,
   getVideoRender,
   generateVoiceover,
   getVoiceoverGeneration,
   listVoiceoverVoices,
   publishVideoRender,
   recordingVideoAssetUrl,
+  recordingVideoMp4ExportUrl,
   recordingVideoRenderUrl,
   resetVideoEditor,
   rewriteVoiceoverScript,
@@ -59,6 +63,7 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
     "chapters" | "captions" | "voiceover" | "history"
   >("chapters");
   const [render, setRender] = useState<VideoRender>();
+  const [mp4Export, setMp4Export] = useState<VideoMp4Export>();
   const [candidatePreview, setCandidatePreview] = useState(false);
   const [playheadMs, setPlayheadMs] = useState(0);
   const [previewTimeMs, setPreviewTimeMs] = useState(0);
@@ -173,6 +178,39 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
     }, 1500);
     return () => window.clearInterval(timer);
   }, [recording.id, render]);
+
+  useEffect(() => {
+    if (!render || render.status !== "ready") {
+      setMp4Export(undefined);
+      return;
+    }
+    let active = true;
+    void getVideoMp4Export(recording.id, render.id)
+      .then((exported) => {
+        if (active) setMp4Export(exported);
+      })
+      .catch(() => {
+        if (active) setMp4Export(undefined);
+      });
+    return () => {
+      active = false;
+    };
+  }, [recording.id, render?.id, render?.status]);
+
+  useEffect(() => {
+    if (
+      !render ||
+      !mp4Export ||
+      (mp4Export.status !== "queued" && mp4Export.status !== "processing")
+    )
+      return;
+    const timer = window.setInterval(() => {
+      void getVideoMp4Export(recording.id, render.id)
+        .then(setMp4Export)
+        .catch(() => undefined);
+    }, 1500);
+    return () => window.clearInterval(timer);
+  }, [recording.id, render?.id, mp4Export?.id, mp4Export?.status]);
 
   useEffect(() => {
     if (
@@ -332,10 +370,21 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
         `Edit ${new Date().toLocaleString()}`,
       );
       setRender(next);
+      setMp4Export(undefined);
       setCandidatePreview(false);
       setError(undefined);
     } catch (renderError) {
       setError(errorMessage(renderError));
+    }
+  }
+
+  async function requestMp4Export() {
+    if (!render || render.status !== "ready") return;
+    try {
+      setMp4Export(await createVideoMp4Export(recording.id, render.id));
+      setError(undefined);
+    } catch (exportError) {
+      setError(errorMessage(exportError));
     }
   }
 
@@ -1301,6 +1350,44 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
                     >
                       Download render
                     </a>
+                    {!mp4Export && (
+                      <button
+                        disabled={!state.workerAvailable}
+                        onClick={() => void requestMp4Export()}
+                      >
+                        Create MP4
+                      </button>
+                    )}
+                    {mp4Export &&
+                      (mp4Export.status === "queued" ||
+                        mp4Export.status === "processing") && (
+                        <div className="mp4-export-status">
+                          <strong>MP4: {mp4Export.status}</strong>
+                          <progress max={1} value={mp4Export.progress} />
+                        </div>
+                      )}
+                    {mp4Export?.status === "failed" && (
+                      <div className="mp4-export-status">
+                        <p className="error">{mp4Export.errorMessage}</p>
+                        <button
+                          disabled={!state.workerAvailable}
+                          onClick={() => void requestMp4Export()}
+                        >
+                          Retry MP4
+                        </button>
+                      </div>
+                    )}
+                    {mp4Export?.status === "ready" && (
+                      <a
+                        href={recordingVideoMp4ExportUrl(
+                          recording.id,
+                          render.id,
+                        )}
+                        download={`${recording.title.replace(/[^a-z0-9-_]+/gi, "-") || "video"}.mp4`}
+                      >
+                        Download MP4
+                      </a>
+                    )}
                     <button
                       disabled={render.stale}
                       onClick={() =>
@@ -1320,10 +1407,10 @@ export function VideoEditor({ recording, video, onPublished }: Props) {
                 )}
               </div>
             )}
-            {!state.workerAvailable && render?.status !== "ready" && (
+            {!state.workerAvailable && mp4Export?.status !== "ready" && (
               <p className="raw-warning">
                 The render worker is offline. Start it before requesting a
-                media-changing render.
+                render or MP4 conversion.
               </p>
             )}
             <button

@@ -4,4 +4,4 @@ All names, domains, people, and data in this fixture are fictional. It is suitab
 
 The example organization is Northstar Outfitters. Its administrator records a workflow for publishing a fictional product called Trail Lantern in an application hosted at `https://demo.example.test`.
 
-Release screenshots must be generated from this fixture or another documented rights-cleared source. Do not commit recordings from private deployments, customer systems, previous internal products, or real personal accounts.
+Use this fixture, or another documented source that you have permission to publish, for release screenshots. Never commit recordings from private deployments, customer systems, previous internal products, or real personal accounts.

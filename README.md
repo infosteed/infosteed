@@ -40,7 +40,7 @@ Load `apps/extension/dist` as an unpacked extension in Chromium after running th
 
 Use the supported local and production instructions in [docs/deployment.md](docs/deployment.md). Production uses Caddy-managed HTTPS, immutable GHCR image references, internal-only API/PostgreSQL/MinIO ports, and a mandatory 32-byte first-admin setup token. Back up before every upgrade using [docs/backup-and-upgrade.md](docs/backup-and-upgrade.md).
 
-The extension must be connected from its Options page to the selected server. It requests access only to that origin, verifies `/api/system/info` and protocol compatibility, and injects the recorder only after a user starts capture. See the [privacy policy](docs/privacy-policy.md).
+Connect the extension to your server from its Options page. The extension requests access only to that origin, verifies `/api/system/info` and protocol compatibility, and injects the recorder only after you start a recording. See [Privacy and data handling](docs/privacy-policy.md).
 
 ### Local Docker Compose
 
@@ -145,6 +145,8 @@ VIDEO_RENDER_RETENTION_DAYS=7
 ```
 
 The worker may run on another host as long as it can reach PostgreSQL and the configured S3-compatible bucket. Raw sources and recipe history remain until the recording is deleted. Superseded rendered objects are cleaned after the retention window and can be recreated from their saved recipe.
+
+Ready renders keep WebM as their preview and publication format. Editors can choose **Create MP4** to queue an on-demand H.264/AAC download. The worker caches one MP4 per render, reports conversion progress in the editor, and removes the cached file with its parent render or recording.
 
 ## Local voiceovers
 

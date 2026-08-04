@@ -1,19 +1,33 @@
-# Supported Deployment
+# Deploy InfoSteed
 
 ## Local evaluation
 
-`docker-compose.yml` builds from the local checkout and publishes only the web application on `127.0.0.1:8080`. It contains development credentials and is not suitable for an internet-facing host. The API is reached through `/api`; PostgreSQL, MinIO, transcription, TTS, and worker ports remain private.
+Use `docker-compose.yml` to evaluate InfoSteed from a local checkout. It publishes the web application on `127.0.0.1:8080` and keeps the API, PostgreSQL, MinIO, transcription, TTS, and worker ports private. The file contains development credentials, so never use it on an internet-facing host.
 
 ## Production
 
-`deploy/compose.production.yml` is the supported Linux amd64 beta topology. Caddy manages HTTPS. Every required image variable must contain a version tag and immutable digest. The Compose file rejects absent domains, source metadata, setup token, extension origin, and secrets.
+Use `deploy/compose.production.yml` for a production installation on Linux amd64. Caddy manages HTTPS. Set every required image variable to both a version tag and an immutable digest. Compose will reject missing domains, source metadata, setup token, extension origin, or secrets.
+
+Copy the example environment file, replace every placeholder, and validate the resulting configuration before starting the services:
+
+```bash
+cp deploy/production.env.example deploy/production.env
+# Edit deploy/production.env with your domain, image digests, and secrets.
+docker compose --env-file deploy/production.env -f deploy/compose.production.yml config --quiet
+docker compose --env-file deploy/production.env -f deploy/compose.production.yml pull
+docker compose --env-file deploy/production.env -f deploy/compose.production.yml up -d
+```
+
+Open the HTTPS domain from `APP_DOMAIN`. On the first visit, create the administrator account with the `SETUP_TOKEN` from `deploy/production.env`.
 
 Set `SETUP_TOKEN` to at least 32 random bytes, distribute it out of band to the first administrator, and replace it after setup. Use a separate MinIO root account and application service account. Never expose PostgreSQL, MinIO, API, transcription, TTS, or render-worker ports to the host.
 
-Baseline capacity for a small team is 4 CPU cores, 8 GB RAM, 40 GB application/database storage, and temporary render space at least three times the largest source recording. The optional CPU voiceover profile benefits from 4 additional cores and 4 GB RAM. The optional GPU transcription profile depends on its selected model and GPU runtime. Monitor storage growth and render temporary space.
+For a small team, start with 4 CPU cores, 8 GB RAM, 40 GB of application and database storage, and temporary render space at least three times the size of your largest recording. Allow another 4 cores and 4 GB RAM if you enable the optional CPU voiceover profile. GPU transcription requirements depend on the model and GPU runtime you select. Monitor both persistent storage and temporary render space.
 
-Core readiness checks PostgreSQL and configured object storage. Optional AI, transcription, TTS, and rendering workers report capability/status separately and do not make guide creation unavailable. Deterministic guide generation, playback, and ordinary editing remain available without AI services.
+The core readiness check covers PostgreSQL and your configured object storage. AI, transcription, TTS, and rendering report their status separately. If those optional services are unavailable, you can still generate guides locally, play recordings, and use the standard editor.
 
-Only Linux amd64 images are published for the beta. arm64 is unsupported.
+The beta images support Linux amd64 only. Do not deploy them on arm64.
 
-External S3-compatible object storage and external OpenAI-compatible transcription/TTS endpoints can be configured with existing environment variables. Those topologies are administrator-managed and are not supported-by-default configurations.
+You can configure external S3-compatible object storage and OpenAI-compatible transcription or TTS endpoints with the existing environment variables. You are responsible for operating and troubleshooting those external services; they are outside the default supported topology.
+
+Before an upgrade, follow the [backup and upgrade instructions](backup-and-upgrade.md). For details about the services and stored data, see the [architecture summary](architecture.md).

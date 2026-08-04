@@ -1,6 +1,7 @@
 {
   "manifest_version": 3,
   "minimum_chrome_version": "116",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxMqH/b2KuuUvrCKDpO3uBtbwjJP6KliubuWd6feC6pbGuk9Xc7CpvydoXuclJOh4rs/E0zvt2Vj7xcyFl5b5z2C/aScJtq+wxY+HxvSddG5oNcjtz6dbi24gbArX4YEBvC1PBuFKlLVV8TPRrr5MW+dviP3oBaPfr6+XFpsjmxE5eKLexdP0zS+BYvLzjel3Ocwlfg1Umo2njCogznWKViE7oOpw0w3MX9jL3D+jAv+Mh2ypaB/lEfekrovrZBDkP9g1Wy3cClQX9f9O9hyjacdB1GlivZoqOAxsT1BlfDBLqUy01Jfeub1uFE+zscswVh8LJwq13VmNUiLGNhKQqQIDAQAB",
   "name": "InfoSteed Recorder",
   "version": "0.1.0",
   "description": "Self-hosted browser recorder for creating editable guides and videos.",

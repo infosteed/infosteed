@@ -1,0 +1,216 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+body {
+  margin: 0;
+  min-width: 300px;
+  font:
+    14px/1.4 system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  color: #17202a;
+  background: #f7f8fa;
+}
+
+main {
+  padding: 14px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 16px;
+}
+
+header span {
+  border: 1px solid #c9d1d9;
+  border-radius: 999px;
+  padding: 2px 8px;
+  background: #fff;
+  text-transform: capitalize;
+}
+
+header span[data-status="recording"] {
+  border-color: #1f8f55;
+  color: #146c43;
+}
+
+header span[data-status="finalizing"] {
+  border-color: #f79009;
+  color: #93370d;
+}
+
+.auth-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  margin-top: 14px;
+  padding: 10px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.auth-panel.signed-in {
+  border-color: #98d8b4;
+  background: #ecfdf3;
+}
+
+.auth-panel.signed-out {
+  border-color: #fedf89;
+  background: #fffaeb;
+}
+
+.auth-panel strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auth-panel p,
+.hint {
+  margin: 2px 0 0;
+  color: #667085;
+  font-size: 12px;
+}
+
+.auth-panel button {
+  min-width: 70px;
+}
+
+section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+button {
+  min-height: 36px;
+  border: 1px solid #98a2b3;
+  border-radius: 6px;
+  background: #fff;
+  color: #111827;
+  font: inherit;
+  cursor: pointer;
+}
+
+button:first-child {
+  background: #235ee7;
+  border-color: #235ee7;
+  color: #fff;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.hint {
+  margin-top: 8px;
+}
+
+.progress-panel {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 10px;
+  align-items: start;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid #fedf89;
+  border-radius: 8px;
+  background: #fffaeb;
+  color: #111827;
+}
+
+.recovery-panel {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid #f79009;
+  border-radius: 8px;
+  background: #fffaeb;
+}
+
+.follow-panel {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid #f79009;
+  border-radius: 8px;
+  background: #fffaeb;
+}
+
+.follow-panel p {
+  margin: 4px 0 10px;
+  color: #667085;
+  font-size: 12px;
+}
+.follow-panel button {
+  width: 100%;
+  background: #235ee7;
+  border-color: #235ee7;
+  color: #fff;
+}
+
+.recovery-panel p {
+  margin: 4px 0 10px;
+  color: #667085;
+  font-size: 12px;
+}
+.recovery-panel div {
+  display: flex;
+  gap: 8px;
+}
+
+.progress-panel strong {
+  display: block;
+  margin-bottom: 3px;
+}
+
+.progress-panel p {
+  margin: 0;
+  color: #667085;
+  font-size: 12px;
+}
+
+.spinner {
+  width: 22px;
+  height: 22px;
+  border: 3px solid #fedf89;
+  border-top-color: #f79009;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.id {
+  overflow-wrap: anywhere;
+  color: #667085;
+  font-size: 12px;
+}
+
+.error {
+  color: #b42318;
+}
+
+.configure-link {
+  width: 100%;
+  margin-top: 8px;
+  min-height: 30px;
+  background: transparent !important;
+  border: 0;
+  color: #235ee7 !important;
+  font-size: 12px;
+}

@@ -1,0 +1,41 @@
+{
+  "name": "infosteed",
+  "private": true,
+  "version": "0.1.0-beta.1",
+  "license": "AGPL-3.0-only",
+  "description": "Self-hosted Chromium workflow recorder, guide editor, and video production suite.",
+  "type": "module",
+  "packageManager": "pnpm@9.12.3",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "pnpm": {
+    "overrides": {
+      "fast-uri@>=3.0.0 <4.0.0": "^3.1.5"
+    }
+  },
+  "scripts": {
+    "build": "corepack pnpm -r build",
+    "test": "corepack pnpm -r test",
+    "typecheck": "corepack pnpm --filter './packages/**' build && corepack pnpm -r typecheck",
+    "dev:api": "corepack pnpm --filter @infosteed/api dev",
+    "dev:web": "corepack pnpm --filter @infosteed/web dev",
+    "dev:extension": "corepack pnpm --filter @infosteed/extension dev",
+    "dev:render": "corepack pnpm --filter @infosteed/video-render-worker dev",
+    "e2e": "playwright test",
+    "check": "corepack pnpm format:check && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build",
+    "format:check": "prettier --check .",
+    "notices:generate": "corepack pnpm licenses list --prod --json > .notices-inventory.json && NOTICE_INVENTORY_FILE=.notices-inventory.json node scripts/generate-third-party-notices.mjs && rm -f .notices-inventory.json",
+    "notices:check": "corepack pnpm licenses list --prod --json > .notices-inventory.json && NOTICE_INVENTORY_FILE=.notices-inventory.json node scripts/generate-third-party-notices.mjs --check && rm -f .notices-inventory.json",
+    "extension:package": "corepack pnpm --filter @infosteed/extension build && node scripts/package-extension.mjs",
+    "spdx:check": "node scripts/check-spdx.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1",
+    "@types/node": "^24.0.0",
+    "jszip": "^3.10.1",
+    "prettier": "^3.6.2",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}

@@ -1,0 +1,73 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+:root {
+  font:
+    15px/1.5 system-ui,
+    sans-serif;
+  color: #182230;
+  background: #f7f8fa;
+}
+body {
+  margin: 0;
+}
+main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 24px;
+}
+.card {
+  display: grid;
+  gap: 14px;
+  padding: 24px;
+  border: 1px solid #d0d5dd;
+  border-radius: 12px;
+  background: white;
+}
+label {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+}
+input {
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid #98a2b3;
+  border-radius: 7px;
+  font: inherit;
+}
+.actions {
+  display: flex;
+  gap: 10px;
+}
+button {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid #235ee7;
+  border-radius: 7px;
+  background: #235ee7;
+  color: white;
+  font: inherit;
+  cursor: pointer;
+}
+button.secondary {
+  background: white;
+  color: #182230;
+  border-color: #98a2b3;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.status {
+  padding: 12px;
+  border-radius: 8px;
+  background: #ecfdf3;
+}
+.error {
+  color: #b42318;
+  background: #fef3f2;
+  padding: 10px;
+  border-radius: 8px;
+}
+small {
+  color: #667085;
+}

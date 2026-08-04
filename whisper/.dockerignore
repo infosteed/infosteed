@@ -1,0 +1,4 @@
+.venv-stt
+__pycache__
+*.pyc
+test_app.py

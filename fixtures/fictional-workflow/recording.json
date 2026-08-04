@@ -1,0 +1,58 @@
+{
+  "id": "6f21f142-109a-4f68-8b94-f3079839ce89",
+  "title": "Publish the Trail Lantern",
+  "purpose": "Show store editors how to publish a fictional product",
+  "audience": "Northstar Outfitters store editors",
+  "state": "finalized",
+  "createdAt": "2026-01-15T10:00:00.000Z",
+  "updatedAt": "2026-01-15T10:02:00.000Z",
+  "finalizedAt": "2026-01-15T10:02:00.000Z",
+  "events": [
+    {
+      "id": "5e8a8c26-2b19-4c95-8720-f028cc6f07aa",
+      "ordinal": 0,
+      "actionType": "click",
+      "pageTitle": "Products - Northstar Outfitters",
+      "sanitizedUrl": "https://demo.example.test/products",
+      "elementName": "Trail Lantern",
+      "elementRole": "link",
+      "metadata": {}
+    },
+    {
+      "id": "6478bc77-aa20-43bc-a8bf-94dcc8b965ee",
+      "ordinal": 1,
+      "actionType": "click",
+      "pageTitle": "Edit Trail Lantern - Northstar Outfitters",
+      "sanitizedUrl": "https://demo.example.test/products/trail-lantern",
+      "elementName": "Publish",
+      "elementRole": "button",
+      "metadata": {}
+    }
+  ],
+  "steps": [
+    {
+      "id": "0064ee14-58ce-4578-8382-6eac8993db5c",
+      "recordingId": "6f21f142-109a-4f68-8b94-f3079839ce89",
+      "eventId": "5e8a8c26-2b19-4c95-8720-f028cc6f07aa",
+      "ordinal": 0,
+      "title": "Open the Trail Lantern",
+      "instruction": "Click **Trail Lantern**.",
+      "imageFilename": null,
+      "altText": "Trail Lantern in the fictional product list",
+      "source": "deterministic",
+      "userEdited": false
+    },
+    {
+      "id": "e3926f91-0512-487a-a2a8-38b536158cf8",
+      "recordingId": "6f21f142-109a-4f68-8b94-f3079839ce89",
+      "eventId": "6478bc77-aa20-43bc-a8bf-94dcc8b965ee",
+      "ordinal": 1,
+      "title": "Publish the product",
+      "instruction": "Click **Publish**.",
+      "imageFilename": null,
+      "altText": "Publish button in the fictional product editor",
+      "source": "deterministic",
+      "userEdited": false
+    }
+  ]
+}

@@ -1,0 +1,190 @@
+name: infosteed
+
+services:
+  caddy:
+    image: ${CADDY_IMAGE:?Set CADDY_IMAGE to an immutable tag and digest}
+    restart: unless-stopped
+    depends_on:
+      api: { condition: service_healthy }
+      web: { condition: service_healthy }
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    cap_add: ["NET_BIND_SERVICE"]
+
+  web:
+    image: ${WEB_IMAGE:?Set WEB_IMAGE to the release tag and digest}
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+      - /var/cache/nginx:size=32m,mode=0755
+      - /var/run:size=4m,mode=0755
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  api:
+    image: ${API_IMAGE:?Set API_IMAGE to the release tag and digest}
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+      minio-init: { condition: service_completed_successfully }
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-app}
+      HOST: 0.0.0.0
+      PORT: 3777
+      WEB_ORIGIN: https://${APP_DOMAIN:?Set APP_DOMAIN}
+      EXTENSION_ORIGINS: ${EXTENSION_ORIGINS:?Set the official chrome-extension origin}
+      APP_SOURCE_URL: ${APP_SOURCE_URL:?Set APP_SOURCE_URL}
+      RELEASE_VERSION: ${RELEASE_VERSION:?Set RELEASE_VERSION}
+      RELEASE_COMMIT: ${RELEASE_COMMIT:?Set RELEASE_COMMIT}
+      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL}
+      SETUP_TOKEN: ${SETUP_TOKEN:?Set a random token of at least 32 bytes}
+      TRUST_PROXY_HOPS: 1
+      COOKIE_SECURE: "true"
+      SESSION_DAYS: ${SESSION_DAYS:-7}
+      AI_PROVIDER: ${AI_PROVIDER:-openai-compatible}
+      AI_ENDPOINT: ${AI_ENDPOINT:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-}
+      TRANSCRIPTION_ENDPOINT: ${TRANSCRIPTION_ENDPOINT:-}
+      TRANSCRIPTION_API_KEY: ${TRANSCRIPTION_API_KEY:-}
+      TRANSCRIPTION_MODEL: ${TRANSCRIPTION_MODEL:-large-v3-turbo}
+      TTS_BASE_URL: ${TTS_BASE_URL:-}
+      TTS_API_KEY: ${TTS_API_KEY:-}
+      TTS_MODEL: ${TTS_MODEL:-kokoro}
+      TTS_DEFAULT_VOICE: ${TTS_DEFAULT_VOICE:-af_heart}
+      TTS_VOICES: ${TTS_VOICES:-af_heart,af_bella,af_nicole,am_adam,am_michael,bf_emma,bm_george}
+      VIDEO_RENDER_ENABLED: "true"
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_BUCKET: ${S3_BUCKET:-app-media}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?Set a non-root MinIO application user}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?Set the MinIO application secret}
+      S3_FORCE_PATH_STYLE: "true"
+    read_only: true
+    tmpfs: ["/tmp:size=2g,mode=1777"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'node -e "fetch(''http://127.0.0.1:3777/health/ready'').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  video-render-worker:
+    image: ${RENDER_IMAGE:?Set RENDER_IMAGE to the release tag and digest}
+    restart: unless-stopped
+    depends_on:
+      api: { condition: service_healthy }
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-app}
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_BUCKET: ${S3_BUCKET:-app-media}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?Set S3_ACCESS_KEY_ID}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?Set S3_SECRET_ACCESS_KEY}
+      S3_FORCE_PATH_STYLE: "true"
+      VIDEO_RENDER_CONCURRENCY: ${VIDEO_RENDER_CONCURRENCY:-1}
+    read_only: true
+    tmpfs: ["/tmp:size=4g,mode=1777"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
+  postgres:
+    image: ${POSTGRES_IMAGE:?Set POSTGRES_IMAGE to an immutable tag and digest}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+    volumes: ["postgres-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test:
+        ["CMD-SHELL", 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
+  minio:
+    image: ${MINIO_IMAGE:?Set MINIO_IMAGE to an immutable tag and digest}
+    restart: unless-stopped
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD}
+    volumes: ["minio-data:/data"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
+  minio-init:
+    image: ${MINIO_MC_IMAGE:?Set MINIO_MC_IMAGE to an immutable tag and digest}
+    depends_on: { minio: { condition: service_started } }
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      [
+        'until mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"; do sleep 1; done; mc mb --ignore-existing local/"$${S3_BUCKET}"; mc admin user add local "$${S3_ACCESS_KEY_ID}" "$${S3_SECRET_ACCESS_KEY}" || true; mc admin policy attach local readwrite --user "$${S3_ACCESS_KEY_ID}"',
+      ]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD}
+      S3_BUCKET: ${S3_BUCKET:-app-media}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?Set S3_ACCESS_KEY_ID}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?Set S3_SECRET_ACCESS_KEY}
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
+  transcription-gpu:
+    profiles: ["transcription-gpu"]
+    image: ${TRANSCRIPTION_IMAGE:-invalid.example/transcription:configure-a-digest}
+    restart: unless-stopped
+    environment:
+      WHISPER_MODEL: ${TRANSCRIPTION_MODEL:-large-v3-turbo}
+      WHISPER_API_TOKEN: ${TRANSCRIPTION_API_KEY:-}
+      WHISPER_PRELOAD: "true"
+      HF_HOME: /models
+    volumes: ["transcription-models:/models"]
+    deploy:
+      resources:
+        reservations:
+          devices: [{ driver: nvidia, count: 1, capabilities: ["gpu"] }]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
+  voiceover-cpu:
+    profiles: ["voiceover-cpu"]
+    image: ${KOKORO_IMAGE:-invalid.example/kokoro-fastapi:configure-a-digest}
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
+volumes:
+  caddy-data:
+  caddy-config:
+  postgres-data:
+  minio-data:
+  transcription-models:

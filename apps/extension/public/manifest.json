@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "minimum_chrome_version": "116",
+  "name": "InfoSteed Recorder",
+  "version": "0.1.0",
+  "description": "Internal browser workflow recorder with self-contained guide exports.",
+  "action": {
+    "default_popup": "src/popup.html",
+    "default_title": "InfoSteed"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "options_ui": {
+    "page": "src/options.html",
+    "open_in_tab": true
+  },
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "scripting",
+    "storage",
+    "tabCapture",
+    "offscreen",
+    "webNavigation"
+  ],
+  "optional_host_permissions": ["https://*/*", "http://*/*"]
+}

@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "declaration": true,
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "paths": {
+      "@infosteed/shared": ["./packages/shared/src/index.ts"],
+      "@infosteed/recorder-core": ["./packages/recorder-core/src/index.ts"],
+      "@infosteed/ai-step-writer": ["./packages/ai-step-writer/src/index.ts"],
+      "@infosteed/markdown-exporter": [
+        "./packages/markdown-exporter/src/index.ts"
+      ],
+      "@infosteed/markdown-exporter/sanity": [
+        "./packages/markdown-exporter/src/sanity.ts"
+      ],
+      "@infosteed/image-processor": ["./packages/image-processor/src/index.ts"]
+    }
+  }
+}

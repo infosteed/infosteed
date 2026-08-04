@@ -1,0 +1,209 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-infosteed}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-infosteed}
+      POSTGRES_DB: ${POSTGRES_DB:-infosteed}
+    volumes:
+      - infosteed-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ["CMD-SHELL", 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio:
+    image: minio/minio:RELEASE.2025-07-23T15-54-02Z
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-infosteed}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-infosteed-video-secret}
+    volumes:
+      - infosteed-minio:/data
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-07-21T05-28-08Z
+    depends_on:
+      minio:
+        condition: service_started
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      [
+        'until mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"; do sleep 1; done; mc mb --ignore-existing local/"$${S3_BUCKET}"; mc admin user add local "$${S3_ACCESS_KEY_ID}" "$${S3_SECRET_ACCESS_KEY}" || true; mc admin policy attach local readwrite --user "$${S3_ACCESS_KEY_ID}"',
+      ]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-infosteed}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-infosteed-video-secret}
+      S3_BUCKET: ${S3_BUCKET:-infosteed-videos}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-infosteed-app}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-local-video-service-secret}
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgres://${POSTGRES_USER:-infosteed}:${POSTGRES_PASSWORD:-infosteed}@postgres:5432/${POSTGRES_DB:-infosteed}
+      HOST: 0.0.0.0
+      PORT: 3777
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:8080}
+      EXTENSION_ORIGINS: ${EXTENSION_ORIGINS:-}
+      APP_SOURCE_URL: ${APP_SOURCE_URL:-}
+      RELEASE_VERSION: ${RELEASE_VERSION:-0.1.0-beta.1}
+      RELEASE_COMMIT: ${RELEASE_COMMIT:-development}
+      SETUP_TOKEN: ${SETUP_TOKEN:-local-development-setup-token-0001}
+      TRUST_PROXY_HOPS: 0
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-infosteed_session}
+      SESSION_DAYS: ${SESSION_DAYS:-7}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      AI_PROVIDER: ${AI_PROVIDER:-openai-compatible}
+      AI_ENDPOINT: ${AI_ENDPOINT:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_TIMEOUT_MS: ${AI_TIMEOUT_MS:-30000}
+      TRANSCRIPTION_PROVIDER: ${TRANSCRIPTION_PROVIDER:-openai-compatible}
+      TRANSCRIPTION_ENDPOINT: ${TRANSCRIPTION_ENDPOINT:-}
+      TRANSCRIPTION_API_KEY: ${TRANSCRIPTION_API_KEY:-}
+      TRANSCRIPTION_MODEL: ${TRANSCRIPTION_MODEL:-large-v3-turbo}
+      TRANSCRIPTION_TIMEOUT_MS: ${TRANSCRIPTION_TIMEOUT_MS:-5400000}
+      TRANSCRIPTION_MAX_UPLOAD_BYTES: ${TRANSCRIPTION_MAX_UPLOAD_BYTES:-25000000}
+      TTS_BASE_URL: ${TTS_BASE_URL:-}
+      TTS_API_KEY: ${TTS_API_KEY:-}
+      TTS_MODEL: ${TTS_MODEL:-kokoro}
+      TTS_DEFAULT_VOICE: ${TTS_DEFAULT_VOICE:-af_heart}
+      TTS_VOICES: ${TTS_VOICES:-af_heart,af_bella,af_nicole,am_adam,am_michael,bf_emma,bm_george}
+      TTS_TIMEOUT_MS: ${TTS_TIMEOUT_MS:-120000}
+      TTS_MAX_RESPONSE_BYTES: ${TTS_MAX_RESPONSE_BYTES:-25000000}
+      VIDEO_RENDER_ENABLED: ${VIDEO_RENDER_ENABLED:-true}
+      VIDEO_RENDER_CONCURRENCY: ${VIDEO_RENDER_CONCURRENCY:-1}
+      VIDEO_RENDER_TIMEOUT_MS: ${VIDEO_RENDER_TIMEOUT_MS:-14400000}
+      VIDEO_RENDER_STALE_MS: ${VIDEO_RENDER_STALE_MS:-300000}
+      VIDEO_RENDER_RETENTION_DAYS: ${VIDEO_RENDER_RETENTION_DAYS:-7}
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_BUCKET: ${S3_BUCKET:-infosteed-videos}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-infosteed-app}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-local-video-service-secret}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'node -e "fetch(''http://127.0.0.1:3777/health/ready'').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    read_only: true
+    tmpfs:
+      - /tmp:size=2g,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: ["ALL"]
+
+  video-render-worker:
+    build:
+      context: .
+      dockerfile: apps/video-render-worker/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-infosteed}:${POSTGRES_PASSWORD:-infosteed}@postgres:5432/${POSTGRES_DB:-infosteed}
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_BUCKET: ${S3_BUCKET:-infosteed-videos}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-infosteed-app}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-local-video-service-secret}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
+      VIDEO_RENDER_CONCURRENCY: ${VIDEO_RENDER_CONCURRENCY:-1}
+      VIDEO_RENDER_TIMEOUT_MS: ${VIDEO_RENDER_TIMEOUT_MS:-14400000}
+      VIDEO_RENDER_STALE_MS: ${VIDEO_RENDER_STALE_MS:-300000}
+    read_only: true
+    tmpfs:
+      - /tmp:size=4g,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: ["ALL"]
+
+  transcription:
+    profiles: ["transcription"]
+    build:
+      context: ./whisper
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    environment:
+      WHISPER_MODEL: ${TRANSCRIPTION_MODEL:-large-v3-turbo}
+      WHISPER_API_TOKEN: ${TRANSCRIPTION_API_KEY:-}
+      WHISPER_MAX_UPLOAD_BYTES: ${TRANSCRIPTION_MAX_UPLOAD_BYTES:-25000000}
+      WHISPER_PRELOAD: ${WHISPER_PRELOAD:-true}
+      HF_HOME: /models
+      WHISPER_MODEL_CACHE: /models
+    volumes:
+      - infosteed-whisper-models:/models
+
+  kokoro:
+    profiles: ["voiceover"]
+    image: ghcr.io/remsky/kokoro-fastapi-cpu:v0.2.4
+    restart: unless-stopped
+    environment:
+      API_LOG_LEVEL: ${KOKORO_LOG_LEVEL:-INFO}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8880/health >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+      - /var/cache/nginx:size=32m,mode=0755
+      - /var/run:size=4m,mode=0755
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: ["ALL"]
+
+volumes:
+  infosteed-postgres:
+  infosteed-minio:
+  infosteed-whisper-models:

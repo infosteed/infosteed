@@ -1,0 +1,39 @@
+name: Release candidate evidence
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  evidence:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 24, cache: pnpm }
+      - run: corepack enable
+      - run: corepack pnpm install --frozen-lockfile
+      - run: corepack pnpm check
+      - run: corepack pnpm notices:check
+      - run: corepack pnpm extension:package
+      - run: cp deploy/compose.production.yml deploy/Caddyfile deploy/production.env.example artifacts/
+      - run: cp THIRD_PARTY_NOTICES.md LICENSE CHANGELOG.md artifacts/
+      - uses: anchore/sbom-action@v0
+        with:
+          path: apps/extension/dist
+          format: cyclonedx-json
+          output-file: artifacts/extension.cdx.json
+      - uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: artifacts/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.ref_name }}-release-candidate
+          path: artifacts/
+
+      # Publication is intentionally omitted. The repository owner reviews this
+      # evidence and performs GHCR, GitHub Release, and Store publication.

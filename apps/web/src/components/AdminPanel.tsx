@@ -20,6 +20,7 @@ import {
   updateUser,
 } from "../api";
 import { errorMessage } from "../errors";
+import { BrandMark, productLogoUrl } from "./BrandMark";
 
 export function AdminPanel({ onClose }: { onClose: () => void }) {
   const [users, setUsers] = useState<CurrentUser[]>([]);
@@ -202,13 +203,12 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
             <div className="settings-strip">
               <div className="brand-tile">
                 {branding.iconDataUrl ? (
-                  <img
+                  <BrandMark
                     className="brand-preview"
                     src={branding.iconDataUrl}
-                    alt=""
                   />
                 ) : (
-                  <span>SA</span>
+                  <BrandMark className="brand-preview" src={productLogoUrl} />
                 )}
               </div>
               <label>

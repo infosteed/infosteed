@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import type { PublicSystemInfo } from "@infosteed/shared";
 import { connectServer, disconnectServer } from "./apiClient";
+import { BrandMark } from "./BrandMark";
 import { errorMessage } from "./errors";
 import "./options.css";
 
@@ -61,7 +62,13 @@ export function Options() {
 
   return (
     <main>
-      <h1>Connect your self-hosted server</h1>
+      <div className="product-header">
+        <BrandMark />
+        <div>
+          <p className="product-name">InfoSteed</p>
+          <h1>Connect your self-hosted server</h1>
+        </div>
+      </div>
       <p>
         The extension sends recordings only to the server you select and approve
         here.

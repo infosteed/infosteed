@@ -14,6 +14,17 @@ main {
   margin: 0 auto;
   padding: 40px 24px;
 }
+.product-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.product-mark {
+  display: block;
+  width: 58px;
+  height: 58px;
+  object-fit: contain;
+}
 header p {
   margin: 0;
   color: #235ee7;
@@ -22,6 +33,9 @@ header p {
 h1 {
   margin: 4px 0 24px;
   font-size: 30px;
+}
+.product-header h1 {
+  margin-bottom: 18px;
 }
 h2 {
   margin: 0 0 16px;

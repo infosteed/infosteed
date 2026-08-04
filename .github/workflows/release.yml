@@ -1,0 +1,183 @@
+name: Publish release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      short_sha: ${{ steps.release.outputs.short_sha }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          version=${GITHUB_REF_NAME#v}
+          package_version=$(node -p "require('./package.json').version")
+          if [[ $GITHUB_REF_NAME != v* || $version != "$package_version" ]]; then
+            echo "Tag $GITHUB_REF_NAME does not match package version $package_version" >&2
+            exit 1
+          fi
+          tag_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$GITHUB_REF_NAME" --jq .object.sha)
+          tag_type=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$GITHUB_REF_NAME" --jq .object.type)
+          if [[ $tag_type != tag ]]; then
+            echo "Release tags must be signed annotated tags" >&2
+            exit 1
+          fi
+          verified=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_sha" --jq .verification.verified)
+          if [[ $verified != true ]]; then
+            echo "GitHub did not verify the signature on $GITHUB_REF_NAME" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${GITHUB_SHA:0:12}" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: corepack enable
+      - run: corepack pnpm install --frozen-lockfile
+      - run: corepack pnpm check
+      - run: corepack pnpm notices:check
+      - run: corepack pnpm extension:package
+
+  images:
+    needs: verify
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: api
+            dockerfile: apps/api/Dockerfile
+            context: .
+          - name: web
+            dockerfile: apps/web/Dockerfile
+            context: .
+          - name: video-render-worker
+            dockerfile: apps/video-render-worker/Dockerfile
+            context: .
+          - name: transcription
+            dockerfile: whisper/Dockerfile
+            context: whisper
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Refuse to overwrite a release image
+        env:
+          IMAGE: ghcr.io/infosteed/infosteed-${{ matrix.name }}
+          VERSION: ${{ needs.verify.outputs.version }}
+          SHORT_SHA: ${{ needs.verify.outputs.short_sha }}
+        run: |
+          for tag in "$VERSION" "sha-$SHORT_SHA"; do
+            if docker buildx imagetools inspect "$IMAGE:$tag" >/dev/null 2>&1; then
+              echo "Release image already exists: $IMAGE:$tag" >&2
+              exit 1
+            fi
+          done
+      - id: metadata
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/infosteed/infosteed-${{ matrix.name }}
+          tags: |
+            type=raw,value=${{ needs.verify.outputs.version }}
+            type=raw,value=sha-${{ needs.verify.outputs.short_sha }}
+          labels: |
+            org.opencontainers.image.title=InfoSteed ${{ matrix.name }}
+            org.opencontainers.image.description=InfoSteed production ${{ matrix.name }} image
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ needs.verify.outputs.version }}
+            org.opencontainers.image.licenses=AGPL-3.0-only
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+          provenance: mode=max
+          sbom: true
+      - uses: actions/attest-build-provenance@v3
+        with:
+          subject-name: ghcr.io/infosteed/infosteed-${{ matrix.name }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+  release:
+    needs: [verify, images]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      packages: read
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: corepack enable
+      - run: corepack pnpm install --frozen-lockfile
+      - run: corepack pnpm extension:package
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Prepare release files
+        env:
+          VERSION: ${{ needs.verify.outputs.version }}
+          SHORT_SHA: ${{ needs.verify.outputs.short_sha }}
+        run: |
+          cp deploy/compose.production.yml deploy/compose.build.yml deploy/Caddyfile deploy/production.env.example artifacts/
+          cp THIRD_PARTY_NOTICES.md LICENSE CHANGELOG.md artifacts/
+          web=ghcr.io/infosteed/infosteed-web:$VERSION
+          api=ghcr.io/infosteed/infosteed-api:$VERSION
+          render=ghcr.io/infosteed/infosteed-video-render-worker:$VERSION
+          transcription=ghcr.io/infosteed/infosteed-transcription:$VERSION
+          web_digest=$(docker buildx imagetools inspect "$web" --format '{{json .Manifest}}' | jq -r .digest)
+          api_digest=$(docker buildx imagetools inspect "$api" --format '{{json .Manifest}}' | jq -r .digest)
+          render_digest=$(docker buildx imagetools inspect "$render" --format '{{json .Manifest}}' | jq -r .digest)
+          transcription_digest=$(docker buildx imagetools inspect "$transcription" --format '{{json .Manifest}}' | jq -r .digest)
+          {
+            echo "RELEASE_VERSION=$VERSION"
+            echo "RELEASE_COMMIT=$GITHUB_SHA"
+            echo "WEB_IMAGE=$web@$web_digest"
+            echo "API_IMAGE=$api@$api_digest"
+            echo "RENDER_IMAGE=$render@$render_digest"
+            echo "TRANSCRIPTION_IMAGE=$transcription@$transcription_digest"
+            echo "LOCAL_IMAGE_TAG=sha-$SHORT_SHA"
+          } > artifacts/production-images.env
+          (cd artifacts && sha256sum * > SHA256SUMS)
+      - name: Create draft GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.verify.outputs.version }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" artifacts/* \
+            --draft \
+            --verify-tag \
+            --title "InfoSteed $VERSION" \
+            --notes "Release candidate for InfoSteed $VERSION. Review the attached checksums, deployment files, and image references before publishing this draft."

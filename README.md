@@ -38,7 +38,7 @@ Load `apps/extension/dist` as an unpacked extension in Chromium after running th
 
 ## Self-hosted deployment
 
-Use the supported local and production instructions in [docs/deployment.md](docs/deployment.md). Production uses Caddy-managed HTTPS, immutable GHCR image references, internal-only API/PostgreSQL/MinIO ports, and a mandatory 32-byte first-admin setup token. Back up before every upgrade using [docs/backup-and-upgrade.md](docs/backup-and-upgrade.md).
+Use the supported local and production instructions in [docs/deployment.md](docs/deployment.md). Production uses Caddy-managed HTTPS, versioned GHCR images by default, an equivalent source-build fallback, internal-only API/PostgreSQL/MinIO ports, and a mandatory 32-byte first-admin setup token. Back up before every upgrade using [docs/backup-and-upgrade.md](docs/backup-and-upgrade.md).
 
 Connect the extension to your server from its Options page. The extension requests access only to that origin, verifies `/api/system/info` and protocol compatibility, and injects the recorder only after you start a recording. See [Privacy and data handling](docs/privacy-policy.md).
 

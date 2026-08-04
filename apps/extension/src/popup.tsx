@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { getCurrentUser, getSettings } from "./apiClient";
+import { BrandMark } from "./BrandMark";
 import "./popup.css";
 
 type Status = "idle" | "recording" | "paused" | "finalizing";
@@ -107,7 +108,10 @@ export function Popup() {
   return (
     <main>
       <header>
-        <h1>InfoSteed</h1>
+        <div className="product-brand">
+          <BrandMark />
+          <h1>InfoSteed</h1>
+        </div>
         <span data-status={status}>{status}</span>
       </header>
 

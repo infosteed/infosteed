@@ -23,6 +23,19 @@ header {
   gap: 12px;
 }
 
+.product-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.product-mark {
+  display: block;
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
 h1 {
   margin: 0;
   font-size: 16px;

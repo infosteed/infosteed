@@ -2,7 +2,7 @@
 
 InfoSteed has not yet published its first supported self-hosted beta. The current target is Linux amd64. You can use the repository for development and private evaluation, but do not treat an untagged checkout as a supported release.
 
-The repository already includes the application, production Compose configuration, extension packaging, backup tools, automated checks, and release-evidence workflow.
+The repository already includes the application, dual GHCR/source-build production Compose configuration, extension packaging, backup tools, automated checks, and tag-triggered release workflow.
 
 ## What remains before the first public beta
 
@@ -10,7 +10,7 @@ The project owner still needs to confirm and publish the following project detai
 
 - legal clearance for the product name and slug;
 - the copyright holder and, if commercial terms are offered, the contracting entity and approved licence;
-- the public repository, image namespace, production domain, and browser-store publisher;
+- the production domain and browser-store publisher, and public visibility for the four `ghcr.io/infosteed` packages;
 - the stable extension ID and public manifest key;
 - approved contributor, security, and moderation contacts.
 

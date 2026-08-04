@@ -1,31 +1,39 @@
 # Back up, restore, and upgrade InfoSteed
 
-Back up PostgreSQL and object storage together. A database-only backup is incomplete because its records refer to media in the object store. The backup script pauses web, API, and worker writes while it takes the snapshot, then records the release, migrations, sizes, and checksums.
+PostgreSQL and object storage form one backup. The backup script pauses web, API, and worker writes, records release and migration metadata, copies both stores, and writes checksums. It automatically uses the GHCR or source-build Compose configuration selected in `deploy/production.env`.
 
-## Create a backup
-
-Copy `deploy/production.env.example` to `deploy/production.env`, fill it with the exact deployed image references and secrets, then run:
+## Create and test a backup
 
 ```bash
 scripts/backup.sh /srv/backups/infosteed
 ```
 
-Encrypt backups before sending them off-host. Keep at least one tested copy outside the deployment host and choose a retention period appropriate for the data you record. Monitor PostgreSQL, object storage, temporary render space, and backup destination capacity.
+Encrypt backups before sending them off-host, retain at least one tested off-host copy, and monitor database, object-storage, render, and backup capacity.
 
-Test a restore at least once per quarter. Always use an isolated, empty deployment for the test because restoration replaces the target data.
-
-## Restore a backup
-
-Choose a backup directory and pass the explicit empty-target confirmation:
+To restore into an isolated empty installation:
 
 ```bash
 scripts/restore.sh --confirm-empty-target /srv/backups/infosteed/20260804T120000Z
 ```
 
-The restore command validates checksums, refuses non-empty stores, restores the database and object store, compares object counts, and then starts the core services.
+The command verifies checksums, refuses non-empty stores, restores PostgreSQL and MinIO, compares object counts, and starts the application services.
 
 ## Upgrade
 
-Run `scripts/pre-upgrade.sh` before an upgrade. It creates a backup and stops if that backup fails. Use `--allow-without-backup` only during a documented emergency in which you have explicitly accepted the risk of data loss.
+Fetch tags and check out the new official release, leaving the existing `deploy/production.env` in place:
 
-Migrations are forward-only. To return to an earlier version, restore the pre-upgrade database and object-store backup and use the previous immutable image set. Never run previous images against an already migrated database.
+```bash
+git fetch --tags
+git checkout v0.1.1
+scripts/upgrade-production.sh
+```
+
+The upgrade script validates the new checkout, pulls or builds new images while the current stack runs, creates a verified backup, updates release metadata, and waits for the replacement services to become healthy. It preserves prior versioned images. `--allow-without-backup` is reserved for a documented emergency in which data-loss risk has been explicitly accepted.
+
+Migrations are forward-only. If startup fails after an upgrade, the script restores the previous deployment configuration and prints the exact rollback command. Rollback deliberately requires confirmation because it replaces the current database and object bucket:
+
+```bash
+scripts/restore.sh --confirm-replace-target /srv/backups/infosteed/TIMESTAMP
+```
+
+Run that command only with the pre-upgrade backup named by the failed upgrade. It clears current data, restores both stores, and starts the previous image set. Never start older images against a database that may contain newer migrations.

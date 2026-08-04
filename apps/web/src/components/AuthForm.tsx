@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import type { CurrentUser } from "@infosteed/shared";
 import { login, setupAdmin } from "../api";
 import { errorMessage } from "../errors";
+import { BrandMark } from "./BrandMark";
 
 export function AuthForm({
   mode,
@@ -43,7 +44,10 @@ export function AuthForm({
   return (
     <main className="auth-page">
       <form className="auth-card" onSubmit={(event) => void submit(event)}>
-        <p>{mode === "setup" ? "First Run" : "InfoSteed"}</p>
+        <div className="auth-brand">
+          <BrandMark />
+          <p>{mode === "setup" ? "First Run" : "InfoSteed"}</p>
+        </div>
         <h1>{mode === "setup" ? "Create the first admin" : "Sign in"}</h1>
         <label>
           Username

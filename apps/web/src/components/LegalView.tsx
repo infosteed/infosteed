@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { systemInfo } from "../api";
 import { errorMessage } from "../errors";
+import { BrandMark } from "./BrandMark";
 
 export function LegalView() {
   const [info, setInfo] = useState<Awaited<ReturnType<typeof systemInfo>>>();
@@ -16,7 +17,10 @@ export function LegalView() {
   return (
     <main className="legal-page">
       <p>About and legal</p>
-      <h1>{info?.productName ?? "InfoSteed"}</h1>
+      <div className="legal-brand">
+        <BrandMark />
+        <h1>{info?.productName ?? "InfoSteed"}</h1>
+      </div>
       {error && <p className="error">{error}</p>}
       <dl>
         <dt>Version</dt>

@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import type { CaptureMode, VideoCaptureSettings } from "@infosteed/shared";
 import { getVideoCapability } from "./apiClient";
+import { BrandMark } from "./BrandMark";
 import { errorMessage } from "./errors";
 import "./setup.css";
 
@@ -187,7 +188,8 @@ export function Setup() {
 
   return (
     <main>
-      <header>
+      <header className="product-header">
+        <BrandMark />
         <div>
           <p>InfoSteed</p>
           <h1>What do you want to create?</h1>

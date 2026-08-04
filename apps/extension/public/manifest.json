@@ -4,9 +4,19 @@
   "name": "InfoSteed Recorder",
   "version": "0.1.0",
   "description": "Self-hosted browser recorder for creating editable guides and videos.",
+  "icons": {
+    "16": "icons/infosteed-16.png",
+    "32": "icons/infosteed-32.png",
+    "48": "icons/infosteed-48.png",
+    "128": "icons/infosteed-128.png"
+  },
   "action": {
     "default_popup": "src/popup.html",
-    "default_title": "InfoSteed"
+    "default_title": "InfoSteed",
+    "default_icon": {
+      "16": "icons/infosteed-16.png",
+      "32": "icons/infosteed-32.png"
+    }
   },
   "background": {
     "service_worker": "background.js",

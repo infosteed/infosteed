@@ -4,6 +4,9 @@ dist/
 .env
 .env.*
 !.env.example
+deploy/production.env
+deploy/.production.env.*
+/backups/
 playwright-report/
 test-results/
 artifacts/

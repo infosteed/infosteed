@@ -18,6 +18,7 @@ import {
 } from "../api";
 import { errorMessage } from "../errors";
 import { openRecording, recordingUrl } from "../navigation";
+import { BrandMark, productLogoUrl } from "./BrandMark";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 function versionedImageUrl(
@@ -137,7 +138,7 @@ export function GuideBrowser({
         <div>
           <p>Library</p>
           <div className="brand-heading">
-            {branding.iconDataUrl && <img src={branding.iconDataUrl} alt="" />}
+            <BrandMark src={branding.iconDataUrl || productLogoUrl} />
             <h1>{branding.displayName || "InfoSteed"}</h1>
           </div>
         </div>

@@ -1,0 +1,28 @@
+name: infosteed
+
+services:
+  web:
+    image: infosteed/web:${LOCAL_IMAGE_TAG:?Set LOCAL_IMAGE_TAG}
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_BASE_URL: /api
+
+  api:
+    image: infosteed/api:${LOCAL_IMAGE_TAG:?Set LOCAL_IMAGE_TAG}
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+
+  video-render-worker:
+    image: infosteed/video-render-worker:${LOCAL_IMAGE_TAG:?Set LOCAL_IMAGE_TAG}
+    build:
+      context: ..
+      dockerfile: apps/video-render-worker/Dockerfile
+
+  transcription-gpu:
+    image: infosteed/transcription:${LOCAL_IMAGE_TAG:?Set LOCAL_IMAGE_TAG}
+    build:
+      context: ../whisper
+      dockerfile: Dockerfile

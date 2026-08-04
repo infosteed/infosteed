@@ -54,6 +54,9 @@ describe("web presentation", () => {
 
     expect(await screen.findByText("Library")).toBeTruthy();
     expect(
+      document.querySelector(".brand-heading .brand-mark")?.getAttribute("src"),
+    ).toContain("infosteed-horse-logo.svg");
+    expect(
       await screen.findByRole("heading", { name: "Recordings" }),
     ).toBeTruthy();
     expect(screen.getByPlaceholderText("Search recordings")).toBeTruthy();
@@ -80,6 +83,23 @@ describe("web presentation", () => {
     expect(
       await screen.findByRole("heading", { name: "Create the first admin" }),
     ).toBeTruthy();
+    expect(document.querySelector(".auth-brand .brand-mark")).toBeTruthy();
+  });
+
+  it("uses a custom deployment icon instead of the product fallback", async () => {
+    const customIcon = "data:image/png;base64,Y3VzdG9t";
+    vi.mocked(getBranding).mockResolvedValue({
+      displayName: "Acme Support",
+      iconDataUrl: customIcon,
+    });
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Acme Support" }),
+    ).toBeTruthy();
+    expect(
+      document.querySelector(".brand-heading .brand-mark")?.getAttribute("src"),
+    ).toBe(customIcon);
   });
 
   it("presents internal source values as product language", () => {

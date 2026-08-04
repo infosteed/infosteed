@@ -20,6 +20,7 @@ import type {
   ScreenshotEditOperations,
 } from "@infosteed/shared";
 import { PRODUCT_IDENTIFIERS } from "@infosteed/shared";
+import { BrandMark } from "./components/BrandMark";
 import {
   addItem,
   deleteItemImage,
@@ -411,7 +412,13 @@ export function App() {
 
   if (requestedView === "legal") return <LegalView />;
 
-  if (!authChecked) return <main className="empty">Loading InfoSteed...</main>;
+  if (!authChecked)
+    return (
+      <main className="empty product-loading">
+        <BrandMark />
+        <p>Loading InfoSteed...</p>
+      </main>
+    );
   if (setupRequired) {
     return (
       <AuthForm
@@ -461,7 +468,13 @@ export function App() {
     );
   }
   if (error) return <main className="empty">{error}</main>;
-  if (!recording) return <main className="empty">Loading recording...</main>;
+  if (!recording)
+    return (
+      <main className="empty product-loading">
+        <BrandMark />
+        <p>Loading recording...</p>
+      </main>
+    );
   if (
     requestedView === "video-edit" &&
     video &&

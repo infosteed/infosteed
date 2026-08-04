@@ -2,7 +2,7 @@ name: infosteed
 
 services:
   caddy:
-    image: ${CADDY_IMAGE:?Set CADDY_IMAGE to an immutable tag and digest}
+    image: ${CADDY_IMAGE:-caddy:2.10.2@sha256:c3d7ee5d2b11f9dc54f947f68a734c84e9c9666c92c88a7f30b9cba5da182adb}
     restart: unless-stopped
     depends_on:
       api: { condition: service_healthy }
@@ -23,7 +23,7 @@ services:
     cap_add: ["NET_BIND_SERVICE"]
 
   web:
-    image: ${WEB_IMAGE:?Set WEB_IMAGE to the release tag and digest}
+    image: ${WEB_IMAGE:-ghcr.io/infosteed/infosteed-web:${RELEASE_VERSION:?Set RELEASE_VERSION}}
     restart: unless-stopped
     read_only: true
     tmpfs:
@@ -39,7 +39,7 @@ services:
       retries: 20
 
   api:
-    image: ${API_IMAGE:?Set API_IMAGE to the release tag and digest}
+    image: ${API_IMAGE:-ghcr.io/infosteed/infosteed-api:${RELEASE_VERSION:?Set RELEASE_VERSION}}
     restart: unless-stopped
     depends_on:
       postgres: { condition: service_healthy }
@@ -94,7 +94,7 @@ services:
       retries: 20
 
   video-render-worker:
-    image: ${RENDER_IMAGE:?Set RENDER_IMAGE to the release tag and digest}
+    image: ${RENDER_IMAGE:-ghcr.io/infosteed/infosteed-video-render-worker:${RELEASE_VERSION:?Set RELEASE_VERSION}}
     restart: unless-stopped
     depends_on:
       api: { condition: service_healthy }
@@ -113,7 +113,7 @@ services:
     cap_drop: ["ALL"]
 
   postgres:
-    image: ${POSTGRES_IMAGE:?Set POSTGRES_IMAGE to an immutable tag and digest}
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777}
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-app}
@@ -130,7 +130,7 @@ services:
     cap_drop: ["ALL"]
 
   minio:
-    image: ${MINIO_IMAGE:?Set MINIO_IMAGE to an immutable tag and digest}
+    image: ${MINIO_IMAGE:-minio/minio:RELEASE.2025-07-23T15-54-02Z@sha256:d249d1fb6966de4d8ad26c04754b545205ff15a62e4fd19ebd0f26fa5baacbc0}
     restart: unless-stopped
     command: server /data
     environment:
@@ -141,7 +141,7 @@ services:
     cap_drop: ["ALL"]
 
   minio-init:
-    image: ${MINIO_MC_IMAGE:?Set MINIO_MC_IMAGE to an immutable tag and digest}
+    image: ${MINIO_MC_IMAGE:-minio/mc:RELEASE.2025-07-21T05-28-08Z@sha256:fb8f773eac8ef9d6da0486d5dec2f42f219358bcb8de579d1623d518c9ebd4cc}
     depends_on: { minio: { condition: service_started } }
     restart: "no"
     entrypoint: ["/bin/sh", "-c"]
@@ -160,7 +160,7 @@ services:
 
   transcription-gpu:
     profiles: ["transcription-gpu"]
-    image: ${TRANSCRIPTION_IMAGE:-invalid.example/transcription:configure-a-digest}
+    image: ${TRANSCRIPTION_IMAGE:-ghcr.io/infosteed/infosteed-transcription:${RELEASE_VERSION:?Set RELEASE_VERSION}}
     restart: unless-stopped
     environment:
       WHISPER_MODEL: ${TRANSCRIPTION_MODEL:-large-v3-turbo}
@@ -177,7 +177,7 @@ services:
 
   voiceover-cpu:
     profiles: ["voiceover-cpu"]
-    image: ${KOKORO_IMAGE:-invalid.example/kokoro-fastapi:configure-a-digest}
+    image: ${KOKORO_IMAGE:-ghcr.io/remsky/kokoro-fastapi-cpu:v0.2.4@sha256:c8812546d358cbfd6a5c4087a28795b2b001d8e32d7a322eedd246e6bc13cb55}
     restart: unless-stopped
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]

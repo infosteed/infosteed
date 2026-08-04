@@ -32,10 +32,8 @@ jobs:
           path: apps/extension/dist
           format: cyclonedx-json
           output-file: artifacts/extension.cdx.json
-      - uses: actions/upload-artifact@v4
-        with:
-          name: extension-development-artifacts
-          path: artifacts/
+          upload-artifact: false
+          upload-release-assets: false
 
   transcription:
     runs-on: ubuntu-24.04
@@ -55,6 +53,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
+      - run: bash -n scripts/*.sh
+      - run: scripts/test-production-scripts.sh
       - run: docker compose --env-file docker.env.example config --quiet
       - run: docker compose --env-file docker.env.example --profile transcription --profile voiceover config --quiet
       - run: >-
@@ -74,6 +74,16 @@ jobs:
           POSTGRES_PASSWORD=test-password MINIO_ROOT_USER=root MINIO_ROOT_PASSWORD=test-root-password
           S3_ACCESS_KEY_ID=app S3_SECRET_ACCESS_KEY=test-app-password
           docker compose -f deploy/compose.production.yml --profile transcription-gpu --profile voiceover-cpu config --quiet
+      - run: >-
+          IMAGE_SOURCE=build LOCAL_IMAGE_TAG=sha-abc
+          APP_DOMAIN=guides.example.test ACME_EMAIL=admin@example.test
+          APP_SOURCE_URL=https://github.com/infosteed/infosteed RELEASE_VERSION=0.1.0-beta.1 RELEASE_COMMIT=abc
+          EXTENSION_ORIGINS=chrome-extension://abcdefghijklmnopabcdefghijklmnop
+          SETUP_TOKEN=01234567890123456789012345678901
+          POSTGRES_PASSWORD=test-password MINIO_ROOT_USER=root MINIO_ROOT_PASSWORD=test-root-password
+          S3_ACCESS_KEY_ID=app S3_SECRET_ACCESS_KEY=test-app-password
+          docker compose -f deploy/compose.production.yml -f deploy/compose.build.yml
+          --profile transcription-gpu --profile voiceover-cpu config --quiet
 
   containers:
     runs-on: ubuntu-24.04
@@ -99,26 +109,22 @@ jobs:
           platforms: linux/amd64
           push: false
           tags: local/${{ matrix.name }}:ci
-          outputs: type=oci,dest=/tmp/${{ matrix.name }}.tar
+          load: true
       - uses: anchore/sbom-action@v0
         with:
-          file: /tmp/${{ matrix.name }}.tar
+          image: local/${{ matrix.name }}:ci
           format: cyclonedx-json
           output-file: /tmp/${{ matrix.name }}.cdx.json
-      - uses: aquasecurity/trivy-action@0.33.1
+          upload-artifact: false
+          upload-release-assets: false
+      - uses: aquasecurity/trivy-action@0.36.0
         with:
-          input: /tmp/${{ matrix.name }}.tar
+          image-ref: local/${{ matrix.name }}:ci
           format: sarif
           output: /tmp/${{ matrix.name }}-trivy.sarif
           severity: HIGH,CRITICAL
+          limit-severities-for-sarif: true
           exit-code: "1"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.name }}-supply-chain
-          path: |
-            /tmp/${{ matrix.name }}.tar
-            /tmp/${{ matrix.name }}.cdx.json
-            /tmp/${{ matrix.name }}-trivy.sarif
 
   integration:
     runs-on: ubuntu-24.04

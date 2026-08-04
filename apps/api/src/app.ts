@@ -55,6 +55,10 @@ import { createAiProvider } from "./aiProvider.js";
 import type { Pool } from "./db.js";
 import { withTransaction } from "./db.js";
 import {
+  resolveDocxExportBranding,
+  resolveExportBranding,
+} from "./exportBranding.js";
+import {
   generateGuideSteps,
   generateGuideStepsForCaptureSession,
 } from "./guideGeneration.js";
@@ -2430,29 +2434,12 @@ export function buildApp(
     return { recording, images };
   }
 
-  function imageDataUrlToBuffer(dataUrl: string): Buffer | null {
-    const match =
-      /^data:image\/(?:png|webp|svg\+xml);base64,([A-Za-z0-9+/=]+)$/.exec(
-        dataUrl,
-      );
-    return match ? Buffer.from(match[1], "base64") : null;
+  async function getExportBranding() {
+    return resolveExportBranding(await getBranding(pool));
   }
 
   async function getDocxBranding() {
-    const branding = await getBranding(pool);
-    if (!branding.iconDataUrl) return branding;
-
-    const icon = imageDataUrlToBuffer(branding.iconDataUrl);
-    if (!icon) return branding;
-
-    return {
-      ...branding,
-      docxIcon: {
-        filename: "branding-icon.png",
-        content: await convertImageToPng(icon),
-        contentType: "image/png",
-      },
-    };
+    return resolveDocxExportBranding(await getBranding(pool));
   }
 
   app.get<{ Params: { id: string } }>(
@@ -2484,7 +2471,7 @@ export function buildApp(
       const html = buildEmbeddedHtml(
         recording,
         images,
-        await getBranding(pool),
+        await getExportBranding(),
       );
 
       return reply
@@ -2559,7 +2546,7 @@ export function buildApp(
       const html = buildEmbeddedHtml(
         recording,
         images,
-        await getBranding(pool),
+        await getExportBranding(),
       );
       const browser = await chromium.launch({ headless: true }).catch(() => {
         throw httpError(

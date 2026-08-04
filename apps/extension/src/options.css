@@ -14,6 +14,27 @@ main {
   margin: 0 auto;
   padding: 48px 24px;
 }
+.product-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+.product-mark {
+  display: block;
+  width: 58px;
+  height: 58px;
+  object-fit: contain;
+}
+.product-name {
+  margin: 0;
+  color: #235ee7;
+  font-size: 13px;
+  font-weight: 700;
+}
+.product-header h1 {
+  margin: 2px 0 0;
+}
 .card {
   display: grid;
   gap: 14px;

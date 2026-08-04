@@ -45,13 +45,18 @@ h1 {
   font-size: 20px;
 }
 
+.brand-mark {
+  display: block;
+  object-fit: contain;
+}
+
 .brand-heading {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.brand-heading img {
+.brand-heading .brand-mark {
   width: 32px;
   height: 32px;
   max-height: none;
@@ -224,6 +229,38 @@ a {
   color: #667085;
   font-size: 12px;
   text-transform: uppercase;
+}
+
+.auth-brand,
+.legal-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.auth-brand .brand-mark {
+  width: 44px;
+  height: 44px;
+}
+
+.legal-page {
+  width: min(720px, 100%);
+  margin: 0 auto;
+  padding: 48px 24px;
+}
+
+.legal-brand {
+  margin: 8px 0 24px;
+}
+
+.legal-brand .brand-mark {
+  width: 64px;
+  height: 64px;
+}
+
+.legal-brand h1 {
+  margin: 0;
+  font-size: 28px;
 }
 
 .auth-card label,

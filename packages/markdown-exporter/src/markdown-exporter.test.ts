@@ -338,6 +338,18 @@ describe("markdown exporter", () => {
     expect(html).toContain('class="callout alert"');
   });
 
+  it("embeds supplied branding in HTML and PDF source documents", () => {
+    const iconDataUrl = "data:image/svg+xml;base64,PHN2Zy8+";
+    const html = buildEmbeddedHtml(recording, [], {
+      displayName: "Acme Support",
+      iconDataUrl,
+    });
+
+    expect(html).toContain('class="brand-icon"');
+    expect(html).toContain(iconDataUrl);
+    expect(html).toContain('alt="Acme Support"');
+  });
+
   it("builds a Word docx with embedded image media", async () => {
     const docxBuffer = await buildWorkflowDocx(
       recording,

@@ -6,9 +6,12 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Popup } from "./popup";
 import { Setup } from "./setup";
+import { Options } from "./options";
 import { getCurrentUser, getVideoCapability } from "./apiClient";
 
 vi.mock("./apiClient", () => ({
+  connectServer: vi.fn(),
+  disconnectServer: vi.fn(),
   getCurrentUser: vi.fn(),
   getSettings: vi.fn(),
   getVideoCapability: vi.fn(),
@@ -80,6 +83,7 @@ describe("extension presentation", () => {
       screen.queryByText(/00000000-0000-4000-8000-000000000099/),
     ).toBeNull();
     expect(screen.queryByText(/^App:/)).toBeNull();
+    expect(document.querySelector(".product-brand .product-mark")).toBeTruthy();
     await input.click(screen.getByRole("button", { name: "Pause" }));
     await waitFor(() =>
       expect(sendMessage).toHaveBeenCalledWith({ type: "pause-recording" }),
@@ -110,6 +114,23 @@ describe("extension presentation", () => {
     expect(screen.getByRole("radio", { name: /Guide Only/ })).toBeTruthy();
     expect(
       screen.getByText("A screenshot-based guide you can review and edit."),
+    ).toBeTruthy();
+    expect(
+      document.querySelector(".product-header .product-mark"),
+    ).toBeTruthy();
+  });
+
+  it("shows product identity on the extension options page", async () => {
+    storageGet.mockResolvedValue({});
+    render(<Options />);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Connect your self-hosted server",
+      }),
+    ).toBeTruthy();
+    expect(
+      document.querySelector(".product-header .product-mark"),
     ).toBeTruthy();
   });
 });

@@ -21,7 +21,24 @@ FROM mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f281
 
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
+  && rm -rf /var/lib/apt/lists/* \
+    /usr/local/lib/node_modules/npm \
+    /usr/local/lib/node_modules/corepack \
+    /usr/local/bin/npm \
+    /usr/local/bin/npx \
+    /usr/local/bin/corepack \
+    /usr/local/bin/pnpm \
+    /usr/local/bin/pnpx \
+    /usr/local/bin/yarn \
+    /usr/local/bin/yarnpkg \
+    /usr/lib/node_modules/npm \
+    /usr/lib/node_modules/corepack \
+    /usr/lib/node_modules/yarn \
+    /usr/bin/npm \
+    /usr/bin/npx \
+    /usr/bin/corepack \
+    /usr/bin/yarn \
+    /usr/bin/yarnpkg
 WORKDIR /app
 COPY --from=build --chown=pwuser:pwuser /release ./
 COPY --chown=pwuser:pwuser migrations ./migrations

@@ -7,7 +7,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     HF_HOME=/models \
     WHISPER_MODEL_CACHE=/models
 
-RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-pip python3-venv ffmpeg curl \
+RUN apt-get update && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends python3 python3-pip python3-venv ffmpeg curl \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --uid 10001 transcription
 

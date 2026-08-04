@@ -15,6 +15,15 @@ FROM node:24-bookworm-slim@sha256:cd84903a12dbd26b46f1f3b8144a2568c41c5d37ddd0c7
 
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certificates \
   && rm -rf /var/lib/apt/lists/* \
+    /usr/local/lib/node_modules/npm \
+    /usr/local/lib/node_modules/corepack \
+    /usr/local/bin/npm \
+    /usr/local/bin/npx \
+    /usr/local/bin/corepack \
+    /usr/local/bin/pnpm \
+    /usr/local/bin/pnpx \
+    /usr/local/bin/yarn \
+    /usr/local/bin/yarnpkg \
   && useradd --create-home --uid 10001 app
 WORKDIR /app
 COPY --from=build --chown=app:app /release ./

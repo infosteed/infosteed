@@ -30,6 +30,8 @@ const currentUser = {
   displayName: "Recording Owner",
   role: "admin" as const,
   enabled: true,
+  twoFactorEnabled: false,
+  twoFactorRequired: false,
 };
 
 describe("web presentation", () => {

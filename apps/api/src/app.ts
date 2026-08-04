@@ -22,6 +22,10 @@ import {
   createGuideVersionRequestSchema,
   createRecordingRequestSchema,
   loginRequestSchema,
+  twoFactorEnrollmentConfirmRequestSchema,
+  twoFactorEnrollmentStartRequestSchema,
+  twoFactorLoginRequestSchema,
+  twoFactorProofRequestSchema,
   moveRecordingProjectRequestSchema,
   recordingProjectSchema,
   reorderGuideItemsRequestSchema,
@@ -120,6 +124,18 @@ import {
   writeAuditEvent,
 } from "./repositories/auth.js";
 import type { AuthUser } from "./repositories/auth.js";
+import {
+  confirmTwoFactorEnrollment,
+  createEnrollmentChallenge,
+  createTwoFactorContinuation,
+  getTwoFactorContinuationPurpose,
+  getTwoFactorStatus,
+  replaceRecoveryCodes,
+  resetUserTwoFactor,
+  userHasTwoFactor,
+  verifyExistingSecondFactor,
+  verifyLoginSecondFactor,
+} from "./repositories/twoFactor.js";
 import {
   buildGuideVersionSnapshot,
   createGuideVersion,
@@ -327,6 +343,31 @@ export function buildApp(
     });
   }
 
+  async function twoFactorIssuer(): Promise<string> {
+    return (await getBranding(pool)).displayName || "InfoSteed";
+  }
+
+  async function requireCurrentPassword(userId: string, password: string) {
+    const user = await findUserWithPassword(pool, userId);
+    if (!user || !(await verifyPassword(password, user.passwordHash))) {
+      throw httpError(401, "Current password is incorrect");
+    }
+    return user;
+  }
+
+  async function requireCurrentPasswordAndSecondFactor(
+    userId: string,
+    password: string,
+    code: string,
+  ) {
+    const user = await requireCurrentPassword(userId, password);
+    const verified = await withTransaction(pool, async (client) =>
+      verifyExistingSecondFactor(client, config, { userId, code }),
+    );
+    if (!verified.ok) throw httpError(401, "Second-factor code is incorrect");
+    return { user, usedRecoveryCode: verified.recovery };
+  }
+
   async function ensureGuideActive(recordingId: string) {
     const recording = await getRecording(pool, recordingId);
     if (!recording) throw httpError(404, "Recording not found");
@@ -480,6 +521,7 @@ export function buildApp(
       "/setup/status",
       "/setup/admin",
       "/auth/login",
+      "/auth/login/2fa",
     ]);
     const setupRequired = (await countUsers(pool)) === 0;
     if (setupRequired) {
@@ -615,6 +657,56 @@ export function buildApp(
       if (passwordNeedsRehash(user.passwordHash)) {
         await updateOwnPassword(pool, user.id, input.password);
       }
+      if (user.twoFactorEnabled) {
+        const continuation = await createTwoFactorContinuation(pool, config, {
+          userId: user.id,
+          purpose: "login",
+        });
+        await writeAuditEvent(pool, {
+          actorUserId: user.id,
+          eventType: "login_second_factor_required",
+          entityType: "user",
+          entityId: user.id,
+          ...meta,
+        });
+        return reply.send({
+          status: "two_factor_required",
+          continuationToken: continuation.token,
+        });
+      }
+      if (user.twoFactorRequired) {
+        if (!config.TWO_FACTOR_ENABLED) {
+          await writeAuditEvent(pool, {
+            actorUserId: user.id,
+            eventType: "login_two_factor_enrollment_blocked",
+            entityType: "user",
+            entityId: user.id,
+            ...meta,
+          });
+          throw httpError(
+            503,
+            "Two-factor enrollment is required for this account but disabled for this deployment",
+          );
+        }
+        const challenge = await createEnrollmentChallenge(pool, config, {
+          userId: user.id,
+          username: user.username,
+          issuer: await twoFactorIssuer(),
+          appDomain: config.APP_DOMAIN,
+          purpose: "enrollment_login",
+        });
+        await writeAuditEvent(pool, {
+          actorUserId: user.id,
+          eventType: "login_two_factor_enrollment_required",
+          entityType: "user",
+          entityId: user.id,
+          ...meta,
+        });
+        return reply.send({
+          status: "two_factor_enrollment_required",
+          ...challenge,
+        });
+      }
       await writeAuditEvent(pool, {
         actorUserId: user.id,
         eventType: "login_succeeded",
@@ -630,6 +722,112 @@ export function buildApp(
           makeSessionCookie(session.id, config.SESSION_DAYS * 24 * 60 * 60),
         )
         .send({ user: current });
+    },
+  );
+
+  app.post(
+    "/auth/login/2fa",
+    { config: { rateLimit: { max: 30, timeWindow: "15 minutes" } } },
+    async (request, reply) => {
+      const input = twoFactorLoginRequestSchema.parse(request.body);
+      const meta = requestMetadata(request);
+      const purpose = await getTwoFactorContinuationPurpose(
+        pool,
+        input.continuationToken,
+      );
+      if (purpose === "login") {
+        const result = await withTransaction(pool, (client) =>
+          verifyLoginSecondFactor(client, config, input),
+        );
+        if (!result.ok) {
+          await writeAuditEvent(pool, {
+            actorUserId: null,
+            eventType: "login_second_factor_failed",
+            ...meta,
+          });
+          throw httpError(401, "Invalid or expired second-factor code");
+        }
+        const loaded = await findUserWithPassword(pool, result.userId);
+        if (!loaded || !loaded.enabled)
+          throw httpError(401, "Invalid or expired second-factor code");
+        const session = await createSession(
+          pool,
+          result.userId,
+          config.SESSION_DAYS,
+        );
+        const { passwordHash: _passwordHash, ...current } = loaded;
+        await writeAuditEvent(pool, {
+          actorUserId: result.userId,
+          eventType: result.usedRecoveryCode
+            ? "login_succeeded_with_recovery_code"
+            : "login_succeeded",
+          entityType: "user",
+          entityId: result.userId,
+          ...meta,
+        });
+        return reply
+          .header(
+            "set-cookie",
+            makeSessionCookie(session.id, config.SESSION_DAYS * 24 * 60 * 60),
+          )
+          .send({ user: current });
+      }
+      if (purpose === "enrollment_login") {
+        const result = await withTransaction(pool, (client) =>
+          confirmTwoFactorEnrollment(client, config, {
+            continuationToken: input.continuationToken,
+            code: input.code,
+            allowedPurpose: "enrollment_login",
+          }),
+        );
+        if (!result.ok) {
+          await writeAuditEvent(pool, {
+            actorUserId: null,
+            eventType: "login_two_factor_enrollment_failed",
+            ...meta,
+            metadata: { reason: result.reason },
+          });
+          throw httpError(401, "Invalid or expired second-factor code");
+        }
+        const loaded = await findUserWithPassword(pool, result.userId);
+        if (!loaded || !loaded.enabled)
+          throw httpError(401, "Invalid or expired second-factor code");
+        await deleteUserSessions(pool, result.userId);
+        const session = await createSession(
+          pool,
+          result.userId,
+          config.SESSION_DAYS,
+        );
+        const { passwordHash: _passwordHash, ...current } = loaded;
+        await writeAuditEvent(pool, {
+          actorUserId: result.userId,
+          eventType: "two_factor_enrolled",
+          entityType: "user",
+          entityId: result.userId,
+          ...meta,
+          metadata: { duringLogin: true },
+        });
+        await writeAuditEvent(pool, {
+          actorUserId: result.userId,
+          eventType: "login_succeeded",
+          entityType: "user",
+          entityId: result.userId,
+          ...meta,
+        });
+        return reply
+          .header(
+            "set-cookie",
+            makeSessionCookie(session.id, config.SESSION_DAYS * 24 * 60 * 60),
+          )
+          .send({ user: current, recoveryCodes: result.recoveryCodes });
+      }
+      await writeAuditEvent(pool, {
+        actorUserId: null,
+        eventType: "login_second_factor_failed",
+        ...meta,
+        metadata: { reason: "invalid_continuation" },
+      });
+      throw httpError(401, "Invalid or expired second-factor code");
     },
   );
 
@@ -667,6 +865,94 @@ export function buildApp(
     await updateOwnPassword(pool, user.id, input.newPassword);
     await deleteUserSessions(pool, user.id, currentSessionId(request));
     await audit(request, "password_changed", "user", user.id);
+    return { ok: true };
+  });
+
+  app.get("/auth/me/2fa", async (request) => ({
+    ...(await getTwoFactorStatus(pool, currentUser(request).id)),
+    enrollmentAvailable: config.TWO_FACTOR_ENABLED,
+  }));
+
+  app.post("/auth/me/2fa/enrollment/start", async (request) => {
+    const input = twoFactorEnrollmentStartRequestSchema.parse(request.body);
+    const user = await requireCurrentPassword(
+      currentUser(request).id,
+      input.currentPassword,
+    );
+    if (!config.TWO_FACTOR_ENABLED)
+      throw httpError(503, "Two-factor enrollment is disabled");
+    if (await userHasTwoFactor(pool, user.id))
+      throw httpError(409, "Two-factor authentication is already enabled");
+    const challenge = await createEnrollmentChallenge(pool, config, {
+      userId: user.id,
+      username: user.username,
+      issuer: await twoFactorIssuer(),
+      appDomain: config.APP_DOMAIN,
+      purpose: "account_enrollment",
+    });
+    await audit(request, "two_factor_enrollment_started", "user", user.id);
+    return challenge;
+  });
+
+  app.post("/auth/me/2fa/enrollment/confirm", async (request) => {
+    const input = twoFactorEnrollmentConfirmRequestSchema.parse(request.body);
+    const result = await withTransaction(pool, (client) =>
+      confirmTwoFactorEnrollment(client, config, {
+        continuationToken: input.continuationToken,
+        code: input.code,
+        allowedPurpose: "account_enrollment",
+        expectedUserId: currentUser(request).id,
+      }),
+    );
+    if (!result.ok)
+      throw httpError(401, "Invalid or expired second-factor code");
+    await deleteUserSessions(pool, result.userId, currentSessionId(request));
+    await audit(request, "two_factor_enrolled", "user", result.userId);
+    return { recoveryCodes: result.recoveryCodes };
+  });
+
+  app.post("/auth/me/2fa/recovery-codes/regenerate", async (request) => {
+    const input = twoFactorProofRequestSchema.parse(request.body);
+    const user = currentUser(request);
+    if (!user.twoFactorEnabled)
+      throw httpError(409, "Two-factor authentication is not enabled");
+    const proof = await requireCurrentPasswordAndSecondFactor(
+      user.id,
+      input.currentPassword,
+      input.code,
+    );
+    const recoveryCodes = await withTransaction(pool, (client) =>
+      replaceRecoveryCodes(client, user.id),
+    );
+    await audit(
+      request,
+      "two_factor_recovery_codes_regenerated",
+      "user",
+      user.id,
+      {
+        usedRecoveryCode: proof.usedRecoveryCode,
+      },
+    );
+    return { recoveryCodes };
+  });
+
+  app.delete("/auth/me/2fa", async (request) => {
+    const input = twoFactorProofRequestSchema.parse(request.body);
+    const user = currentUser(request);
+    if (!user.twoFactorEnabled)
+      throw httpError(409, "Two-factor authentication is not enabled");
+    const proof = await requireCurrentPasswordAndSecondFactor(
+      user.id,
+      input.currentPassword,
+      input.code,
+    );
+    await withTransaction(pool, (client) =>
+      resetUserTwoFactor(client, user.id),
+    );
+    await deleteUserSessions(pool, user.id, currentSessionId(request));
+    await audit(request, "two_factor_disabled", "user", user.id, {
+      usedRecoveryCode: proof.usedRecoveryCode,
+    });
     return { ok: true };
   });
 

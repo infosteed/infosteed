@@ -4,6 +4,7 @@ import {
   type ElementHints,
   type RawRecorderEvent,
 } from "@infosteed/recorder-core";
+import { t } from "./i18n";
 import { PRODUCT_IDENTIFIERS } from "@infosteed/shared";
 
 interface RecorderInstallation {
@@ -63,10 +64,10 @@ window.addEventListener(
       try {
         if (!(await isConfiguredWebAppOrigin(window.location.origin))) {
           throw new Error(
-            "InfoSteed extension is not configured for this web app origin",
+            t("InfoSteed extension is not configured for this web app origin"),
           );
         }
-        if (!data.recordingId) throw new Error("Missing recording id");
+        if (!data.recordingId) throw new Error(t("Missing recording id"));
         const result = await chrome.runtime.sendMessage({
           type: "start-recording-existing",
           recordingId: data.recordingId,

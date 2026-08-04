@@ -59,6 +59,12 @@ The installer creates `deploy/production.env` with mode `0600`, generates indepe
 
 For internal TLS, the installer exports the public root certificate to `deploy/infosteed-local-ca.crt`. Trust it on each client using [Internal HTTPS](internal-https.md).
 
+## Optional two-factor authentication
+
+Production installs also generate `TWO_FACTOR_ENCRYPTION_KEY` in `deploy/production.env` while leaving `TWO_FACTOR_ENABLED=false` by default. Back up this key with the deployment environment; enrolled accounts cannot be verified if it is lost or replaced.
+
+Set `TWO_FACTOR_ENABLED=true` to allow new TOTP enrollment and new admin-enforced account requirements. Disabling it later stops new enrollment, but already enrolled accounts still require their authenticator or a recovery code. For sole-admin recovery, run `scripts/reset-two-factor.sh` on the host and enter the exact username when prompted.
+
 ## Configure AI services
 
 Run the interactive wizard after the core is healthy:

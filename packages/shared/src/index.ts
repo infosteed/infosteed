@@ -821,9 +821,35 @@ export const loginRequestSchema = z.object({
   password: z.string().min(1).max(256),
 });
 
+export const twoFactorTokenSchema = z
+  .string()
+  .trim()
+  .min(6)
+  .max(80)
+  .transform((value) => value.replace(/[\s-]+/g, "").toUpperCase());
+
+export const twoFactorLoginRequestSchema = z.object({
+  continuationToken: z.string().min(32).max(512),
+  code: twoFactorTokenSchema,
+});
+
 export const updateOwnPasswordRequestSchema = z.object({
   currentPassword: z.string().min(1).max(256),
   newPassword: z.string().min(10).max(256),
+});
+
+export const twoFactorEnrollmentStartRequestSchema = z.object({
+  currentPassword: z.string().min(1).max(256),
+});
+
+export const twoFactorEnrollmentConfirmRequestSchema = z.object({
+  continuationToken: z.string().min(32).max(512),
+  code: twoFactorTokenSchema,
+});
+
+export const twoFactorProofRequestSchema = z.object({
+  currentPassword: z.string().min(1).max(256),
+  code: twoFactorTokenSchema,
 });
 
 export const createUserRequestSchema = z.object({
@@ -838,6 +864,12 @@ export const updateUserRequestSchema = z.object({
   role: userRoleSchema.optional(),
   enabled: z.boolean().optional(),
   password: z.string().min(10).max(256).optional(),
+  twoFactorRequired: z.boolean().optional(),
+});
+
+export const adminTwoFactorResetRequestSchema = z.object({
+  currentPassword: z.string().min(1).max(256),
+  code: twoFactorTokenSchema.optional(),
 });
 
 export const createProjectRequestSchema = z.object({
@@ -911,6 +943,8 @@ export const currentUserSchema = z.object({
   displayName: z.string(),
   role: userRoleSchema,
   enabled: z.boolean(),
+  twoFactorEnabled: z.boolean().default(false),
+  twoFactorRequired: z.boolean().default(false),
 });
 
 export const userDirectoryEntrySchema = z.object({

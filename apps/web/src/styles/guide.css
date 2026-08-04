@@ -242,6 +242,76 @@
   margin-top: 6px;
 }
 
+.security-dialog,
+.modal-panel {
+  display: grid;
+  gap: 16px;
+  width: min(640px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  padding: 22px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 24px 64px rgba(16, 24, 40, 0.28);
+}
+
+.security-dialog header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.security-dialog header h2,
+.security-dialog header p {
+  margin: 0;
+}
+
+.two-factor-setup {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px 14px;
+  align-items: center;
+}
+
+.two-factor-setup img {
+  grid-row: span 3;
+  width: 144px;
+  height: 144px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+}
+
+.two-factor-setup code,
+.two-factor-setup small,
+.recovery-codes pre {
+  overflow-wrap: anywhere;
+}
+
+.recovery-codes {
+  display: grid;
+  gap: 8px;
+}
+
+.recovery-codes pre {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+@media (max-width: 640px) {
+  .two-factor-setup {
+    grid-template-columns: 1fr;
+  }
+
+  .two-factor-setup img {
+    grid-row: auto;
+  }
+}
+
 article {
   display: grid;
   gap: 8px;

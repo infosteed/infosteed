@@ -14,12 +14,14 @@ import {
   listProjects,
   listUsers,
   removeProjectMember,
+  resetUserTwoFactor,
   setProjectMember,
   updateBranding,
   updateProject,
   updateUser,
 } from "../api";
 import { errorMessage } from "../errors";
+import { plural, t } from "../i18n";
 import { BrandMark, productLogoUrl } from "./BrandMark";
 
 export function AdminPanel({ onClose }: { onClose: () => void }) {
@@ -42,6 +44,13 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<string | undefined>();
   const [systemStatus, setSystemStatus] =
     useState<Awaited<ReturnType<typeof getAdminSystemStatus>>>();
+  const [twoFactorResetUser, setTwoFactorResetUser] = useState<
+    CurrentUser | undefined
+  >();
+  const [twoFactorResetProof, setTwoFactorResetProof] = useState({
+    currentPassword: "",
+    code: "",
+  });
 
   async function load() {
     try {
@@ -117,55 +126,73 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
     await load();
   }
 
+  async function confirmTwoFactorReset(event: React.FormEvent) {
+    event.preventDefault();
+    if (!twoFactorResetUser) return;
+    try {
+      await resetUserTwoFactor(twoFactorResetUser.id, {
+        currentPassword: twoFactorResetProof.currentPassword,
+        code: twoFactorResetProof.code || undefined,
+      });
+      setTwoFactorResetUser(undefined);
+      setTwoFactorResetProof({ currentPassword: "", code: "" });
+      await load();
+    } catch (resetError) {
+      setError(errorMessage(resetError));
+    }
+  }
+
   return (
     <main className="admin-page">
       <header className="admin-topbar">
         <div>
-          <p>Admin</p>
-          <h1>Workspace Settings</h1>
+          <p>{t("Admin")}</p>
+          <h1>{t("Workspace Settings")}</h1>
         </div>
-        <button onClick={onClose}>Close Admin</button>
+        <button onClick={onClose}>{t("Close Admin")}</button>
       </header>
       <div className="admin-shell">
-        <nav className="admin-sidebar" aria-label="Admin sections">
+        <nav className="admin-sidebar" aria-label={t("Admin sections")}>
           <button
             onClick={() =>
               document.getElementById("admin-branding")?.scrollIntoView()
             }
           >
-            Branding
+            {t("Branding")}
           </button>
           <button
             onClick={() =>
               document.getElementById("admin-users")?.scrollIntoView()
             }
           >
-            Users
+            {t("Users")}
           </button>
           <button
             onClick={() =>
               document.getElementById("admin-projects")?.scrollIntoView()
             }
           >
-            Projects
+            {t("Projects")}
           </button>
           <button
             onClick={() =>
               document.getElementById("admin-system")?.scrollIntoView()
             }
           >
-            System
+            {t("System")}
           </button>
         </nav>
         <section className="admin-content">
           <article id="admin-system" className="admin-section">
             <div className="section-title">
               <div>
-                <p>Operations</p>
-                <h2>Providers and workers</h2>
+                <p>{t("Operations")}</p>
+                <h2>{t("Providers and workers")}</h2>
               </div>
               <span className="status-pill neutral">
-                Protocol {systemStatus?.protocolVersion ?? "-"}
+                {t("Protocol {protocol}", {
+                  protocol: systemStatus?.protocolVersion ?? "-",
+                })}
               </span>
             </div>
             <div className="settings-strip">
@@ -195,10 +222,10 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
           <article id="admin-branding" className="admin-section">
             <div className="section-title">
               <div>
-                <p>Deployment</p>
-                <h2>Branding</h2>
+                <p>{t("Deployment")}</p>
+                <h2>{t("Branding")}</h2>
               </div>
-              <span className="status-pill neutral">Global</span>
+              <span className="status-pill neutral">{t("Global")}</span>
             </div>
             <div className="settings-strip">
               <div className="brand-tile">
@@ -212,7 +239,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                 )}
               </div>
               <label>
-                Display name
+                {t("Display name")}
                 <input
                   value={branding.displayName}
                   onChange={(event) =>
@@ -232,7 +259,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                   accept="image/png,image/webp,image/svg+xml"
                   onChange={(event) => void readIcon(event.target.files?.[0])}
                 />
-                Upload Icon
+                {t("Upload Icon")}
               </label>
             </div>
           </article>
@@ -240,24 +267,26 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
           <article id="admin-users" className="admin-section">
             <div className="section-title">
               <div>
-                <p>Access</p>
-                <h2>Users</h2>
+                <p>{t("Access")}</p>
+                <h2>{t("Users")}</h2>
               </div>
-              <span className="status-pill neutral">{users.length} total</span>
+              <span className="status-pill neutral">
+                {t("{count} total", { count: users.length })}
+              </span>
             </div>
             <form
               className="create-user-bar"
               onSubmit={(event) => void addUser(event)}
             >
               <input
-                placeholder="Username"
+                placeholder={t("Username")}
                 value={newUser.username}
                 onChange={(event) =>
                   setNewUser({ ...newUser, username: event.target.value })
                 }
               />
               <input
-                placeholder="Display name"
+                placeholder={t("Display name")}
                 value={newUser.displayName}
                 onChange={(event) =>
                   setNewUser({ ...newUser, displayName: event.target.value })
@@ -265,7 +294,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
               />
               <input
                 type="password"
-                placeholder="Temporary password"
+                placeholder={t("Temporary password")}
                 value={newUser.password}
                 onChange={(event) =>
                   setNewUser({ ...newUser, password: event.target.value })
@@ -280,10 +309,10 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                   })
                 }
               >
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
+                <option value="user">{t("User")}</option>
+                <option value="admin">{t("Admin")}</option>
               </select>
-              <button>Create</button>
+              <button>{t("Create")}</button>
             </form>
             <div className="admin-table">
               {users.map((user) => (
@@ -295,7 +324,12 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                   <span
                     className={`status-pill ${user.enabled ? "success" : "danger"}`}
                   >
-                    {user.enabled ? "Enabled" : "Disabled"}
+                    {user.enabled ? t("Enabled") : t("Disabled")}
+                  </span>
+                  <span
+                    className={`status-pill ${user.twoFactorEnabled ? "success" : "neutral"}`}
+                  >
+                    {user.twoFactorEnabled ? t("2FA enabled") : t("2FA off")}
                   </span>
                   <select
                     value={user.role}
@@ -305,8 +339,8 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                       }).then(load)
                     }
                   >
-                    <option value="user">User</option>
-                    <option value="admin">Admin</option>
+                    <option value="user">{t("User")}</option>
+                    <option value="admin">{t("Admin")}</option>
                   </select>
                   <button
                     onClick={() =>
@@ -315,7 +349,23 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                       )
                     }
                   >
-                    {user.enabled ? "Disable" : "Enable"}
+                    {user.enabled ? t("Disable") : t("Enable")}
+                  </button>
+                  <button
+                    onClick={() =>
+                      void updateUser(user.id, {
+                        twoFactorRequired: !user.twoFactorRequired,
+                      }).then(load, (updateError) =>
+                        setError(errorMessage(updateError)),
+                      )
+                    }
+                  >
+                    {user.twoFactorRequired
+                      ? t("Make 2FA Optional")
+                      : t("Require 2FA")}
+                  </button>
+                  <button onClick={() => setTwoFactorResetUser(user)}>
+                    {t("Reset 2FA")}
                   </button>
                 </div>
               ))}
@@ -325,11 +375,11 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
           <article id="admin-projects" className="admin-section">
             <div className="section-title">
               <div>
-                <p>Sharing</p>
-                <h2>Projects and Members</h2>
+                <p>{t("Sharing")}</p>
+                <h2>{t("Projects and Members")}</h2>
               </div>
               <span className="status-pill neutral">
-                {projects.length} projects
+                {plural("{count} project", "{count} projects", projects.length)}
               </span>
             </div>
             <div className="project-manager">
@@ -343,7 +393,9 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                     onClick={() => setSelectedProjectId(project.id)}
                   >
                     <span>{project.name}</span>
-                    <small>{project.private ? "Private" : "Shared"}</small>
+                    <small>
+                      {project.private ? t("Private") : t("Shared")}
+                    </small>
                   </button>
                 ))}
               </div>
@@ -355,13 +407,13 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                       <div>
                         <strong>{project.name}</strong>
                         <span>
-                          {project.description ?? "No description set"}
+                          {project.description ?? t("No description set")}
                         </span>
                       </div>
                       <button
                         onClick={() => void toggleProjectPrivate(project)}
                       >
-                        {project.private ? "Make Shared" : "Make Private"}
+                        {project.private ? t("Make Shared") : t("Make Private")}
                       </button>
                     </div>
                   ))}
@@ -373,7 +425,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                     value={memberUserId}
                     onChange={(event) => setMemberUserId(event.target.value)}
                   >
-                    <option value="">Select user</option>
+                    <option value="">{t("Select user")}</option>
                     {users.map((user) => (
                       <option key={user.id} value={user.id}>
                         {user.displayName} ({user.username})
@@ -386,10 +438,10 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                       setMemberRole(event.target.value as "editor" | "viewer")
                     }
                   >
-                    <option value="viewer">Viewer</option>
-                    <option value="editor">Editor</option>
+                    <option value="viewer">{t("Viewer")}</option>
+                    <option value="editor">{t("Editor")}</option>
                   </select>
-                  <button>Add Member</button>
+                  <button>{t("Add Member")}</button>
                 </form>
                 <div className="admin-table">
                   {members.map((member) => (
@@ -401,12 +453,12 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                       <span
                         className={`status-pill ${member.role === "owner" ? "owner" : "neutral"}`}
                       >
-                        {member.role}
+                        {t(member.role)}
                       </span>
                       <span
                         className={`status-pill ${member.enabled ? "success" : "danger"}`}
                       >
-                        {member.enabled ? "Enabled" : "Disabled"}
+                        {member.enabled ? t("Enabled") : t("Disabled")}
                       </span>
                       <button
                         disabled={member.role === "owner"}
@@ -421,7 +473,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                           )
                         }
                       >
-                        Remove
+                        {t("Remove")}
                       </button>
                     </div>
                   ))}
@@ -432,6 +484,57 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
           {error && <p className="error">{error}</p>}
         </section>
       </div>
+      {twoFactorResetUser && (
+        <div className="modal-backdrop">
+          <form
+            className="confirm-dialog two-factor-reset-dialog"
+            onSubmit={(event) => void confirmTwoFactorReset(event)}
+          >
+            <h2>{t("Reset 2FA")}</h2>
+            <p>
+              {t("Reset 2FA for {username}. Their sessions will be revoked.", {
+                username: twoFactorResetUser.username,
+              })}
+            </p>
+            <label>
+              {t("Your current password")}
+              <input
+                type="password"
+                value={twoFactorResetProof.currentPassword}
+                onChange={(event) =>
+                  setTwoFactorResetProof({
+                    ...twoFactorResetProof,
+                    currentPassword: event.target.value,
+                  })
+                }
+                autoComplete="current-password"
+              />
+            </label>
+            <label>
+              {t("Your 2FA or recovery code")}
+              <input
+                value={twoFactorResetProof.code}
+                onChange={(event) =>
+                  setTwoFactorResetProof({
+                    ...twoFactorResetProof,
+                    code: event.target.value,
+                  })
+                }
+                autoComplete="one-time-code"
+              />
+            </label>
+            <div className="confirm-actions">
+              <button
+                type="button"
+                onClick={() => setTwoFactorResetUser(undefined)}
+              >
+                {t("Cancel")}
+              </button>
+              <button className="danger-action">{t("Reset 2FA")}</button>
+            </div>
+          </form>
+        </div>
+      )}
     </main>
   );
 }

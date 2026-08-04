@@ -39,6 +39,8 @@ interface UserRow {
   password_hash: string;
   role: UserRole;
   enabled: boolean;
+  two_factor_required: boolean;
+  two_factor_enabled?: boolean;
 }
 
 interface ProjectRow {
@@ -101,6 +103,8 @@ function mapUser(row: UserRow): CurrentUser {
     displayName: row.display_name,
     role: row.role,
     enabled: row.enabled,
+    twoFactorEnabled: Boolean(row.two_factor_enabled),
+    twoFactorRequired: row.two_factor_required,
   };
 }
 
@@ -243,6 +247,7 @@ export async function updateUser(
     role?: UserRole;
     enabled?: boolean;
     password?: string;
+    twoFactorRequired?: boolean;
   },
 ): Promise<CurrentUser | null> {
   const passwordHash = patch.password
@@ -256,6 +261,7 @@ export async function updateUser(
         role = coalesce($3, role),
         enabled = coalesce($4, enabled),
         password_hash = coalesce($5, password_hash),
+        two_factor_required = coalesce($6, two_factor_required),
         updated_at = now()
       where id = $1
       returning *
@@ -266,6 +272,7 @@ export async function updateUser(
       patch.role ?? null,
       patch.enabled ?? null,
       passwordHash,
+      patch.twoFactorRequired ?? null,
     ],
   );
   return result.rows[0] ? mapUser(result.rows[0]) : null;
@@ -287,7 +294,13 @@ export async function findUserByUsername(
   username: string,
 ): Promise<(CurrentUser & { passwordHash: string }) | null> {
   const result = await db.query<UserRow>(
-    "select * from users where lower(username) = lower($1)",
+    `
+      select u.*, exists(
+        select 1 from user_totp_credentials c where c.user_id = u.id
+      ) as two_factor_enabled
+      from users u
+      where lower(u.username) = lower($1)
+    `,
     [username],
   );
   const row = result.rows[0];
@@ -298,16 +311,29 @@ export async function findUserWithPassword(
   db: Db,
   userId: string,
 ): Promise<(CurrentUser & { passwordHash: string }) | null> {
-  const result = await db.query<UserRow>("select * from users where id = $1", [
-    userId,
-  ]);
+  const result = await db.query<UserRow>(
+    `
+      select u.*, exists(
+        select 1 from user_totp_credentials c where c.user_id = u.id
+      ) as two_factor_enabled
+      from users u
+      where u.id = $1
+    `,
+    [userId],
+  );
   const row = result.rows[0];
   return row ? { ...mapUser(row), passwordHash: row.password_hash } : null;
 }
 
 export async function listUsers(db: Db): Promise<CurrentUser[]> {
   const result = await db.query<UserRow>(
-    "select * from users order by display_name, username",
+    `
+      select u.*, exists(
+        select 1 from user_totp_credentials c where c.user_id = u.id
+      ) as two_factor_enabled
+      from users u
+      order by u.display_name, u.username
+    `,
   );
   return result.rows.map(mapUser);
 }
@@ -395,7 +421,9 @@ export async function getSessionUser(
   await db.query("delete from sessions where expires_at <= now()");
   const result = await db.query<UserRow>(
     `
-      select u.*
+      select u.*, exists(
+        select 1 from user_totp_credentials c where c.user_id = u.id
+      ) as two_factor_enabled
       from sessions s
       join users u on u.id = s.user_id
       where s.id = $1 and s.expires_at > now() and u.enabled = true

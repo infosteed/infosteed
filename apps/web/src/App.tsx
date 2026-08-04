@@ -63,6 +63,7 @@ import { VideoEditor } from "./VideoEditor";
 import { RecordingGenerationStatus } from "./components/RecordingGenerationStatus";
 import { errorMessage } from "./errors";
 import { guideSourceLabel } from "./guide/source";
+import { t } from "./i18n";
 import { AuthForm } from "./components/AuthForm";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { LegalView } from "./components/LegalView";
@@ -70,6 +71,7 @@ import { GuideBrowser } from "./components/GuideBrowser";
 import { AdminPanel } from "./components/AdminPanel";
 import { GuideShareMovePanel } from "./components/GuideShareMovePanel";
 import { GuideVersionsPanel } from "./components/GuideVersionsPanel";
+import { LanguageSelect } from "./components/LanguageSelect";
 import {
   GuideDisplayPreview,
   GuideItemEditor,
@@ -251,7 +253,9 @@ export function App() {
       await startExistingCapture(recording.id);
       setCaptureMoreStatus("started");
       setCaptureMoreMessage(
-        "Capture started. Use the extension popup to pause or stop when you are done.",
+        t(
+          "Capture started. Use the extension popup to pause or stop when you are done.",
+        ),
       );
     } catch (captureError) {
       setCaptureMoreStatus("error");
@@ -399,7 +403,7 @@ export function App() {
           importInputRef.current?.click();
         }}
       >
-        Import Project
+        {t("Import Project")}
       </button>
       <input
         ref={importInputRef}
@@ -417,7 +421,7 @@ export function App() {
     return (
       <main className="empty product-loading">
         <BrandMark />
-        <p>Loading InfoSteed...</p>
+        <p>{t("Loading InfoSteed...")}</p>
       </main>
     );
   if (setupRequired) {
@@ -462,7 +466,7 @@ export function App() {
         onOpenAdmin={() => setAdminOpen(true)}
         onLogout={() => void logout().then(() => setUser(undefined))}
         onLogoutAll={() => {
-          if (window.confirm("Log out every session for this account?"))
+          if (window.confirm(t("Log out every session for this account?")))
             void logoutAll().then(() => setUser(undefined));
         }}
       />
@@ -473,7 +477,7 @@ export function App() {
     return (
       <main className="empty product-loading">
         <BrandMark />
-        <p>Loading recording...</p>
+        <p>{t("Loading recording...")}</p>
       </main>
     );
   if (
@@ -497,15 +501,16 @@ export function App() {
         <div>
           <p>
             {recording.captureMode === "both"
-              ? "Video + Workflow Guide"
+              ? t("Video + Workflow Guide")
               : recording.captureMode === "video"
-                ? "Video Recording"
-                : "Workflow Guide"}
+                ? t("Video Recording")
+                : t("Workflow Guide")}
           </p>
           <h1>{recording.title}</h1>
         </div>
         <div className="header-actions">
-          <a href="/">Library</a>
+          <a href="/">{t("Library")}</a>
+          <LanguageSelect compact />
           {(recording.userRole === "admin" ||
             recording.userRole === "owner" ||
             recording.userRole === "editor") &&
@@ -523,7 +528,7 @@ export function App() {
                   });
                 }}
               >
-                {viewOnly ? "Edit guide" : "Close guide editor"}
+                {viewOnly ? t("Edit guide") : t("Close guide editor")}
               </button>
             )}
           {viewOnly &&
@@ -532,7 +537,7 @@ export function App() {
               recording.userRole === "editor") &&
             recording.captureMode !== "guide" && (
               <button onClick={() => openRecording(recording.id, "video-edit")}>
-                Edit video
+                {t("Edit video")}
               </button>
             )}
           {!viewOnly && recording.captureMode !== "video" && (
@@ -542,8 +547,8 @@ export function App() {
                 onClick={() => void handleCaptureMore()}
               >
                 {captureMoreStatus === "starting"
-                  ? "Starting Capture..."
-                  : "Capture More"}
+                  ? t("Starting Capture...")
+                  : t("Capture More")}
               </button>
               <details
                 ref={headerMoreRef}
@@ -552,7 +557,7 @@ export function App() {
                   setHeaderMoreOpen(event.currentTarget.open)
                 }
               >
-                <summary>More</summary>
+                <summary>{t("More")}</summary>
                 <div className="header-more-panel">
                   <button
                     onClick={() => {
@@ -562,7 +567,7 @@ export function App() {
                       setVersionsOpen(false);
                     }}
                   >
-                    Access
+                    {t("Access")}
                   </button>
                   <button
                     onClick={() => {
@@ -572,11 +577,11 @@ export function App() {
                       setAccessOpen(false);
                     }}
                   >
-                    Versions
+                    {t("Versions")}
                   </button>
                   {importControl}
-                  <span className="header-more-label">Export</span>
-                  <a href={projectExportUrl(recording.id)}>Project</a>
+                  <span className="header-more-label">{t("Export")}</span>
+                  <a href={projectExportUrl(recording.id)}>{t("Project")}</a>
                   <a href={htmlExportUrl(recording.id)}>HTML</a>
                   <a href={wordExportUrl(recording.id)}>Word</a>
                   <a href={pdfExportUrl(recording.id)}>PDF</a>
@@ -589,8 +594,9 @@ export function App() {
                       setDeleteCurrentOpen(true);
                     }}
                   >
-                    Delete{" "}
-                    {recording.captureMode === "guide" ? "Guide" : "Recording"}
+                    {recording.captureMode === "guide"
+                      ? t("Delete Guide")
+                      : t("Delete Recording")}
                   </button>
                 </div>
               </details>
@@ -605,13 +611,13 @@ export function App() {
                   setVersionsOpen(false);
                 }}
               >
-                Access
+                {t("Access")}
               </button>
               <button
                 className="danger-action"
                 onClick={() => setDeleteCurrentOpen(true)}
               >
-                Delete Recording
+                {t("Delete Recording")}
               </button>
             </>
           )}
@@ -644,7 +650,9 @@ export function App() {
       )}
       {viewOnly && recording.captureMode !== "guide" && !video && (
         <div className="capture-status error">
-          Video metadata is unavailable or this draft has not been published.
+          {t(
+            "Video metadata is unavailable or this draft has not been published.",
+          )}
         </div>
       )}
 
@@ -665,14 +673,14 @@ export function App() {
               setAccessOpen(false);
               setVersionsOpen(false);
             }}
-            aria-label="Open preview"
+            aria-label={t("Open preview")}
           >
             <span className="burger-lines" aria-hidden="true">
               <span />
               <span />
               <span />
             </span>
-            Preview
+            {t("Preview")}
           </button>
         )}
 
@@ -736,14 +744,14 @@ export function App() {
                   {!viewOnly && (
                     <div
                       className="reorder-controls"
-                      aria-label={`Reorder ${item.title}`}
+                      aria-label={t("Reorder {title}", { title: item.title })}
                     >
                       <button
                         className="drag-handle"
                         draggable={!reorderDisabled}
                         disabled={reorderDisabled}
-                        title="Drag to reorder"
-                        aria-label={`Drag ${item.title}`}
+                        title={t("Drag to reorder")}
+                        aria-label={t("Drag {title}", { title: item.title })}
                         onDragStart={(event) => {
                           event.dataTransfer.effectAllowed = "move";
                           event.dataTransfer.setData("text/plain", item.id);
@@ -760,13 +768,13 @@ export function App() {
                         disabled={reorderDisabled || index === 0}
                         onClick={() => void moveItemBy(item.id, -1)}
                       >
-                        Move up
+                        {t("Move up")}
                       </button>
                       <button
                         disabled={reorderDisabled || index === items.length - 1}
                         onClick={() => void moveItemBy(item.id, 1)}
                       >
-                        Move down
+                        {t("Move down")}
                       </button>
                     </div>
                   )}
@@ -804,10 +812,12 @@ export function App() {
         </div>
       )}
       {recording.captureMode !== "video" && previewOpen && (
-        <section className="preview-drawer" aria-label="Guide preview">
+        <section className="preview-drawer" aria-label={t("Guide preview")}>
           <div className="preview-head">
             <h2>
-              {rightPanelMode === "display" ? "Display Preview" : "Markdown"}
+              {rightPanelMode === "display"
+                ? t("Display Preview")
+                : t("Markdown")}
             </h2>
             <div className="segmented">
               {!previewAutoScroll && (
@@ -816,22 +826,24 @@ export function App() {
                     setPreviewAutoScroll(true);
                   }}
                 >
-                  Sync scroll
+                  {t("Sync scroll")}
                 </button>
               )}
               <button
                 className={rightPanelMode === "display" ? "active" : undefined}
                 onClick={() => setRightPanelMode("display")}
               >
-                Preview
+                {t("Preview")}
               </button>
               <button
                 className={rightPanelMode === "markdown" ? "active" : undefined}
                 onClick={() => setRightPanelMode("markdown")}
               >
-                Markdown
+                {t("Markdown")}
               </button>
-              <button onClick={() => setPreviewOpen(false)}>Close</button>
+              <button onClick={() => setPreviewOpen(false)}>
+                {t("Close")}
+              </button>
             </div>
           </div>
           {rightPanelMode === "display" ? (
@@ -853,10 +865,10 @@ export function App() {
         </section>
       )}
       {accessOpen && (
-        <section className="side-drawer" aria-label="Guide access">
+        <section className="side-drawer" aria-label={t("Guide access")}>
           <div className="preview-head">
-            <h2>Access</h2>
-            <button onClick={() => setAccessOpen(false)}>Close</button>
+            <h2>{t("Access")}</h2>
+            <button onClick={() => setAccessOpen(false)}>{t("Close")}</button>
           </div>
           <GuideShareMovePanel
             recording={recording}
@@ -869,10 +881,10 @@ export function App() {
         </section>
       )}
       {versionsOpen && (
-        <section className="side-drawer" aria-label="Guide versions">
+        <section className="side-drawer" aria-label={t("Guide versions")}>
           <div className="preview-head">
-            <h2>Versions</h2>
-            <button onClick={() => setVersionsOpen(false)}>Close</button>
+            <h2>{t("Versions")}</h2>
+            <button onClick={() => setVersionsOpen(false)}>{t("Close")}</button>
           </div>
           <GuideVersionsPanel
             recording={recording}
@@ -887,9 +899,22 @@ export function App() {
       )}
       {deleteCurrentOpen && (
         <ConfirmDialog
-          title={`Delete ${recording.captureMode === "guide" ? "guide" : "recording"}?`}
-          body={`"${recording.title}" will move to Trash and can be restored for 10 days.`}
-          confirmLabel={`Delete ${recording.captureMode === "guide" ? "Guide" : "Recording"}`}
+          title={
+            recording.captureMode === "guide"
+              ? t("Delete guide?")
+              : t("Delete recording?")
+          }
+          body={t(
+            '"{title}" will move to Trash and can be restored for 10 days.',
+            {
+              title: recording.title,
+            },
+          )}
+          confirmLabel={
+            recording.captureMode === "guide"
+              ? t("Delete Guide")
+              : t("Delete Recording")
+          }
           tone="danger"
           onCancel={() => setDeleteCurrentOpen(false)}
           onConfirm={() => void confirmDeleteCurrentGuide()}

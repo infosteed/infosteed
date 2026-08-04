@@ -12,6 +12,7 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "paths": {
+      "@infosteed/i18n": ["./packages/i18n/src/index.ts"],
       "@infosteed/shared": ["./packages/shared/src/index.ts"],
       "@infosteed/recorder-core": ["./packages/recorder-core/src/index.ts"],
       "@infosteed/ai-step-writer": ["./packages/ai-step-writer/src/index.ts"],

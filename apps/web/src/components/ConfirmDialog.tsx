@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { t } from "../i18n";
+
 export function ConfirmDialog({
   title,
   body,
@@ -25,7 +27,7 @@ export function ConfirmDialog({
         <h2 id="confirm-title">{title}</h2>
         <p>{body}</p>
         <div className="confirm-actions">
-          <button onClick={onCancel}>Cancel</button>
+          <button onClick={onCancel}>{t("Cancel")}</button>
           <button
             className={tone === "danger" ? "danger-action" : undefined}
             onClick={onConfirm}

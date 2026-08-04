@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import type { FastifyInstance } from "fastify";
 import {
+  adminTwoFactorResetRequestSchema,
   createUserRequestSchema,
   PROTOCOL_VERSION,
   updateUserRequestSchema,
@@ -10,11 +11,18 @@ import {
   createUser,
   deleteUserSessions,
   ensurePersonalProject,
+  findUserWithPassword,
   listAuditEvents,
   listUserDirectory,
   listUsers,
   updateUser,
+  verifyPassword,
 } from "../repositories/auth.js";
+import {
+  resetUserTwoFactor,
+  userHasTwoFactor,
+  verifyExistingSecondFactor,
+} from "../repositories/twoFactor.js";
 import type { AuthenticatedRouteContext } from "./context.js";
 
 interface UserRouteContext extends AuthenticatedRouteContext {
@@ -28,8 +36,37 @@ export function registerUserRoutes(
   app: FastifyInstance,
   context: UserRouteContext,
 ): void {
-  const { config, pool, videoStorage, requireAdmin, audit, httpError } =
-    context;
+  const {
+    config,
+    pool,
+    videoStorage,
+    currentUser,
+    requireAdmin,
+    audit,
+    httpError,
+  } = context;
+
+  async function requireAdminStepUp(
+    adminId: string,
+    currentPassword: string,
+    code?: string,
+  ): Promise<{ usedRecoveryCode: boolean }> {
+    const admin = await findUserWithPassword(pool, adminId);
+    if (
+      !admin ||
+      !(await verifyPassword(currentPassword, admin.passwordHash))
+    ) {
+      throw httpError(401, "Current password is incorrect");
+    }
+    if (!(await userHasTwoFactor(pool, adminId)))
+      return { usedRecoveryCode: false };
+    if (!code) throw httpError(401, "Second-factor code is required");
+    const verified = await withTransaction(pool, (client) =>
+      verifyExistingSecondFactor(client, config, { userId: adminId, code }),
+    );
+    if (!verified.ok) throw httpError(401, "Second-factor code is incorrect");
+    return { usedRecoveryCode: verified.recovery };
+  }
 
   app.get("/users", async (request) => {
     requireAdmin(request);
@@ -80,6 +117,7 @@ export function registerUserRoutes(
             ? "ready"
             : "unavailable"
           : "disabled",
+        twoFactorEnrollment: config.TWO_FACTOR_ENABLED ? "enabled" : "disabled",
       },
       workers: {
         renderer:
@@ -116,17 +154,77 @@ export function registerUserRoutes(
   app.patch<{ Params: { id: string } }>("/users/:id", async (request) => {
     requireAdmin(request);
     const patch = updateUserRequestSchema.parse(request.body);
+    if (patch.twoFactorRequired === true && !config.TWO_FACTOR_ENABLED)
+      throw httpError(503, "Two-factor enrollment is disabled");
+    const previous = await pool.query<{ two_factor_required: boolean }>(
+      "select two_factor_required from users where id = $1",
+      [request.params.id],
+    );
+    if (!previous.rows[0]) throw httpError(404, "User not found");
     const user = await updateUser(pool, request.params.id, patch);
     if (!user) throw httpError(404, "User not found");
-    if (patch.password || patch.enabled === false)
+    if (
+      patch.password ||
+      patch.enabled === false ||
+      (patch.twoFactorRequired === true &&
+        previous.rows[0].two_factor_required === false)
+    )
       await deleteUserSessions(pool, user.id);
     await audit(
       request,
-      patch.password ? "password_reset" : "user_updated",
+      patch.password
+        ? "password_reset"
+        : patch.twoFactorRequired !== undefined
+          ? "two_factor_requirement_changed"
+          : "user_updated",
       "user",
       user.id,
-      { role: patch.role, enabled: patch.enabled },
+      {
+        role: patch.role,
+        enabled: patch.enabled,
+        twoFactorRequired: patch.twoFactorRequired,
+      },
     );
     return user;
   });
+
+  app.post<{ Params: { id: string } }>(
+    "/users/:id/2fa/reset",
+    async (request) => {
+      const admin = requireAdmin(request);
+      if (request.params.id === currentUser(request).id)
+        throw httpError(
+          409,
+          "Use self-service disablement for your own account",
+        );
+      const input = adminTwoFactorResetRequestSchema.parse(request.body);
+      const proof = await requireAdminStepUp(
+        admin.id,
+        input.currentPassword,
+        input.code,
+      );
+      const target = await pool.query<{
+        id: string;
+        two_factor_required: boolean;
+      }>("select id, two_factor_required from users where id = $1", [
+        request.params.id,
+      ]);
+      if (!target.rows[0]) throw httpError(404, "User not found");
+      await withTransaction(pool, async (client) => {
+        await resetUserTwoFactor(client, request.params.id);
+        await deleteUserSessions(client, request.params.id);
+      });
+      await audit(
+        request,
+        "two_factor_admin_reset",
+        "user",
+        request.params.id,
+        {
+          preservedRequirement: target.rows[0].two_factor_required,
+          usedRecoveryCode: proof.usedRecoveryCode,
+        },
+      );
+      return { ok: true };
+    },
+  );
 }

@@ -5,7 +5,10 @@ import type { CaptureMode, VideoCaptureSettings } from "@infosteed/shared";
 import { getVideoCapability } from "./apiClient";
 import { BrandMark } from "./BrandMark";
 import { errorMessage } from "./errors";
+import { t } from "./i18n";
 import "./setup.css";
+
+document.title = t("Start InfoSteed recording");
 
 interface DeviceChoice {
   microphoneDeviceId?: string;
@@ -139,7 +142,7 @@ export function Setup() {
         videoSettings: settings,
       });
       if (!result?.ok)
-        throw new Error(result?.error ?? "Could not start recording");
+        throw new Error(result?.error ?? t("Could not start recording"));
       window.close();
     } catch (startError) {
       setError(errorMessage(startError));
@@ -192,30 +195,32 @@ export function Setup() {
         <BrandMark />
         <div>
           <p>InfoSteed</p>
-          <h1>What do you want to create?</h1>
+          <h1>{t("What do you want to create?")}</h1>
         </div>
       </header>
       <div
         className="mode-grid"
         role="radiogroup"
-        aria-label="Recording output"
+        aria-label={t("Recording output")}
       >
         {(
           [
             [
               "both",
-              "Video + Guide",
-              "A narrated video and an editable guide with synchronized chapters.",
+              t("Video + Guide"),
+              t(
+                "A narrated video and an editable guide with synchronized chapters.",
+              ),
             ],
             [
               "video",
-              "Video Only",
-              "A shareable video with chapters generated from your actions.",
+              t("Video Only"),
+              t("A shareable video with chapters generated from your actions."),
             ],
             [
               "guide",
-              "Guide Only",
-              "A screenshot-based guide you can review and edit.",
+              t("Guide Only"),
+              t("A screenshot-based guide you can review and edit."),
             ],
           ] as const
         ).map(([value, title, description]) => (
@@ -229,7 +234,7 @@ export function Setup() {
           >
             <strong>
               {title}
-              {value === "both" && <span>Default</span>}
+              {value === "both" && <span>{t("Default")}</span>}
             </strong>
             <small>{description}</small>
           </button>
@@ -237,20 +242,20 @@ export function Setup() {
       </div>
       {videoEnabled === false && (
         <p className="notice">
-          Video storage is not configured. Guide Only remains available.
+          {t("Video storage is not configured. Guide Only remains available.")}
         </p>
       )}
 
       {usesVideo && (
         <section className="media-panel">
-          <h2>Audio and camera</h2>
+          <h2>{t("Audio and camera")}</h2>
           <label>
             <input
               type="checkbox"
               checked={tabAudio}
               onChange={(event) => setTabAudio(event.target.checked)}
             />{" "}
-            Tab audio
+            {t("Tab audio")}
           </label>
           <label>
             <input
@@ -258,7 +263,7 @@ export function Setup() {
               checked={microphone}
               onChange={(event) => setMicrophone(event.target.checked)}
             />{" "}
-            Microphone narration
+            {t("Microphone narration")}
           </label>
           {microphone && (
             <select
@@ -270,10 +275,10 @@ export function Setup() {
                 }))
               }
             >
-              <option value="">Default microphone</option>
+              <option value="">{t("Default microphone")}</option>
               {microphones.map((device) => (
                 <option key={device.deviceId} value={device.deviceId}>
-                  {device.label || "Microphone"}
+                  {device.label || t("Microphone")}
                 </option>
               ))}
             </select>
@@ -284,7 +289,7 @@ export function Setup() {
               checked={webcam}
               onChange={(event) => setWebcam(event.target.checked)}
             />{" "}
-            Webcam bubble
+            {t("Webcam bubble")}
           </label>
           {webcam && (
             <select
@@ -296,10 +301,10 @@ export function Setup() {
                 }))
               }
             >
-              <option value="">Default camera</option>
+              <option value="">{t("Default camera")}</option>
               {cameras.map((device) => (
                 <option key={device.deviceId} value={device.deviceId}>
-                  {device.label || "Camera"}
+                  {device.label || t("Camera")}
                 </option>
               ))}
             </select>
@@ -311,13 +316,15 @@ export function Setup() {
                 previewing ? stopPreview() : void enablePreview()
               }
             >
-              {previewing ? "Stop device preview" : "Enable device preview"}
+              {previewing
+                ? t("Stop device preview")
+                : t("Enable device preview")}
             </button>
           )}
           <div className="device-preview">
             {webcam && <video ref={previewRef} muted playsInline />}
             {microphone && (
-              <div className="meter" aria-label="Microphone level">
+              <div className="meter" aria-label={t("Microphone level")}>
                 <span style={{ width: `${Math.round(level * 100)}%` }} />
               </div>
             )}
@@ -326,12 +333,11 @@ export function Setup() {
       )}
 
       <section className="consent-panel">
-        <h2>Review capture consent</h2>
+        <h2>{t("Review capture consent")}</h2>
         <p>
-          The selected self-hosted server will receive page titles and sanitized
-          URLs, interaction metadata, and screenshots. Depending on your choices
-          it will also receive video, microphone audio, tab audio, webcam video,
-          transcription text, narration text, and generated speech.
+          {t(
+            "The selected self-hosted server will receive page titles and sanitized URLs, interaction metadata, and screenshots. Depending on your choices it will also receive video, microphone audio, tab audio, webcam video, transcription text, narration text, and generated speech.",
+          )}
         </p>
         <label>
           <input
@@ -339,19 +345,20 @@ export function Setup() {
             checked={consent}
             onChange={(event) => setConsent(event.target.checked)}
           />{" "}
-          I understand and have permission to capture and transfer this data to
-          the selected server.
+          {t(
+            "I understand and have permission to capture and transfer this data to the selected server.",
+          )}
         </label>
       </section>
 
       <footer>
-        <p>Maximum 1080p at 30fps, 60 minutes</p>
+        <p>{t("Maximum 1080p at 30fps, 60 minutes")}</p>
         <button
           className="primary"
           disabled={busy || videoEnabled === undefined || !consent}
           onClick={() => void start()}
         >
-          {busy ? "Starting..." : "Start recording"}
+          {busy ? t("Starting...") : t("Start recording")}
         </button>
       </footer>
       {error && <p className="error">{error}</p>}

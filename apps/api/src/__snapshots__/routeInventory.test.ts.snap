@@ -32,6 +32,10 @@ exports[`API route contract > preserves every registered method and path 1`] = `
   },
   {
     "method": "POST",
+    "url": "/auth/login/2fa",
+  },
+  {
+    "method": "POST",
     "url": "/auth/logout-all",
   },
   {
@@ -45,6 +49,30 @@ exports[`API route contract > preserves every registered method and path 1`] = `
   {
     "method": "HEAD",
     "url": "/auth/me",
+  },
+  {
+    "method": "DELETE",
+    "url": "/auth/me/2fa",
+  },
+  {
+    "method": "GET",
+    "url": "/auth/me/2fa",
+  },
+  {
+    "method": "HEAD",
+    "url": "/auth/me/2fa",
+  },
+  {
+    "method": "POST",
+    "url": "/auth/me/2fa/enrollment/confirm",
+  },
+  {
+    "method": "POST",
+    "url": "/auth/me/2fa/enrollment/start",
+  },
+  {
+    "method": "POST",
+    "url": "/auth/me/2fa/recovery-codes/regenerate",
   },
   {
     "method": "PATCH",
@@ -569,6 +597,10 @@ exports[`API route contract > preserves every registered method and path 1`] = `
   {
     "method": "PATCH",
     "url": "/users/:id",
+  },
+  {
+    "method": "POST",
+    "url": "/users/:id/2fa/reset",
   },
   {
     "method": "GET",

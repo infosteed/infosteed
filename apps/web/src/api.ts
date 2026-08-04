@@ -41,6 +41,7 @@ function needsCsrf(path: string, init?: RequestInit): boolean {
   return (
     ["POST", "PATCH", "DELETE", "PUT"].includes(method) &&
     path !== "/auth/login" &&
+    path !== "/auth/login/2fa" &&
     path !== "/setup/admin"
   );
 }
@@ -158,10 +159,33 @@ export function systemInfo(): Promise<PublicSystemInfo> {
 
 export function login(input: { username: string; password: string }) {
   csrfToken = undefined;
-  return request<{ user: CurrentUser }>("/auth/login", {
+  return request<
+    | { user: CurrentUser }
+    | { status: "two_factor_required"; continuationToken: string }
+    | {
+        status: "two_factor_enrollment_required";
+        continuationToken: string;
+        manualSecret: string;
+        otpauthUri: string;
+      }
+  >("/auth/login", {
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+
+export function completeTwoFactorLogin(input: {
+  continuationToken: string;
+  code: string;
+}) {
+  csrfToken = undefined;
+  return request<{ user: CurrentUser; recoveryCodes?: string[] }>(
+    "/auth/login/2fa",
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
 }
 
 export function logout() {
@@ -266,11 +290,80 @@ export function updateUser(
     role?: "admin" | "user";
     enabled?: boolean;
     password?: string;
+    twoFactorRequired?: boolean;
   },
 ) {
   return request<CurrentUser>(`/users/${id}`, {
     method: "PATCH",
     body: JSON.stringify(patch),
+  });
+}
+
+export interface TwoFactorStatus {
+  enabled: boolean;
+  required: boolean;
+  recoveryCodesRemaining: number;
+  enrollmentAvailable: boolean;
+}
+
+export function getTwoFactorStatus(): Promise<TwoFactorStatus> {
+  return request("/auth/me/2fa");
+}
+
+export function startTwoFactorEnrollment(input: { currentPassword: string }) {
+  return request<{
+    continuationToken: string;
+    manualSecret: string;
+    otpauthUri: string;
+  }>("/auth/me/2fa/enrollment/start", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function confirmTwoFactorEnrollment(input: {
+  continuationToken: string;
+  code: string;
+}) {
+  return request<{ recoveryCodes: string[] }>(
+    "/auth/me/2fa/enrollment/confirm",
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function regenerateTwoFactorRecoveryCodes(input: {
+  currentPassword: string;
+  code: string;
+}) {
+  return request<{ recoveryCodes: string[] }>(
+    "/auth/me/2fa/recovery-codes/regenerate",
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function disableTwoFactor(input: {
+  currentPassword: string;
+  code: string;
+}) {
+  return request<{ ok: true }>("/auth/me/2fa", {
+    method: "DELETE",
+    body: JSON.stringify(input),
+  });
+}
+
+export function resetUserTwoFactor(
+  id: string,
+  input: { currentPassword: string; code?: string },
+) {
+  return request<{ ok: true }>(`/users/${id}/2fa/reset`, {
+    method: "POST",
+    body: JSON.stringify(input),
   });
 }
 

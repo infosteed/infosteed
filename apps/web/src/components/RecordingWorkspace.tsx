@@ -34,6 +34,7 @@ import {
 } from "../api";
 import { errorMessage } from "../errors";
 import { guideSourceLabel } from "../guide/source";
+import { plural, t } from "../i18n";
 import { currentRecordingId } from "../navigation";
 import { ConfirmDialog } from "./ConfirmDialog";
 
@@ -85,7 +86,7 @@ function sectionsForItems(items: GuideItem[]): GuideSection[] {
     }
 
     if (!current) {
-      current = { id: "section-steps", title: "Steps", items: [] };
+      current = { id: "section-steps", title: t("Steps"), items: [] };
       sections.push(current);
     }
     current.items.push(item);
@@ -93,7 +94,7 @@ function sectionsForItems(items: GuideItem[]): GuideSection[] {
 
   return sections.length > 0
     ? sections
-    : [{ id: "section-steps", title: "Steps", items: [] }];
+    : [{ id: "section-steps", title: t("Steps"), items: [] }];
 }
 
 function renderInlineMarkdown(value: string): React.ReactNode[] {
@@ -130,7 +131,9 @@ export function startExistingCapture(recordingId: string): Promise<void> {
       window.removeEventListener("message", onMessage);
       reject(
         new Error(
-          "InfoSteed extension did not respond. Reload the extension and this page, then try again.",
+          t(
+            "InfoSteed extension did not respond. Reload the extension and this page, then try again.",
+          ),
         ),
       );
     }, 5000);
@@ -154,7 +157,8 @@ export function startExistingCapture(recordingId: string): Promise<void> {
       window.clearTimeout(timeout);
       window.removeEventListener("message", onMessage);
       if (data.result?.ok) resolve();
-      else reject(new Error(data.result?.error ?? "Could not start capture."));
+      else
+        reject(new Error(data.result?.error ?? t("Could not start capture.")));
     }
 
     window.addEventListener("message", onMessage);
@@ -193,7 +197,7 @@ export function GuideDisplayPreview({
 }) {
   let stepNumber = 0;
   const sections = sectionsForItems(orderedItems(recording));
-  const showNav = sections.length > 1 || sections[0]?.title !== "Steps";
+  const showNav = sections.length > 1 || sections[0]?.title !== t("Steps");
 
   return (
     <div
@@ -203,7 +207,7 @@ export function GuideDisplayPreview({
       onTouchStart={onUserScroll}
     >
       {showNav && (
-        <nav className="section-nav" aria-label="Guide sections">
+        <nav className="section-nav" aria-label={t("Guide sections")}>
           {sections.map((section, index) => (
             <a key={section.id} href={`#${section.id}`}>
               {section.title}
@@ -242,7 +246,9 @@ export function GuideDisplayPreview({
                     key={item.id}
                     className={`rendered-callout ${item.kind}`}
                   >
-                    <strong>{item.kind === "tip" ? "Tip" : "Alert"}</strong>
+                    <strong>
+                      {item.kind === "tip" ? t("Tip") : t("Alert")}
+                    </strong>
                     <p>{renderInlineMarkdown(item.body)}</p>
                   </aside>
                 );
@@ -366,9 +372,11 @@ export function VideoGuidePlayer({
   async function discard() {
     const consequence =
       recording.captureMode === "video"
-        ? "This removes the video and moves the empty recording to Trash."
-        : "This removes the video and raw tracks. The written guide will remain.";
-    if (!window.confirm(`${consequence} Continue?`)) return;
+        ? t("This removes the video and moves the empty recording to Trash.")
+        : t(
+            "This removes the video and raw tracks. The written guide will remain.",
+          );
+    if (!window.confirm(t("{consequence} Continue?", { consequence }))) return;
     setBusy(true);
     try {
       const response = await deleteRecordingVideo(recording.id);
@@ -402,7 +410,7 @@ export function VideoGuidePlayer({
 
   const playable = video.status === "ready" || video.status === "published";
   return (
-    <section className="video-guide-player" aria-label="Recording video">
+    <section className="video-guide-player" aria-label={t("Recording video")}>
       <div className="video-stage">
         {playable ? (
           <video
@@ -416,7 +424,7 @@ export function VideoGuidePlayer({
               <track
                 kind="captions"
                 srcLang={transcript.language ?? "und"}
-                label={transcript.language ?? "Captions"}
+                label={transcript.language ?? t("Captions")}
                 src={recordingCaptionsUrl(recording.id)}
                 default
               />
@@ -424,37 +432,45 @@ export function VideoGuidePlayer({
           </video>
         ) : (
           <div className="video-processing">
-            <strong>Video {video.status}</strong>
-            <p>The uploaded recording is not ready for playback yet.</p>
+            <strong>{t("Video {status}", { status: t(video.status) })}</strong>
+            <p>{t("The uploaded recording is not ready for playback yet.")}</p>
           </div>
         )}
       </div>
       <aside className="video-chapters">
         <div className="video-chapter-head">
           <div>
-            <strong>{panel === "chapters" ? "Chapters" : "Transcript"}</strong>
+            <strong>
+              {panel === "chapters" ? t("Chapters") : t("Transcript")}
+            </strong>
             <small>
               {panel === "chapters"
-                ? `${video.chapters.length} captured actions`
+                ? plural(
+                    "{count} captured action",
+                    "{count} captured actions",
+                    video.chapters.length,
+                  )
                 : transcript?.language
-                  ? `Language: ${transcript.language}`
-                  : "Narration"}
+                  ? t("Language: {language}", { language: transcript.language })
+                  : t("Narration")}
             </small>
           </div>
-          <span className={`video-status ${video.status}`}>{video.status}</span>
+          <span className={`video-status ${video.status}`}>
+            {t(video.status)}
+          </span>
         </div>
         <div className="video-panel-tabs" role="tablist">
           <button
             className={panel === "chapters" ? "active" : ""}
             onClick={() => setPanel("chapters")}
           >
-            Chapters
+            {t("Chapters")}
           </button>
           <button
             className={panel === "transcript" ? "active" : ""}
             onClick={() => setPanel("transcript")}
           >
-            Transcript
+            {t("Transcript")}
           </button>
         </div>
         {panel === "chapters" ? (
@@ -471,7 +487,7 @@ export function VideoGuidePlayer({
               </button>
             ))}
             {video.chapters.length === 0 && (
-              <p>No actions were captured for chapters.</p>
+              <p>{t("No actions were captured for chapters.")}</p>
             )}
           </div>
         ) : (
@@ -485,25 +501,30 @@ export function VideoGuidePlayer({
             {(transcript?.status === "pending" ||
               transcript?.status === "processing") && (
               <p>
-                Transcription is {transcript.status}. The video remains ready to
-                use.
+                {t(
+                  "Transcription is {status}. The video remains ready to use.",
+                  {
+                    status: t(transcript.status),
+                  },
+                )}
               </p>
             )}
             {transcript?.status === "disabled" && (
               <p>
                 {video.transcriptionAvailable
-                  ? "No transcript has been generated yet."
-                  : "Transcription is not configured."}
+                  ? t("No transcript has been generated yet.")
+                  : t("Transcription is not configured.")}
               </p>
             )}
             {transcript?.status === "failed" && (
               <p className="transcript-error">
-                Transcription failed:{" "}
-                {transcript.errorMessage ?? "Provider unavailable"}
+                {t("Transcription failed: {error}", {
+                  error: transcript.errorMessage ?? t("Provider unavailable"),
+                })}
               </p>
             )}
             {transcript?.status === "ready" && transcript.cues.length === 0 && (
-              <p>No speech was detected.</p>
+              <p>{t("No speech was detected.")}</p>
             )}
           </div>
         )}
@@ -517,20 +538,23 @@ export function VideoGuidePlayer({
               onClick={() => void retryTranscript()}
             >
               {transcript.status === "disabled"
-                ? "Generate transcript"
-                : "Retry transcription"}
+                ? t("Generate transcript")
+                : t("Retry transcription")}
             </button>
           )}
         {!video.rawAssetsComplete && (
           <p className="raw-warning">
-            The playback video is ready, but one or more raw editing tracks
-            could not be saved.
+            {t(
+              "The playback video is ready, but one or more raw editing tracks could not be saved.",
+            )}
           </p>
         )}
         {editable && playable && (
           <div className="video-actions">
             <button disabled={busy} onClick={() => void togglePublished()}>
-              {video.status === "published" ? "Unpublish" : "Publish video"}
+              {video.status === "published"
+                ? t("Unpublish")
+                : t("Publish video")}
             </button>
             <button
               disabled={busy}
@@ -538,14 +562,14 @@ export function VideoGuidePlayer({
                 void navigator.clipboard.writeText(window.location.href)
               }
             >
-              Copy link
+              {t("Copy link")}
             </button>
             <button
               className="danger-action"
               disabled={busy}
               onClick={() => void discard()}
             >
-              Discard video
+              {t("Discard video")}
             </button>
           </div>
         )}
@@ -571,10 +595,10 @@ export function InsertBar({
 
   return (
     <div className="insert-bar">
-      <button onClick={() => void insert("step")}>Step</button>
-      <button onClick={() => void insert("tip")}>Tip</button>
-      <button onClick={() => void insert("alert")}>Alert</button>
-      <button onClick={() => void insert("header")}>Header</button>
+      <button onClick={() => void insert("step")}>{t("Step")}</button>
+      <button onClick={() => void insert("tip")}>{t("Tip")}</button>
+      <button onClick={() => void insert("alert")}>{t("Alert")}</button>
+      <button onClick={() => void insert("header")}>{t("Header")}</button>
     </div>
   );
 }
@@ -650,33 +674,33 @@ function ImageEditor({
     <div className="modal-backdrop">
       <div className="image-editor">
         <div className="modal-head">
-          <h2>Edit Image</h2>
-          <button onClick={onClose}>Close</button>
+          <h2>{t("Edit Image")}</h2>
+          <button onClick={onClose}>{t("Close")}</button>
         </div>
         <div className="editor-tools">
           <button
             className={mode === "crop" ? "active" : undefined}
             onClick={() => setMode("crop")}
           >
-            Crop / Zoom
+            {t("Crop / Zoom")}
           </button>
           <button
             className={mode === "redact" ? "active" : undefined}
             onClick={() => setMode("redact")}
           >
-            Redact
+            {t("Redact")}
           </button>
           <button
             onClick={() =>
               setOperations({ redactions: operations.redactions ?? [] })
             }
           >
-            Clear Crop
+            {t("Clear Crop")}
           </button>
           <button
             onClick={() => setOperations({ ...operations, redactions: [] })}
           >
-            Clear Redactions
+            {t("Clear Redactions")}
           </button>
         </div>
         <div
@@ -704,8 +728,8 @@ function ImageEditor({
           ))}
         </div>
         <div className="actions">
-          <button onClick={() => void save()}>Save Image Edits</button>
-          <button onClick={onClose}>Cancel</button>
+          <button onClick={() => void save()}>{t("Save Image Edits")}</button>
+          <button onClick={onClose}>{t("Cancel")}</button>
         </div>
       </div>
     </div>
@@ -762,7 +786,7 @@ function MarkdownAssistantField({
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
     const selected = value.slice(start, end) || "link text";
-    const url = window.prompt("Link URL", "https://");
+    const url = window.prompt(t("Link URL"), "https://");
     if (!url) return;
     const replacement = `[${selected}](${url})`;
     replaceRange(
@@ -798,46 +822,54 @@ function MarkdownAssistantField({
 
   return (
     <div className="markdown-field">
-      <div className="markdown-toolbar" aria-label={`${ariaLabel} formatting`}>
+      <div
+        className="markdown-toolbar"
+        aria-label={t("{field} formatting", { field: ariaLabel })}
+      >
         <button
           type="button"
-          aria-label="Bold"
-          title="Bold"
+          aria-label={t("Bold")}
+          title={t("Bold")}
           onClick={() => wrap("**")}
         >
           B
         </button>
         <button
           type="button"
-          aria-label="Italic"
-          title="Italic"
+          aria-label={t("Italic")}
+          title={t("Italic")}
           onClick={() => wrap("*")}
         >
           I
         </button>
-        <button type="button" aria-label="Link" title="Link" onClick={link}>
+        <button
+          type="button"
+          aria-label={t("Link")}
+          title={t("Link")}
+          onClick={link}
+        >
           link
         </button>
         <button
           type="button"
-          aria-label="Code"
-          title="Code"
+          aria-label={t("Code")}
+          title={t("Code")}
           onClick={() => wrap("`")}
         >
           &lt;/&gt;
         </button>
         <button
           type="button"
-          aria-label="Bullet list"
-          title="Bullet list"
+          aria-label={t("Bullet list")}
+          title={t("Bullet list")}
           onClick={() => list(false)}
         >
           -
         </button>
         <button
           type="button"
-          aria-label="Numbered list"
-          title="Numbered list"
+          aria-label={t("Numbered list")}
+          title={t("Numbered list")}
           onClick={() => list(true)}
         >
           1.
@@ -941,7 +973,7 @@ export function GuideItemEditor({
       file.type !== "image/jpeg" &&
       file.type !== "image/webp"
     ) {
-      setImageError("Upload a PNG, JPEG, or WebP image.");
+      setImageError(t("Upload a PNG, JPEG, or WebP image."));
       return;
     }
     setImageBusy(true);
@@ -995,10 +1027,10 @@ export function GuideItemEditor({
           {(editable || item.kind !== "header") && (
             <div className="display-marker">
               {item.kind === "tip"
-                ? "Tip"
+                ? t("Tip")
                 : item.kind === "alert"
-                  ? "Alert"
-                  : "Header"}
+                  ? t("Alert")
+                  : t("Header")}
             </div>
           )}
           <div>
@@ -1029,7 +1061,7 @@ export function GuideItemEditor({
             <span className={`source ${item.source}`}>
               {guideSourceLabel(item.source)}
             </span>
-            {needsReview && <span className="review">Review</span>}
+            {needsReview && <span className="review">{t("Review")}</span>}
           </div>
         )}
         {imageFilename && (
@@ -1048,7 +1080,7 @@ export function GuideItemEditor({
     return (
       <article className={`guide-item selected-item ${item.kind}`}>
         <label className="field-label">
-          {item.kind === "header" ? "Section title" : "Title"}
+          {item.kind === "header" ? t("Section title") : t("Title")}
         </label>
         <div className="step-head">
           <span>
@@ -1060,10 +1092,12 @@ export function GuideItemEditor({
           />
         </div>
         <label className="field-label">
-          {item.kind === "header" ? "Section description" : "Body"}
+          {item.kind === "header" ? t("Section description") : t("Body")}
         </label>
         <MarkdownAssistantField
-          ariaLabel={item.kind === "header" ? "Section description" : "Body"}
+          ariaLabel={
+            item.kind === "header" ? t("Section description") : t("Body")
+          }
           value={draft.body}
           onChange={(body) => updateDraft({ body })}
           rows={3}
@@ -1071,13 +1105,13 @@ export function GuideItemEditor({
         <div className="actions">
           <span className={`save-state ${saveState}`}>
             {saveState === "saving"
-              ? "Saving..."
+              ? t("Saving...")
               : saveState === "error"
-                ? "Save failed"
-                : "Saved"}
+                ? t("Save failed")
+                : t("Saved")}
           </span>
-          <button onClick={onCloseEdit}>Done</button>
-          <button onClick={() => void remove()}>Delete</button>
+          <button onClick={onCloseEdit}>{t("Done")}</button>
+          <button onClick={() => void remove()}>{t("Delete")}</button>
         </div>
       </article>
     );
@@ -1090,7 +1124,7 @@ export function GuideItemEditor({
       <div className="step-edit-head">
         <span>{stepNumber}</span>
         <span className={`source ${item.source}`}>{item.source}</span>
-        {needsReview && <span className="review">Review</span>}
+        {needsReview && <span className="review">{t("Review")}</span>}
         {event && (
           <span title={event.sanitizedUrl}>
             {event.actionType} · {event.elementRole ?? "element"} ·{" "}
@@ -1098,21 +1132,23 @@ export function GuideItemEditor({
           </span>
         )}
       </div>
-      <label className="field-label">Instruction</label>
+      <label className="field-label">{t("Instruction")}</label>
       <MarkdownAssistantField
-        ariaLabel="Instruction"
+        ariaLabel={t("Instruction")}
         value={draft.body}
         onChange={(body) => updateDraft({ body })}
         rows={3}
       />
-      <label className="field-label">Image description</label>
+      <label className="field-label">{t("Image description")}</label>
       <input
-        aria-label="Image description"
+        aria-label={t("Image description")}
         value={draft.altText ?? ""}
         onChange={(event) => updateDraft({ altText: event.target.value })}
       />
       {event?.elementName && (
-        <p className="raw-target">Captured target: {event.elementName}</p>
+        <p className="raw-target">
+          {t("Captured target: {target}", { target: event.elementName })}
+        </p>
       )}
       {imageFilename && (
         <div className="image-block">
@@ -1121,19 +1157,21 @@ export function GuideItemEditor({
             alt=""
           />
           <div className="image-actions">
-            <button onClick={() => setEditingImage(true)}>Crop / Redact</button>
+            <button onClick={() => setEditingImage(true)}>
+              {t("Crop / Redact")}
+            </button>
             <button
               disabled={imageBusy}
               onClick={() => imageInputRef.current?.click()}
             >
-              Replace Image
+              {t("Replace Image")}
             </button>
             <button
               className="danger-action"
               disabled={imageBusy}
               onClick={() => setDeleteImageOpen(true)}
             >
-              Delete Image
+              {t("Delete Image")}
             </button>
           </div>
         </div>
@@ -1144,7 +1182,7 @@ export function GuideItemEditor({
             disabled={imageBusy}
             onClick={() => imageInputRef.current?.click()}
           >
-            Upload Image
+            {t("Upload Image")}
           </button>
         </div>
       )}
@@ -1159,21 +1197,21 @@ export function GuideItemEditor({
       <div className="actions">
         <span className={`save-state ${saveState}`}>
           {saveState === "saving"
-            ? "Saving..."
+            ? t("Saving...")
             : saveState === "error"
-              ? "Save failed"
-              : "Saved"}
+              ? t("Save failed")
+              : t("Saved")}
         </span>
-        <button onClick={onCloseEdit}>Done</button>
+        <button onClick={onCloseEdit}>{t("Done")}</button>
         <button
           disabled={!item.eventId}
           onClick={async () =>
             void (await regenerateStep(recordingId, item.id), onSaved())
           }
         >
-          Regenerate
+          {t("Regenerate")}
         </button>
-        <button onClick={() => void remove()}>Delete</button>
+        <button onClick={() => void remove()}>{t("Delete")}</button>
       </div>
       {editingImage && imageFilename && (
         <ImageEditor
@@ -1188,9 +1226,11 @@ export function GuideItemEditor({
       )}
       {deleteImageOpen && (
         <ConfirmDialog
-          title="Delete image?"
-          body="Remove this screenshot from the step? The guide text stays in place, and the deletion is captured in version history."
-          confirmLabel="Delete Image"
+          title={t("Delete image?")}
+          body={t(
+            "Remove this screenshot from the step? The guide text stays in place, and the deletion is captured in version history.",
+          )}
+          confirmLabel={t("Delete Image")}
           tone="danger"
           onCancel={() => setDeleteImageOpen(false)}
           onConfirm={() => void deleteImage()}
@@ -1294,7 +1334,7 @@ export function GuideOverviewEditor({
         tabIndex={editable ? 0 : undefined}
         onFocus={editable ? onSelect : undefined}
       >
-        <p>Workflow Guide</p>
+        <p>{t("Workflow Guide")}</p>
         <h2>{recording.title}</h2>
         {recording.purpose && (
           <p className="overview-text">{recording.purpose}</p>
@@ -1305,14 +1345,14 @@ export function GuideOverviewEditor({
 
   return (
     <section className="guide-overview selected-overview">
-      <label className="field-label">Guide title</label>
+      <label className="field-label">{t("Guide title")}</label>
       <input
         value={draft.title}
         onChange={(event) => updateDraft({ title: event.target.value })}
       />
-      <label className="field-label">Overview</label>
+      <label className="field-label">{t("Overview")}</label>
       <MarkdownAssistantField
-        ariaLabel="Overview"
+        ariaLabel={t("Overview")}
         value={draft.purpose}
         onChange={(purpose) => updateDraft({ purpose })}
         rows={3}
@@ -1320,14 +1360,14 @@ export function GuideOverviewEditor({
       <div className="actions">
         <span className={`save-state ${saveState}`}>
           {saveState === "saving"
-            ? "Saving..."
+            ? t("Saving...")
             : saveState === "error"
-              ? "Save failed"
-              : "Saved"}
+              ? t("Save failed")
+              : t("Saved")}
         </span>
-        <button onClick={onCloseEdit}>Done</button>
+        <button onClick={onCloseEdit}>{t("Done")}</button>
         <button disabled={generating} onClick={() => void generate()}>
-          {generating ? "Generating..." : "Generate Overview"}
+          {generating ? t("Generating...") : t("Generate Overview")}
         </button>
       </div>
     </section>

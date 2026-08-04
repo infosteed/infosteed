@@ -13,6 +13,7 @@ import {
   restoreGuideVersion,
 } from "../api";
 import { errorMessage } from "../errors";
+import { t } from "../i18n";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 export function GuideVersionsPanel({
@@ -96,14 +97,14 @@ export function GuideVersionsPanel({
         onSubmit={(event) => void saveVersion(event)}
       >
         <label>
-          Version note
+          {t("Version note")}
           <input
             value={message}
-            placeholder="Optional release note"
+            placeholder={t("Optional release note")}
             onChange={(event) => setMessage(event.target.value)}
           />
         </label>
-        <button>Save Version</button>
+        <button>{t("Save Version")}</button>
       </form>
       <div className="versions-grid">
         <div className="version-list">
@@ -116,17 +117,17 @@ export function GuideVersionsPanel({
               <span
                 className={`status-pill ${version.versionType === "restore" ? "owner" : "neutral"}`}
               >
-                {version.versionType}
+                {t(version.versionType)}
               </span>
-              <strong>{version.message || "Untitled snapshot"}</strong>
+              <strong>{version.message || t("Untitled snapshot")}</strong>
               <small>
-                {version.createdByDisplayName ?? "Unknown"} ·{" "}
+                {version.createdByDisplayName ?? t("Unknown")} ·{" "}
                 {new Date(version.createdAt).toLocaleString()}
               </small>
             </button>
           ))}
           {versions.length === 0 && (
-            <p className="muted">No versions saved yet.</p>
+            <p className="muted">{t("No versions saved yet.")}</p>
           )}
         </div>
         <div className="version-detail">
@@ -134,34 +135,36 @@ export function GuideVersionsPanel({
             <>
               <div className="share-box-head">
                 <strong>
-                  {snapshot?.recording?.title ?? "Version detail"}
+                  {snapshot?.recording?.title ?? t("Version detail")}
                 </strong>
                 <button onClick={() => setRestoreCandidate(selected)}>
-                  Restore
+                  {t("Restore")}
                 </button>
               </div>
               <p>
-                {snapshot?.recording?.purpose ?? "No overview in this version."}
+                {snapshot?.recording?.purpose ??
+                  t("No overview in this version.")}
               </p>
               <dl>
                 <div>
-                  <dt>Items</dt>
+                  <dt>{t("Items")}</dt>
                   <dd>{snapshot?.items?.length ?? 0}</dd>
                 </div>
                 <div>
-                  <dt>Image edits</dt>
+                  <dt>{t("Image edits")}</dt>
                   <dd>{snapshot?.screenshotEdits?.length ?? 0}</dd>
                 </div>
                 <div>
-                  <dt>Project</dt>
-                  <dd>{snapshot?.recording?.projectId ?? "None"}</dd>
+                  <dt>{t("Project")}</dt>
+                  <dd>{snapshot?.recording?.projectId ?? t("None")}</dd>
                 </div>
               </dl>
             </>
           ) : (
             <p className="muted">
-              Select a version to preview its saved title, overview, items, and
-              image edit metadata.
+              {t(
+                "Select a version to preview its saved title, overview, items, and image edit metadata.",
+              )}
             </p>
           )}
         </div>
@@ -169,11 +172,16 @@ export function GuideVersionsPanel({
       {error && <p className="error">{error}</p>}
       {restoreCandidate && (
         <ConfirmDialog
-          title="Restore version?"
-          body={`Restore "${recording.title}" from the ${restoreCandidate.versionType} version created ${new Date(
-            restoreCandidate.createdAt,
-          ).toLocaleString()}? This creates a new restore version so history stays intact.`}
-          confirmLabel="Restore Version"
+          title={t("Restore version?")}
+          body={t(
+            'Restore "{title}" from the {type} version created {date}? This creates a new restore version so history stays intact.',
+            {
+              title: recording.title,
+              type: t(restoreCandidate.versionType),
+              date: new Date(restoreCandidate.createdAt).toLocaleString(),
+            },
+          )}
+          confirmLabel={t("Restore Version")}
           onCancel={() => setRestoreCandidate(undefined)}
           onConfirm={() => void restoreVersion(restoreCandidate)}
         />

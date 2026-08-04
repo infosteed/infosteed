@@ -201,6 +201,13 @@ curl -s http://127.0.0.1:11434/v1/chat/completions \
   -d '{"model":"qwen3-vl:8b","stream":false,"max_tokens":32,"messages":[{"role":"user","content":"/no_think\nReply with: ok"}]}'
 ```
 
+## Translations
+
+The web app and extension use contributor-friendly JSON catalogs, automatic
+browser-language matching, English fallback, plural rules, and right-to-left
+document direction. See [Translating InfoSteed](docs/translating.md) to add a
+language and validate its placeholders and coverage.
+
 ## License
 
 InfoSteed is licensed under the [GNU Affero General Public License v3.0](LICENSE). If you modify the software and make that modified version available to users over a network, those users must be offered the corresponding source code as required by the licence.

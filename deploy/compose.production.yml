@@ -59,6 +59,8 @@ services:
       APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN}
       ACME_EMAIL: ${ACME_EMAIL:-}
       SETUP_TOKEN: ${SETUP_TOKEN:?Set a random token of at least 32 bytes}
+      TWO_FACTOR_ENABLED: ${TWO_FACTOR_ENABLED:-false}
+      TWO_FACTOR_ENCRYPTION_KEY: ${TWO_FACTOR_ENCRYPTION_KEY:-}
       TRUST_PROXY_HOPS: 1
       COOKIE_SECURE: "true"
       SESSION_DAYS: ${SESSION_DAYS:-7}

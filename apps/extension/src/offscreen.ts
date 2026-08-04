@@ -18,6 +18,7 @@ import {
   uploadVideoPart,
   type ExtensionSettings,
 } from "./apiClient";
+import { t } from "./i18n";
 
 const PART_BYTES = 8 * 1024 * 1024;
 const MAX_BACKLOG_BYTES = 128 * 1024 * 1024;
@@ -199,7 +200,7 @@ class OffscreenRecorder {
 
   async switchTab(message: SwitchTabMessage) {
     if (!this.settings || !this.tabVideo || !this.currentTabStream)
-      throw new Error("No active tab recording to switch");
+      throw new Error(t("No active tab recording to switch"));
     if (this.currentTabId === message.tabId) return { tabId: message.tabId };
 
     const previous = this.currentTabStream;
@@ -225,7 +226,7 @@ class OffscreenRecorder {
 
   async start(message: StartMessage) {
     if (this.mediaRecorders.length)
-      throw new Error("A video recording is already active");
+      throw new Error(t("A video recording is already active"));
     configureRuntimeSettings(message.connection);
     this.recordingId = message.recordingId;
     this.settings = message.settings;
@@ -438,7 +439,10 @@ class OffscreenRecorder {
     this.clock.start();
     for (const spec of specs) {
       const asset = assets.get(spec.kind);
-      if (!asset) throw new Error(`Server did not initialize ${spec.kind}`);
+      if (!asset)
+        throw new Error(
+          t("Server did not initialize {kind}", { kind: spec.kind }),
+        );
       const uploader = new MultipartUploader(
         message.recordingId,
         asset.id,
@@ -483,7 +487,7 @@ class OffscreenRecorder {
 
   async stop(recovered = false): Promise<RecordingVideo> {
     if (this.stopping)
-      throw new Error("Video finalization is already in progress");
+      throw new Error(t("Video finalization is already in progress"));
     this.stopping = true;
     if (this.durationTimer) clearInterval(this.durationTimer);
     const durationMs = this.clock.elapsed();

@@ -16,6 +16,7 @@ import {
   setProjectMember,
 } from "../api";
 import { errorMessage } from "../errors";
+import { t } from "../i18n";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 export function GuideShareMovePanel({
@@ -125,20 +126,20 @@ export function GuideShareMovePanel({
     <section className="share-panel">
       <div className="share-panel-head">
         <div>
-          <p>Project Access</p>
-          <h2>{currentProject?.name ?? "No project"}</h2>
+          <p>{t("Project Access")}</p>
+          <h2>{currentProject?.name ?? t("No project")}</h2>
         </div>
         {currentProject && (
           <span className="status-pill neutral">
-            {currentProject.role ?? "viewer"}
+            {t(currentProject.role ?? "viewer")}
           </span>
         )}
       </div>
       <div className="share-panel-grid">
         <div className="share-box">
           <div className="share-box-head">
-            <strong>Members</strong>
-            {!canManageMembers && <span>View only</span>}
+            <strong>{t("Members")}</strong>
+            {!canManageMembers && <span>{t("View only")}</span>}
           </div>
           {canManageMembers && recording.projectId && (
             <form
@@ -149,7 +150,7 @@ export function GuideShareMovePanel({
                 value={memberUserId}
                 onChange={(event) => setMemberUserId(event.target.value)}
               >
-                <option value="">Select user</option>
+                <option value="">{t("Select user")}</option>
                 {memberOptions.map((entry) => (
                   <option key={entry.id} value={entry.id}>
                     {entry.displayName} ({entry.username})
@@ -162,10 +163,10 @@ export function GuideShareMovePanel({
                   setMemberRole(event.target.value as "viewer" | "editor")
                 }
               >
-                <option value="viewer">Viewer</option>
-                <option value="editor">Editor</option>
+                <option value="viewer">{t("Viewer")}</option>
+                <option value="editor">{t("Editor")}</option>
               </select>
-              <button>Add</button>
+              <button>{t("Add")}</button>
             </form>
           )}
           <div className="compact-member-list">
@@ -178,11 +179,11 @@ export function GuideShareMovePanel({
                 <span
                   className={`status-pill ${member.role === "owner" ? "owner" : "neutral"}`}
                 >
-                  {member.role}
+                  {t(member.role)}
                 </span>
                 {canManageMembers && member.role !== "owner" && (
                   <button onClick={() => setMemberRemoveCandidate(member)}>
-                    Remove
+                    {t("Remove")}
                   </button>
                 )}
               </div>
@@ -191,8 +192,8 @@ export function GuideShareMovePanel({
         </div>
         <div className="share-box">
           <div className="share-box-head">
-            <strong>Move Guide</strong>
-            <span>Access follows project</span>
+            <strong>{t("Move Guide")}</strong>
+            <span>{t("Access follows project")}</span>
           </div>
           <div className="move-controls">
             <select
@@ -200,7 +201,7 @@ export function GuideShareMovePanel({
               value={destinationProjectId}
               onChange={(event) => setDestinationProjectId(event.target.value)}
             >
-              <option value="">Select destination project</option>
+              <option value="">{t("Select destination project")}</option>
               {editableProjects.map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.name}
@@ -215,21 +216,28 @@ export function GuideShareMovePanel({
               }
               onClick={() => setMoveCandidateProjectId(destinationProjectId)}
             >
-              Move
+              {t("Move")}
             </button>
           </div>
           <p className="share-note">
-            Moving preserves the guide owner, but viewers/editors are
-            recalculated from the destination project.
+            {t(
+              "Moving preserves the guide owner, but viewers/editors are recalculated from the destination project.",
+            )}
           </p>
         </div>
       </div>
       {error && <p className="error">{error}</p>}
       {memberRemoveCandidate && (
         <ConfirmDialog
-          title="Remove project member?"
-          body={`Remove ${memberRemoveCandidate.displayName} from "${currentProject?.name ?? "this project"}"? They will lose access to guides in this project unless they have access another way.`}
-          confirmLabel="Remove Member"
+          title={t("Remove project member?")}
+          body={t(
+            'Remove {member} from "{project}"? They will lose access to guides in this project unless they have access another way.',
+            {
+              member: memberRemoveCandidate.displayName,
+              project: currentProject?.name ?? t("this project"),
+            },
+          )}
+          confirmLabel={t("Remove Member")}
           tone="danger"
           onCancel={() => setMemberRemoveCandidate(undefined)}
           onConfirm={() => void removeMember(memberRemoveCandidate)}
@@ -237,12 +245,18 @@ export function GuideShareMovePanel({
       )}
       {moveCandidateProjectId && (
         <ConfirmDialog
-          title="Move guide?"
-          body={`Move "${recording.title}" to "${
-            projects.find((project) => project.id === moveCandidateProjectId)
-              ?.name ?? "the selected project"
-          }"? Access will change immediately because users inherit guide access from the destination project.`}
-          confirmLabel="Move Guide"
+          title={t("Move guide?")}
+          body={t(
+            'Move "{title}" to "{project}"? Access will change immediately because users inherit guide access from the destination project.',
+            {
+              title: recording.title,
+              project:
+                projects.find(
+                  (project) => project.id === moveCandidateProjectId,
+                )?.name ?? t("the selected project"),
+            },
+          )}
+          confirmLabel={t("Move Guide")}
           onCancel={() => setMoveCandidateProjectId(undefined)}
           onConfirm={() => void moveGuide(moveCandidateProjectId)}
         />

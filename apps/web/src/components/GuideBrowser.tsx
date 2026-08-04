@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import QRCode from "qrcode";
 import type {
   BrandingSettings,
   CurrentUser,
@@ -10,16 +11,218 @@ import type {
 import {
   createProject,
   deleteRecording,
+  confirmTwoFactorEnrollment,
+  disableTwoFactor,
+  getTwoFactorStatus,
   imageUrl,
   importProject,
   listProjects,
   listRecordings,
+  regenerateTwoFactorRecoveryCodes,
   restoreRecording,
+  startTwoFactorEnrollment,
 } from "../api";
 import { errorMessage } from "../errors";
+import { plural, t } from "../i18n";
 import { openRecording, recordingUrl } from "../navigation";
 import { BrandMark, productLogoUrl } from "./BrandMark";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { LanguageSelect } from "./LanguageSelect";
+
+function AccountSecurityDialog({ onClose }: { onClose: () => void }) {
+  const [status, setStatus] =
+    useState<Awaited<ReturnType<typeof getTwoFactorStatus>>>();
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [challenge, setChallenge] = useState<
+    Awaited<ReturnType<typeof startTwoFactorEnrollment>> | undefined
+  >();
+  const [qrCode, setQrCode] = useState("");
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+  const [error, setError] = useState<string | undefined>();
+
+  async function load() {
+    try {
+      setStatus(await getTwoFactorStatus());
+      setError(undefined);
+    } catch (loadError) {
+      setError(errorMessage(loadError));
+    }
+  }
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  async function startEnrollment(event: React.FormEvent) {
+    event.preventDefault();
+    try {
+      const nextChallenge = await startTwoFactorEnrollment({ currentPassword });
+      setChallenge(nextChallenge);
+      setQrCode(await QRCode.toDataURL(nextChallenge.otpauthUri));
+      setCode("");
+      setError(undefined);
+    } catch (startError) {
+      setError(errorMessage(startError));
+    }
+  }
+
+  async function confirmEnrollment(event: React.FormEvent) {
+    event.preventDefault();
+    if (!challenge) return;
+    try {
+      const result = await confirmTwoFactorEnrollment({
+        continuationToken: challenge.continuationToken,
+        code,
+      });
+      setRecoveryCodes(result.recoveryCodes);
+      setChallenge(undefined);
+      setCurrentPassword("");
+      setCode("");
+      await load();
+    } catch (confirmError) {
+      setError(errorMessage(confirmError));
+    }
+  }
+
+  async function regenerateCodes(event: React.FormEvent) {
+    event.preventDefault();
+    try {
+      const result = await regenerateTwoFactorRecoveryCodes({
+        currentPassword,
+        code,
+      });
+      setRecoveryCodes(result.recoveryCodes);
+      setCurrentPassword("");
+      setCode("");
+      await load();
+    } catch (regenerateError) {
+      setError(errorMessage(regenerateError));
+    }
+  }
+
+  async function disable(event: React.FormEvent) {
+    event.preventDefault();
+    try {
+      await disableTwoFactor({ currentPassword, code });
+      setRecoveryCodes([]);
+      setCurrentPassword("");
+      setCode("");
+      await load();
+    } catch (disableError) {
+      setError(errorMessage(disableError));
+    }
+  }
+
+  return (
+    <div className="modal-backdrop">
+      <section className="modal-panel security-dialog">
+        <header>
+          <div>
+            <p>{t("Account")}</p>
+            <h2>{t("Security")}</h2>
+          </div>
+          <button onClick={onClose}>{t("Close")}</button>
+        </header>
+        {status && (
+          <div className="settings-strip">
+            <span>
+              <strong>{t("2FA")}</strong>:{" "}
+              {status.enabled ? t("Enabled") : t("Disabled")}
+            </span>
+            <span>
+              <strong>{t("Requirement")}</strong>:{" "}
+              {status.required ? t("Required") : t("Optional")}
+            </span>
+            <span>
+              <strong>{t("Recovery codes")}</strong>:{" "}
+              {status.recoveryCodesRemaining}
+            </span>
+          </div>
+        )}
+        {recoveryCodes.length > 0 && (
+          <div className="recovery-codes">
+            <p>
+              {t(
+                "These recovery codes are shown once. Store them somewhere safe.",
+              )}
+            </p>
+            <pre>{recoveryCodes.join("\n")}</pre>
+          </div>
+        )}
+        {!status?.enabled && status?.enrollmentAvailable && !challenge && (
+          <form onSubmit={(event) => void startEnrollment(event)}>
+            <label>
+              {t("Current password")}
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
+                autoComplete="current-password"
+              />
+            </label>
+            <button>{t("Start 2FA setup")}</button>
+          </form>
+        )}
+        {!status?.enabled && status && !status.enrollmentAvailable && (
+          <p>{t("New 2FA enrollment is disabled for this deployment.")}</p>
+        )}
+        {challenge && (
+          <form onSubmit={(event) => void confirmEnrollment(event)}>
+            <div className="two-factor-setup">
+              {qrCode && <img src={qrCode} alt={t("2FA QR code")} />}
+              <p>{t("Scan the QR code or enter this setup key manually.")}</p>
+              <code>{challenge.manualSecret}</code>
+              <small>{challenge.otpauthUri}</small>
+            </div>
+            <label>
+              {t("Authenticator code")}
+              <input
+                value={code}
+                onChange={(event) => setCode(event.target.value)}
+                autoComplete="one-time-code"
+                inputMode="numeric"
+              />
+            </label>
+            <button>{t("Enable 2FA")}</button>
+          </form>
+        )}
+        {status?.enabled && (
+          <form onSubmit={(event) => void regenerateCodes(event)}>
+            <label>
+              {t("Current password")}
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
+                autoComplete="current-password"
+              />
+            </label>
+            <label>
+              {t("2FA or recovery code")}
+              <input
+                value={code}
+                onChange={(event) => setCode(event.target.value)}
+                autoComplete="one-time-code"
+              />
+            </label>
+            <button>{t("Regenerate recovery codes")}</button>
+            <button
+              type="button"
+              className="danger-action"
+              onClick={(event) =>
+                void disable(event as unknown as React.FormEvent)
+              }
+            >
+              {t("Disable 2FA")}
+            </button>
+          </form>
+        )}
+        {error && <p className="error">{error}</p>}
+      </section>
+    </div>
+  );
+}
 
 function versionedImageUrl(
   recordingId: string,
@@ -34,19 +237,18 @@ function versionedImageUrl(
 function age(value: string): string {
   const diffMs = Date.now() - new Date(value).getTime();
   const days = Math.max(0, Math.floor(diffMs / 86_400_000));
-  if (days === 0) return "today";
-  if (days === 1) return "1 day ago";
-  if (days < 31) return `${days} days ago`;
+  if (days === 0) return t("today");
+  if (days === 1) return t("1 day ago");
+  if (days < 31) return plural("{count} day ago", "{count} days ago", days);
   const months = Math.floor(days / 30);
-  return months === 1 ? "1 month ago" : `${months} months ago`;
+  return plural("{count} month ago", "{count} months ago", months);
 }
 
 function daysUntil(value: string | null | undefined): string {
   if (!value) return "";
   const days = Math.ceil((new Date(value).getTime() - Date.now()) / 86_400_000);
-  if (days <= 0) return "expires today";
-  if (days === 1) return "1 day left";
-  return `${days} days left`;
+  if (days <= 0) return t("expires today");
+  return plural("{count} day left", "{count} days left", days);
 }
 
 export function GuideBrowser({
@@ -76,6 +278,7 @@ export function GuideBrowser({
   const [deleteCandidate, setDeleteCandidate] = useState<
     RecordingListItem | undefined
   >();
+  const [securityOpen, setSecurityOpen] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -136,7 +339,7 @@ export function GuideBrowser({
     <main className="browser-page">
       <header>
         <div>
-          <p>Library</p>
+          <p>{t("Library")}</p>
           <div className="brand-heading">
             <BrandMark src={branding.iconDataUrl || productLogoUrl} />
             <h1>{branding.displayName || "InfoSteed"}</h1>
@@ -145,24 +348,32 @@ export function GuideBrowser({
         <div className="header-actions">
           <span className="user-chip">{user.displayName}</span>
           {user.role === "admin" && (
-            <button onClick={onOpenAdmin}>Admin</button>
+            <button onClick={onOpenAdmin}>{t("Admin")}</button>
           )}
-          <button onClick={onLogout}>Log Out</button>
-          <button onClick={onLogoutAll}>Log Out All Sessions</button>
+          <button onClick={() => setSecurityOpen(true)}>{t("Security")}</button>
+          <LanguageSelect compact />
+          <button onClick={onLogout}>{t("Log Out")}</button>
+          <button onClick={onLogoutAll}>{t("Log Out All Sessions")}</button>
         </div>
       </header>
       <section className="browser-shell">
+        {securityOpen && (
+          <AccountSecurityDialog onClose={() => setSecurityOpen(false)} />
+        )}
         <div className="browser-head">
           <div>
-            <h2>{scope === "trash" ? "Trash" : "Recordings"}</h2>
+            <h2>{scope === "trash" ? t("Trash") : t("Recordings")}</h2>
             <p>
-              {guides.length} accessible recording
-              {guides.length === 1 ? "" : "s"}
+              {plural(
+                "{count} accessible recording",
+                "{count} accessible recordings",
+                guides.length,
+              )}
             </p>
           </div>
           <div className="browser-controls">
             <input
-              placeholder="Search recordings"
+              placeholder={t("Search recordings")}
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
@@ -170,7 +381,7 @@ export function GuideBrowser({
               value={projectId}
               onChange={(event) => setProjectId(event.target.value)}
             >
-              <option value="">All projects</option>
+              <option value="">{t("All projects")}</option>
               {projects.map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.name}
@@ -178,7 +389,7 @@ export function GuideBrowser({
               ))}
             </select>
             <button onClick={() => importInputRef.current?.click()}>
-              Import Project
+              {t("Import Project")}
             </button>
             <input
               ref={importInputRef}
@@ -191,20 +402,20 @@ export function GuideBrowser({
               value={scope}
               onChange={(event) => setScope(event.target.value as typeof scope)}
             >
-              <option value="all">All access</option>
-              <option value="owned">Owned</option>
-              <option value="shared">Shared</option>
-              <option value="trash">Trash</option>
+              <option value="all">{t("All access")}</option>
+              <option value="owned">{t("Owned")}</option>
+              <option value="shared">{t("Shared")}</option>
+              <option value="trash">{t("Trash")}</option>
             </select>
             <select
               value={sort}
               onChange={(event) => setSort(event.target.value as typeof sort)}
             >
-              <option value="recent">Recent</option>
-              <option value="title">Title</option>
+              <option value="recent">{t("Recent")}</option>
+              <option value="title">{t("Title")}</option>
             </select>
             <button onClick={() => setView(view === "grid" ? "list" : "grid")}>
-              {view === "grid" ? "List" : "Grid"}
+              {view === "grid" ? t("List") : t("Grid")}
             </button>
           </div>
         </div>
@@ -213,11 +424,11 @@ export function GuideBrowser({
           onSubmit={(event) => void addProject(event)}
         >
           <input
-            placeholder="New private project"
+            placeholder={t("New private project")}
             value={newProjectName}
             onChange={(event) => setNewProjectName(event.target.value)}
           />
-          <button>Create Project</button>
+          <button>{t("Create Project")}</button>
         </form>
         {error && <p className="error">{error}</p>}
         <div className={view === "grid" ? "guide-grid" : "guide-list"}>
@@ -248,12 +459,12 @@ export function GuideBrowser({
                 )}
               >
                 <p>
-                  {guide.projectName ?? "Private"} ·{" "}
+                  {guide.projectName ?? t("Private")} ·{" "}
                   {guide.captureMode === "both"
-                    ? "Video + Guide"
+                    ? t("Video + Guide")
                     : guide.captureMode === "video"
-                      ? "Video"
-                      : "Guide"}
+                      ? t("Video")
+                      : t("Guide")}
                 </p>
                 <h3>{guide.title}</h3>
                 {guide.overview && (
@@ -261,23 +472,27 @@ export function GuideBrowser({
                 )}
                 <small>
                   {guide.deletedAt
-                    ? `Deleted ${age(guide.deletedAt)} · ${daysUntil(guide.restorableUntil)}`
+                    ? t("Deleted {age} · {remaining}", {
+                        age: age(guide.deletedAt),
+                        remaining: daysUntil(guide.restorableUntil),
+                      })
                     : age(guide.updatedAt)}{" "}
-                  · {guide.ownerDisplayName ?? "Unknown owner"} ·{" "}
-                  {guide.stepCount} steps · {guide.userRole}
+                  · {guide.ownerDisplayName ?? t("Unknown owner")} ·{" "}
+                  {plural("{count} step", "{count} steps", guide.stepCount)} ·{" "}
+                  {t(guide.userRole)}
                 </small>
               </a>
               <div className="guide-card-actions">
                 {guide.deletedAt ? (
                   <button onClick={() => void restoreGuide(guide)}>
-                    Restore
+                    {t("Restore")}
                   </button>
                 ) : (
                   <button
                     className="danger-action"
                     onClick={() => setDeleteCandidate(guide)}
                   >
-                    Delete
+                    {t("Delete")}
                   </button>
                 )}
               </div>
@@ -287,9 +502,14 @@ export function GuideBrowser({
       </section>
       {deleteCandidate && (
         <ConfirmDialog
-          title="Delete guide?"
-          body={`"${deleteCandidate.title}" will move to Trash and can be restored for 10 days.`}
-          confirmLabel="Delete Guide"
+          title={t("Delete guide?")}
+          body={t(
+            '"{title}" will move to Trash and can be restored for 10 days.',
+            {
+              title: deleteCandidate.title,
+            },
+          )}
+          confirmLabel={t("Delete Guide")}
           tone="danger"
           onCancel={() => setDeleteCandidate(undefined)}
           onConfirm={() => void deleteGuide(deleteCandidate)}

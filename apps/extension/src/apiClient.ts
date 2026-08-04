@@ -9,6 +9,7 @@ import type {
 } from "@infosteed/shared";
 import type { PublicSystemInfo } from "@infosteed/shared";
 import { PRODUCT_IDENTIFIERS, PROTOCOL_VERSION } from "@infosteed/shared";
+import { t } from "./i18n";
 
 export interface ExtensionSettings {
   apiBaseUrl: string;
@@ -31,7 +32,7 @@ export async function getSettings(): Promise<ExtensionSettings> {
   const stored = await chrome.storage.local.get("serverOrigin");
   if (!stored.serverOrigin)
     throw new Error(
-      "Configure a self-hosted server before using the extension",
+      t("Configure a self-hosted server before using the extension"),
     );
   return {
     apiBaseUrl: `${stored.serverOrigin}/api`,
@@ -51,7 +52,7 @@ export function normalizeServerOrigin(value: string): string {
   const local = url.hostname === "localhost" || url.hostname === "127.0.0.1";
   if (url.protocol !== "https:" && !(local && url.protocol === "http:")) {
     throw new Error(
-      "Use HTTPS. Plain HTTP is allowed only for localhost and 127.0.0.1",
+      t("Use HTTPS. Plain HTTP is allowed only for localhost and 127.0.0.1"),
     );
   }
   if (
@@ -62,7 +63,9 @@ export function normalizeServerOrigin(value: string): string {
     (url.pathname !== "/" && url.pathname !== "")
   ) {
     throw new Error(
-      "Enter only the server origin, without credentials, a path, query, or fragment",
+      t(
+        "Enter only the server origin, without credentials, a path, query, or fragment",
+      ),
     );
   }
   return url.origin;
@@ -75,15 +78,20 @@ export async function inspectServer(
     credentials: "include",
   });
   if (!response.ok)
-    throw new Error(`Server check failed with HTTP ${response.status}`);
+    throw new Error(
+      t("Server check failed with HTTP {status}", { status: response.status }),
+    );
   const info = (await response.json()) as PublicSystemInfo;
   if (info.protocolVersion !== PROTOCOL_VERSION) {
     throw new Error(
-      `Incompatible server protocol ${info.protocolVersion}; this extension requires protocol ${PROTOCOL_VERSION}`,
+      t(
+        "Incompatible server protocol {actual}; this extension requires protocol {required}",
+        { actual: info.protocolVersion, required: PROTOCOL_VERSION },
+      ),
     );
   }
   if (!info.productName || !info.releaseVersion || !info.productSlug)
-    throw new Error("The selected origin is not a compatible server");
+    throw new Error(t("The selected origin is not a compatible server"));
   return info;
 }
 
@@ -117,13 +125,13 @@ export async function connectServer(value: string): Promise<ServerConnection> {
     ((current.recorderStatus ?? "idle") !== "idle" || current.recordingId)
   ) {
     throw new Error(
-      "Finish or discard the current recording before changing servers",
+      t("Finish or discard the current recording before changing servers"),
     );
   }
   const granted = await chrome.permissions.request({
     origins: [`${serverOrigin}/*`],
   });
-  if (!granted) throw new Error("Server permission was not granted");
+  if (!granted) throw new Error(t("Server permission was not granted"));
   try {
     const systemInfo = await inspectServer(serverOrigin);
     await chrome.storage.local.set({
@@ -153,7 +161,7 @@ export async function disconnectServer(): Promise<void> {
   ]);
   if ((stored.recorderStatus ?? "idle") !== "idle" || stored.recordingId) {
     throw new Error(
-      "Finish or discard the current recording before disconnecting",
+      t("Finish or discard the current recording before disconnecting"),
     );
   }
   if (stored.serverOrigin)

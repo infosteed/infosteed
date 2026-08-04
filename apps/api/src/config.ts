@@ -23,6 +23,11 @@ const commaSeparatedOrigins = z.preprocess(
       : value,
   z.array(z.string().url()).default([]),
 );
+const booleanEnv = z.preprocess(
+  (value) =>
+    typeof value === "boolean" ? value : value === "true" || value === "1",
+  z.boolean(),
+);
 
 const configSchema = z
   .object({
@@ -79,15 +84,7 @@ const configSchema = z
     TTS_FFMPEG_PATH: z.string().trim().min(1).default("ffmpeg"),
     TTS_FFPROBE_PATH: z.string().trim().min(1).default("ffprobe"),
     TTS_TEMP_DIR: optionalEnv,
-    VIDEO_RENDER_ENABLED: z
-      .preprocess(
-        (value) =>
-          typeof value === "boolean"
-            ? value
-            : value === "true" || value === "1",
-        z.boolean(),
-      )
-      .default(true),
+    VIDEO_RENDER_ENABLED: booleanEnv.default(true),
     VIDEO_RENDER_CONCURRENCY: z.coerce
       .number()
       .int()
@@ -110,6 +107,14 @@ const configSchema = z
     RELEASE_VERSION: z.string().trim().min(1).default("0.1.0-beta.2"),
     RELEASE_COMMIT: z.string().trim().min(1).default("development"),
     APP_DOMAIN: optionalEnv,
+    TWO_FACTOR_ENABLED: booleanEnv.default(false),
+    TWO_FACTOR_ENCRYPTION_KEY: z.preprocess(
+      (value) => (value === "" ? undefined : value),
+      z
+        .string()
+        .regex(/^[0-9a-fA-F]{64}$/)
+        .optional(),
+    ),
     ACME_EMAIL: z.preprocess(
       (value) => (value === "" ? undefined : value),
       z.string().email().optional(),
@@ -124,15 +129,7 @@ const configSchema = z
     S3_BUCKET: optionalEnv,
     S3_ACCESS_KEY_ID: optionalEnv,
     S3_SECRET_ACCESS_KEY: optionalEnv,
-    S3_FORCE_PATH_STYLE: z
-      .preprocess(
-        (value) =>
-          typeof value === "boolean"
-            ? value
-            : value === "true" || value === "1",
-        z.boolean(),
-      )
-      .default(true),
+    S3_FORCE_PATH_STYLE: booleanEnv.default(true),
     SESSION_COOKIE_NAME: z.string().default(PRODUCT_IDENTIFIERS.sessionCookie),
     SESSION_DAYS: z.coerce.number().int().positive().default(7),
     COOKIE_SECURE: z
@@ -140,6 +137,13 @@ const configSchema = z
       .default(false),
   })
   .superRefine((config, context) => {
+    if (config.TWO_FACTOR_ENABLED && !config.TWO_FACTOR_ENCRYPTION_KEY) {
+      context.addIssue({
+        code: "custom",
+        path: ["TWO_FACTOR_ENCRYPTION_KEY"],
+        message: "Required when TWO_FACTOR_ENABLED is true",
+      });
+    }
     if (config.NODE_ENV !== "production") return;
     if (!config.APP_SOURCE_URL)
       context.addIssue({

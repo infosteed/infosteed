@@ -30,6 +30,15 @@ if ! production_load_compose; then
   exit 1
 fi
 pass "production environment is private and modes are valid"
+if [[ ${TWO_FACTOR_ENABLED:-false} == true || ${TWO_FACTOR_ENABLED:-false} == 1 ]]; then
+  if [[ ${TWO_FACTOR_ENCRYPTION_KEY:-} =~ ^[0-9a-fA-F]{64}$ ]]; then
+    pass "2FA encryption key is configured"
+  else
+    fail "TWO_FACTOR_ENCRYPTION_KEY must be 64 hexadecimal characters when TWO_FACTOR_ENABLED=true"
+  fi
+else
+  note "2FA enrollment is disabled"
+fi
 if "${production_compose[@]}" config --quiet; then pass "Compose configuration is valid"; else fail "Compose configuration is invalid"; fi
 
 note "Configured modes: TLS=$TLS_MODE LLM=$LLM_MODE transcription=$TRANSCRIPTION_MODE voiceover=$VOICEOVER_MODE"

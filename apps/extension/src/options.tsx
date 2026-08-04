@@ -5,7 +5,11 @@ import type { PublicSystemInfo } from "@infosteed/shared";
 import { connectServer, disconnectServer } from "./apiClient";
 import { BrandMark } from "./BrandMark";
 import { errorMessage } from "./errors";
+import { t } from "./i18n";
+import { LanguageSelect } from "./LanguageSelect";
 import "./options.css";
+
+document.title = t("Configure InfoSteed");
 
 export function Options() {
   const [serverUrl, setServerUrl] = useState("");
@@ -66,16 +70,17 @@ export function Options() {
         <BrandMark />
         <div>
           <p className="product-name">InfoSteed</p>
-          <h1>Connect your self-hosted server</h1>
+          <h1>{t("Connect your self-hosted server")}</h1>
         </div>
       </div>
       <p>
-        The extension sends recordings only to the server you select and approve
-        here.
+        {t(
+          "The extension sends recordings only to the server you select and approve here.",
+        )}
       </p>
       <section className="card">
         <label>
-          Server URL
+          {t("Server URL")}
           <input
             value={serverUrl}
             onChange={(event) => setServerUrl(event.target.value)}
@@ -84,15 +89,16 @@ export function Options() {
           />
         </label>
         <small>
-          HTTPS is required except for localhost and 127.0.0.1. Permission is
-          requested only for this origin.
+          {t(
+            "HTTPS is required except for localhost and 127.0.0.1. Permission is requested only for this origin.",
+          )}
         </small>
         <div className="actions">
           <button
             disabled={blocked || busy || !serverUrl}
             onClick={() => void connect()}
           >
-            {busy ? "Checking..." : "Connect and verify"}
+            {busy ? t("Checking...") : t("Connect and verify")}
           </button>
           {info && (
             <button
@@ -100,14 +106,15 @@ export function Options() {
               disabled={blocked || busy}
               onClick={() => void disconnect()}
             >
-              Disconnect
+              {t("Disconnect")}
             </button>
           )}
         </div>
         {blocked && (
           <p className="error">
-            Finish or discard the active or recoverable recording before
-            changing servers.
+            {t(
+              "Finish or discard the active or recoverable recording before changing servers.",
+            )}
           </p>
         )}
         {error && <p className="error">{error}</p>}
@@ -118,22 +125,26 @@ export function Options() {
             </strong>
             <br />
             <small>
-              Protocol {info.protocolVersion}; commit {info.releaseCommit}
+              {t("Protocol {protocol}; commit {commit}", {
+                protocol: info.protocolVersion,
+                commit: info.releaseCommit,
+              })}
             </small>
           </div>
         )}
       </section>
-      <h2>Privacy and legal</h2>
+      <h2>{t("Language")}</h2>
+      <LanguageSelect />
+      <h2>{t("Privacy and legal")}</h2>
       <p>
-        No telemetry is enabled by default. Depending on your choices, the
-        selected server may receive page metadata, interaction data,
-        screenshots, video, microphone, tab audio, webcam, transcription text,
-        narration text, and generated speech.
+        {t(
+          "No telemetry is enabled by default. Depending on your choices, the selected server may receive page metadata, interaction data, screenshots, video, microphone, tab audio, webcam, transcription text, narration text, and generated speech.",
+        )}
       </p>
       <p>
-        This software is provided under AGPL-3.0-only without warranty. The
-        server's About and Legal view links to the corresponding source for its
-        exact version.
+        {t(
+          "This software is provided under AGPL-3.0-only without warranty. The server's About and Legal view links to the corresponding source for its exact version.",
+        )}
       </p>
     </main>
   );

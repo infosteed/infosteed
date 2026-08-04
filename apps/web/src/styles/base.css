@@ -19,6 +19,25 @@ main {
   min-height: 100vh;
 }
 
+.language-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #475467;
+}
+
+.language-select.compact span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.language-select select {
+  min-height: 34px;
+}
+
 header {
   position: sticky;
   top: 0;

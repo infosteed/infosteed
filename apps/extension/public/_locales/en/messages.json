@@ -1,0 +1,11 @@
+{
+  "extensionName": {
+    "message": "InfoSteed Recorder"
+  },
+  "extensionDescription": {
+    "message": "Self-hosted browser recorder for creating editable guides and videos."
+  },
+  "extensionActionTitle": {
+    "message": "InfoSteed"
+  }
+}

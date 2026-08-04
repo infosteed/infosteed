@@ -102,6 +102,7 @@ fi
   production_die "extension origin must be chrome-extension:// followed by the 32-character Chrome extension ID"
 
 setup_token=$(openssl rand -hex 32)
+two_factor_encryption_key=$(openssl rand -hex 32)
 postgres_password=$(openssl rand -hex 32)
 minio_root_password=$(openssl rand -hex 32)
 s3_secret=$(openssl rand -hex 32)
@@ -122,6 +123,8 @@ ACME_EMAIL=$email
 APP_SOURCE_URL=https://github.com/infosteed/infosteed
 EXTENSION_ORIGINS=$extension_origin
 SETUP_TOKEN=$setup_token
+TWO_FACTOR_ENABLED=false
+TWO_FACTOR_ENCRYPTION_KEY=$two_factor_encryption_key
 
 LLM_MODE=off
 TRANSCRIPTION_MODE=off

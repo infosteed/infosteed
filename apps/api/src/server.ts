@@ -4,12 +4,14 @@ import { loadDotEnv, readConfig } from "./config.js";
 import { createPool, runMigrations } from "./db.js";
 import { createVideoStorage } from "./videoStorage.js";
 import { cleanupVideos } from "./videoCleanup.js";
+import { validateTwoFactorStartup } from "./repositories/twoFactor.js";
 
 loadDotEnv();
 const config = readConfig();
 const pool = createPool(config.DATABASE_URL);
 
 await runMigrations(pool);
+await validateTwoFactorStartup(pool, config);
 
 const videoStorage = createVideoStorage(config);
 const app = buildApp(config, pool, videoStorage);

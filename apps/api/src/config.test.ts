@@ -40,6 +40,17 @@ describe("video storage configuration", () => {
     expect(config.VIDEO_RENDER_RETENTION_DAYS).toBe(7);
   });
 
+  it("requires a 2FA encryption key when new enrollment is enabled", () => {
+    expect(() => readConfig({ TWO_FACTOR_ENABLED: "true" })).toThrow();
+    expect(
+      readConfig({
+        TWO_FACTOR_ENABLED: "true",
+        TWO_FACTOR_ENCRYPTION_KEY:
+          "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      }).TWO_FACTOR_ENABLED,
+    ).toBe(true);
+  });
+
   it("parses an explicit extension origin allow-list", () => {
     expect(
       readConfig({

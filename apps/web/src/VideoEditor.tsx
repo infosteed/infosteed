@@ -39,6 +39,7 @@ import {
   voiceoverCueUrl,
 } from "./api";
 import { errorMessage } from "./errors";
+import { t } from "./i18n";
 import { openRecording } from "./navigation";
 import {
   materializeVideoCaptions,
@@ -420,7 +421,7 @@ export function VideoEditor({
       const next = await createVideoRender(
         recording.id,
         saved?.revision ?? revision,
-        `Edit ${new Date().toLocaleString()}`,
+        t("Edit {date}", { date: new Date().toLocaleString() }),
       );
       setRender(next);
       setMp4Export(undefined);
@@ -489,7 +490,7 @@ export function VideoEditor({
   if (!state || !recipe)
     return (
       <main className="video-editor-shell">
-        <p>{error ?? "Loading video editor..."}</p>
+        <p>{error ?? t("Loading video editor...")}</p>
       </main>
     );
 
@@ -504,21 +505,21 @@ export function VideoEditor({
     <main className="video-editor-shell">
       <header className="video-editor-header">
         <div>
-          <p>Video editor</p>
+          <p>{t("Video editor")}</p>
           <h1>{recording.title}</h1>
         </div>
         <div className="header-actions">
           <span className={savePaused ? "save-state conflict" : "save-state"}>
             {savePaused
-              ? "Save conflict"
+              ? t("Save conflict")
               : saving
-                ? "Saving..."
+                ? t("Saving...")
                 : dirty
-                  ? "Unsaved"
-                  : "Saved"}
+                  ? t("Unsaved")
+                  : t("Saved")}
           </span>
           <button onClick={() => openRecording(recording.id, "video")}>
-            Back to recording
+            {t("Back to recording")}
           </button>
         </div>
       </header>
@@ -533,7 +534,9 @@ export function VideoEditor({
           {error}
           {savePaused && (
             <>
-              <button onClick={() => void load()}>Reload server draft</button>
+              <button onClick={() => void load()}>
+                {t("Reload server draft")}
+              </button>
               <button
                 onClick={() =>
                   void getVideoEditor(recording.id).then((latest) => {
@@ -545,7 +548,7 @@ export function VideoEditor({
                   })
                 }
               >
-                Retry local draft
+                {t("Retry local draft")}
               </button>
             </>
           )}
@@ -627,14 +630,18 @@ export function VideoEditor({
 
           <div className="video-timeline">
             <div className="timeline-summary">
-              <strong>{videoTimeLabel(outputDuration)} edited</strong>
+              <strong>
+                {t("{duration} edited", {
+                  duration: videoTimeLabel(outputDuration),
+                })}
+              </strong>
               <span>
                 {videoTimeLabel(recipe.sourceDurationMs - outputDuration)}{" "}
-                removed
+                {t("removed")}
               </span>
             </div>
             <input
-              aria-label="Video playhead"
+              aria-label={t("Video playhead")}
               type="range"
               min={0}
               max={recipe.sourceDurationMs}
@@ -668,7 +675,7 @@ export function VideoEditor({
                   change(subtractVideoRange(recipe, 0, playheadMs))
                 }
               >
-                Trim start to playhead
+                {t("Trim start to playhead")}
               </button>
               <button
                 disabled={playheadMs >= recipe.sourceDurationMs}
@@ -682,10 +689,10 @@ export function VideoEditor({
                   )
                 }
               >
-                Trim end to playhead
+                {t("Trim end to playhead")}
               </button>
               <label>
-                Cut from{" "}
+                {t("Cut from")}{" "}
                 <input
                   type="number"
                   min={0}
@@ -698,7 +705,7 @@ export function VideoEditor({
                 ms
               </label>
               <label>
-                to{" "}
+                {t("to")}{" "}
                 <input
                   type="number"
                   min={0}
@@ -714,7 +721,7 @@ export function VideoEditor({
                   change(subtractVideoRange(recipe, cutStartMs, cutEndMs))
                 }
               >
-                Cut selection
+                {t("Cut selection")}
               </button>
               <button
                 disabled={past.length === 0}
@@ -728,7 +735,7 @@ export function VideoEditor({
                   saveGeneration.current += 1;
                 }}
               >
-                Undo
+                {t("Undo")}
               </button>
               <button
                 disabled={future.length === 0}
@@ -741,14 +748,14 @@ export function VideoEditor({
                   saveGeneration.current += 1;
                 }}
               >
-                Redo
+                {t("Redo")}
               </button>
             </div>
           </div>
 
           <div className="video-edit-media-controls">
             <fieldset disabled={!hasCamera || candidatePreview}>
-              <legend>Webcam bubble</legend>
+              <legend>{t("Webcam bubble")}</legend>
               <label>
                 <input
                   type="checkbox"
@@ -763,10 +770,10 @@ export function VideoEditor({
                     })
                   }
                 />{" "}
-                Show webcam
+                {t("Show webcam")}
               </label>
               <label>
-                Size{" "}
+                {t("Size")}{" "}
                 <input
                   type="range"
                   min={0.1}
@@ -785,13 +792,15 @@ export function VideoEditor({
                 />
               </label>
               {!hasCamera && (
-                <small>The independent camera track is unavailable.</small>
+                <small>
+                  {t("The independent camera track is unavailable.")}
+                </small>
               )}
             </fieldset>
             <fieldset disabled={candidatePreview}>
-              <legend>Audio mix</legend>
+              <legend>{t("Audio mix")}</legend>
               <label>
-                Tab audio{" "}
+                {t("Tab audio")}{" "}
                 <input
                   disabled={!hasScreen}
                   type="range"
@@ -812,7 +821,7 @@ export function VideoEditor({
                 {Math.round(recipe.audio.tabGain * 100)}%
               </label>
               <label>
-                Microphone{" "}
+                {t("Microphone")}{" "}
                 <input
                   disabled={!hasMicrophone}
                   type="range"
@@ -833,7 +842,7 @@ export function VideoEditor({
                 {Math.round(recipe.audio.microphoneGain * 100)}%
               </label>
               <label>
-                AI voiceover{" "}
+                {t("AI voiceover")}{" "}
                 <input
                   disabled={!recipe.voiceover.assetId}
                   type="range"
@@ -868,7 +877,7 @@ export function VideoEditor({
                     })
                   }
                 />{" "}
-                Enable voiceover
+                {t("Enable voiceover")}
               </label>
             </fieldset>
           </div>
@@ -880,25 +889,25 @@ export function VideoEditor({
               className={panel === "chapters" ? "active" : ""}
               onClick={() => setPanel("chapters")}
             >
-              Chapters
+              {t("Chapters")}
             </button>
             <button
               className={panel === "captions" ? "active" : ""}
               onClick={() => setPanel("captions")}
             >
-              Captions
+              {t("Captions")}
             </button>
             <button
               className={panel === "voiceover" ? "active" : ""}
               onClick={() => setPanel("voiceover")}
             >
-              AI voiceover
+              {t("AI voiceover")}
             </button>
             <button
               className={panel === "history" ? "active" : ""}
               onClick={() => setPanel("history")}
             >
-              History
+              {t("History")}
             </button>
           </div>
 
@@ -914,7 +923,7 @@ export function VideoEditor({
                         id: crypto.randomUUID(),
                         eventId: null,
                         guideItemId: null,
-                        title: "New chapter",
+                        title: t("New chapter"),
                         sourceOffsetMs: playheadMs,
                         ordinal: recipe.chapters.length,
                         hidden: false,
@@ -926,7 +935,7 @@ export function VideoEditor({
                   })
                 }
               >
-                Add chapter at playhead
+                {t("Add chapter at playhead")}
               </button>
               {recipe.chapters.map((chapter, index) => {
                 const outputMs = videoSourceToOutputMs(
@@ -960,7 +969,7 @@ export function VideoEditor({
                       }
                     />
                     <label>
-                      Source ms{" "}
+                      {t("Source ms")}{" "}
                       <input
                         type="number"
                         min={0}
@@ -984,8 +993,10 @@ export function VideoEditor({
                     </label>
                     <small>
                       {outputMs === null
-                        ? "Removed by cut"
-                        : `Edited time ${videoTimeLabel(outputMs)}`}
+                        ? t("Removed by cut")
+                        : t("Edited time {time}", {
+                            time: videoTimeLabel(outputMs),
+                          })}
                     </small>
                     <button
                       onClick={() =>
@@ -999,7 +1010,7 @@ export function VideoEditor({
                         })
                       }
                     >
-                      {chapter.hidden ? "Restore" : "Hide"}
+                      {chapter.hidden ? t("Restore") : t("Hide")}
                     </button>
                   </div>
                 );
@@ -1026,14 +1037,14 @@ export function VideoEditor({
                               recipe.sourceDurationMs,
                               playheadMs + 2000,
                             ),
-                            text: "New caption",
+                            text: t("New caption"),
                           },
                         ],
                       },
                     });
                   }}
                 >
-                  Add caption
+                  {t("Add caption")}
                 </button>
                 {recipe.captions.mode === "manual" && (
                   <button
@@ -1041,7 +1052,7 @@ export function VideoEditor({
                       change({ ...recipe, captions: { mode: "transcript" } })
                     }
                   >
-                    Reset to transcript
+                    {t("Reset to transcript")}
                   </button>
                 )}
               </div>
@@ -1119,7 +1130,7 @@ export function VideoEditor({
                       })
                     }
                   >
-                    Delete
+                    {t("Delete")}
                   </button>
                   <button
                     disabled={cue.sourceEndMs - cue.sourceStartMs < 200}
@@ -1145,7 +1156,7 @@ export function VideoEditor({
                       change({ ...recipe, captions: { mode: "manual", cues } });
                     }}
                   >
-                    Split
+                    {t("Split")}
                   </button>
                   <button
                     disabled={index === 0}
@@ -1160,7 +1171,7 @@ export function VideoEditor({
                       change({ ...recipe, captions: { mode: "manual", cues } });
                     }}
                   >
-                    Merge previous
+                    {t("Merge previous")}
                   </button>
                 </div>
               ))}
@@ -1171,13 +1182,14 @@ export function VideoEditor({
             <div className="video-edit-list voiceover-panel">
               {!state.voiceoverAvailable && (
                 <p className="raw-warning">
-                  Local TTS is not configured. Start the optional Kokoro service
-                  and set TTS_BASE_URL.
+                  {t(
+                    "Local TTS is not configured. Start the optional Kokoro service and set TTS_BASE_URL.",
+                  )}
                 </p>
               )}
               <div className="voiceover-settings">
                 <label>
-                  Voice{" "}
+                  {t("Voice")}{" "}
                   <select
                     disabled={!state.voiceoverAvailable || voices.length === 0}
                     value={voice}
@@ -1191,7 +1203,7 @@ export function VideoEditor({
                   </select>
                 </label>
                 <label>
-                  Speed{" "}
+                  {t("Speed")}{" "}
                   <select
                     value={voiceoverSpeed}
                     onChange={(event) =>
@@ -1210,19 +1222,19 @@ export function VideoEditor({
                     setNarrationCues(materializeVideoCaptions(state, recipe))
                   }
                 >
-                  Use edited captions
+                  {t("Use edited captions")}
                 </button>
                 <label>
-                  Script style{" "}
+                  {t("Script style")}{" "}
                   <select
                     value={scriptStyle}
                     onChange={(event) =>
                       setScriptStyle(event.target.value as typeof scriptStyle)
                     }
                   >
-                    <option value="natural">Natural</option>
-                    <option value="concise">Concise</option>
-                    <option value="instructional">Instructional</option>
+                    <option value="natural">{t("Natural")}</option>
+                    <option value="concise">{t("Concise")}</option>
+                    <option value="instructional">{t("Instructional")}</option>
                   </select>
                 </label>
                 <button
@@ -1230,25 +1242,29 @@ export function VideoEditor({
                   onClick={() => void rewriteScript()}
                 >
                   {rewritingScript
-                    ? "Rewriting locally..."
-                    : "Rewrite with local model"}
+                    ? t("Rewriting locally...")
+                    : t("Rewrite with local model")}
                 </button>
                 <small>
-                  The rewrite keeps cue timing but turns literal captions into
-                  narration. You can edit every cue before synthesis.
+                  {t(
+                    "The rewrite keeps cue timing but turns literal captions into narration. You can edit every cue before synthesis.",
+                  )}
                 </small>
               </div>
               {voiceover && (
                 <div className="voiceover-progress">
-                  <strong>Generation: {voiceover.status}</strong>
+                  <strong>
+                    {t("Generation: {status}", { status: t(voiceover.status) })}
+                  </strong>
                   <progress max={1} value={voiceover.progress} />
                   {voiceover.errorMessage && (
                     <p className="error">{voiceover.errorMessage}</p>
                   )}
                   {voiceover.cues.some((cue) => cue.overlongByMs > 0) && (
                     <p className="raw-warning">
-                      Some speech is longer than its cue. It is not truncated
-                      and may overlap later narration.
+                      {t(
+                        "Some speech is longer than its cue. It is not truncated and may overlap later narration.",
+                      )}
                     </p>
                   )}
                 </div>
@@ -1282,12 +1298,16 @@ export function VideoEditor({
                       {videoTimeLabel(cue.sourceStartMs)}–
                       {videoTimeLabel(cue.sourceEndMs)}
                       {generated?.durationMs
-                        ? ` · speech ${videoTimeLabel(generated.durationMs)}`
+                        ? t(" · speech {duration}", {
+                            duration: videoTimeLabel(generated.durationMs),
+                          })
                         : ""}
                     </small>
                     {Boolean(generated?.overlongByMs) && (
                       <strong className="error">
-                        Over by {(generated!.overlongByMs / 1000).toFixed(1)}s
+                        {t("Over by {seconds}s", {
+                          seconds: (generated!.overlongByMs / 1000).toFixed(1),
+                        })}
                       </strong>
                     )}
                     {generated?.errorMessage && (
@@ -1297,7 +1317,7 @@ export function VideoEditor({
                       disabled={generated?.status !== "ready"}
                       onClick={() => previewVoiceoverCue(cue.id)}
                     >
-                      Preview cue
+                      {t("Preview cue")}
                     </button>
                   </div>
                 );
@@ -1313,12 +1333,13 @@ export function VideoEditor({
                 onClick={() => void requestVoiceover()}
               >
                 {voiceover
-                  ? "Generate / regenerate voiceover"
-                  : "Generate voiceover"}
+                  ? t("Generate / regenerate voiceover")
+                  : t("Generate voiceover")}
               </button>
               <small>
-                Only installed stock voices are available. Voice cloning is not
-                supported.
+                {t(
+                  "Only installed stock voices are available. Voice cloning is not supported.",
+                )}
               </small>
             </div>
           )}
@@ -1327,7 +1348,7 @@ export function VideoEditor({
             <div className="video-edit-list">
               <button
                 onClick={() => {
-                  const name = window.prompt("Version name");
+                  const name = window.prompt(t("Version name"));
                   if (name)
                     void persist()
                       .then(() => createVideoEditVersion(recording.id, name))
@@ -1337,16 +1358,17 @@ export function VideoEditor({
                       );
                 }}
               >
-                Save named version
+                {t("Save named version")}
               </button>
               {state.versions.map((version) => (
                 <div className="edit-row" key={version.id}>
                   <strong>
-                    {version.name ?? `${version.versionType} version`}
+                    {version.name ??
+                      t("{type} version", { type: t(version.versionType) })}
                   </strong>
                   <small>
                     {new Date(version.createdAt).toLocaleString()}
-                    {version.publishedAt ? " - published" : ""}
+                    {version.publishedAt ? t(" - published") : ""}
                   </small>
                   <button
                     onClick={() =>
@@ -1357,7 +1379,7 @@ export function VideoEditor({
                         )
                     }
                   >
-                    Restore to draft
+                    {t("Restore to draft")}
                   </button>
                 </div>
               ))}
@@ -1374,11 +1396,13 @@ export function VideoEditor({
               }
               onClick={() => void requestRender()}
             >
-              Render preview
+              {t("Render preview")}
             </button>
             {render && (
               <div className="render-status">
-                <strong>Render: {render.status}</strong>
+                <strong>
+                  {t("Render: {status}", { status: t(render.status) })}
+                </strong>
                 <progress max={1} value={render.progress} />
                 {render.errorMessage && (
                   <p className="error">{render.errorMessage}</p>
@@ -1392,7 +1416,7 @@ export function VideoEditor({
                         .then(setRender)
                     }
                   >
-                    Cancel
+                    {t("Cancel")}
                   </button>
                 )}
                 {render.status === "ready" && (
@@ -1400,27 +1424,33 @@ export function VideoEditor({
                     <button
                       onClick={() => setCandidatePreview((current) => !current)}
                     >
-                      {candidatePreview ? "Preview source" : "Preview render"}
+                      {candidatePreview
+                        ? t("Preview source")
+                        : t("Preview render")}
                     </button>
                     <a
                       href={recordingVideoRenderUrl(recording.id, render.id)}
                       download={`${recording.title.replace(/[^a-z0-9-_]+/gi, "-") || "video"}.webm`}
                     >
-                      Download render
+                      {t("Download render")}
                     </a>
                     {!mp4Export && (
                       <button
                         disabled={!state.workerAvailable}
                         onClick={() => void requestMp4Export()}
                       >
-                        Create MP4
+                        {t("Create MP4")}
                       </button>
                     )}
                     {mp4Export &&
                       (mp4Export.status === "queued" ||
                         mp4Export.status === "processing") && (
                         <div className="mp4-export-status">
-                          <strong>MP4: {mp4Export.status}</strong>
+                          <strong>
+                            {t("MP4: {status}", {
+                              status: t(mp4Export.status),
+                            })}
+                          </strong>
                           <progress max={1} value={mp4Export.progress} />
                         </div>
                       )}
@@ -1431,7 +1461,7 @@ export function VideoEditor({
                           disabled={!state.workerAvailable}
                           onClick={() => void requestMp4Export()}
                         >
-                          Retry MP4
+                          {t("Retry MP4")}
                         </button>
                       </div>
                     )}
@@ -1443,7 +1473,7 @@ export function VideoEditor({
                         )}
                         download={`${recording.title.replace(/[^a-z0-9-_]+/gi, "-") || "video"}.mp4`}
                       >
-                        Download MP4
+                        {t("Download MP4")}
                       </a>
                     )}
                     <button
@@ -1459,7 +1489,7 @@ export function VideoEditor({
                           )
                       }
                     >
-                      Publish changes
+                      {t("Publish changes")}
                     </button>
                   </>
                 )}
@@ -1467,8 +1497,9 @@ export function VideoEditor({
             )}
             {!state.workerAvailable && mp4Export?.status !== "ready" && (
               <p className="raw-warning">
-                The render worker is offline. Start it before requesting a
-                render or MP4 conversion.
+                {t(
+                  "The render worker is offline. Start it before requesting a render or MP4 conversion.",
+                )}
               </p>
             )}
             <button
@@ -1477,15 +1508,16 @@ export function VideoEditor({
                 void resetVideoEditor(recording.id).then(() => load())
               }
             >
-              Reset all edits
+              {t("Reset all edits")}
             </button>
           </div>
         </aside>
       </section>
       {video.status === "published" && (
         <footer className="video-editor-live-note">
-          The currently published video remains live until you publish a
-          completed replacement.
+          {t(
+            "The currently published video remains live until you publish a completed replacement.",
+          )}
         </footer>
       )}
     </main>

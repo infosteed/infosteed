@@ -153,7 +153,10 @@
 
 .admin-row {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) 110px 130px auto;
+  grid-template-columns: minmax(220px, 1fr) repeat(
+      auto-fit,
+      minmax(112px, max-content)
+    );
   gap: 12px;
   align-items: center;
   min-height: 62px;

@@ -33,6 +33,8 @@ packages/*
 !packages/recorder-core/**
 !packages/image-processor/
 !packages/image-processor/**
+!packages/i18n/
+!packages/i18n/**
 packages/shared/node_modules/
 packages/shared/dist/
 packages/shared/*.tsbuildinfo
@@ -48,3 +50,6 @@ packages/markdown-exporter/*.tsbuildinfo
 packages/image-processor/node_modules/
 packages/image-processor/dist/
 packages/image-processor/*.tsbuildinfo
+packages/i18n/node_modules/
+packages/i18n/dist/
+packages/i18n/*.tsbuildinfo

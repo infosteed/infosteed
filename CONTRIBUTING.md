@@ -2,6 +2,10 @@
 
 Thank you for your interest in InfoSteed.
 
+When contributions open, translations will be especially welcome. See
+[Translating InfoSteed](docs/translating.md) for the JSON catalog workflow and
+validation commands.
+
 External contributions are not accepted while the project establishes its copyright ownership and contributor licence agreement (CLA). Pull requests cannot be merged until both are in place. A Developer Certificate of Origin alone does not provide the relicensing rights needed for separate commercial terms.
 
 When contributions open, the published CLA will explain the rights needed to distribute contributions under AGPL-3.0-only and separate commercial terms.

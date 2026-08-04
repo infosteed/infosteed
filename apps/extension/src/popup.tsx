@@ -3,7 +3,10 @@ import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { getCurrentUser, getSettings } from "./apiClient";
 import { BrandMark } from "./BrandMark";
+import { t } from "./i18n";
 import "./popup.css";
+
+document.title = t("InfoSteed");
 
 type Status = "idle" | "recording" | "paused" | "finalizing";
 type AuthState = "checking" | "signed-in" | "signed-out";
@@ -87,7 +90,7 @@ export function Popup() {
     try {
       const result = await send(type);
       if (!result?.ok) {
-        setError(result?.error ?? "Action failed");
+        setError(result?.error ?? t("Action failed"));
         await refreshAuth();
       } else {
         await refresh();
@@ -112,29 +115,33 @@ export function Popup() {
           <BrandMark />
           <h1>InfoSteed</h1>
         </div>
-        <span data-status={status}>{status}</span>
+        <span data-status={status}>{t(status)}</span>
       </header>
 
       <div className={`auth-panel ${authState}`}>
         <div>
           <strong>
             {!configured
-              ? "Server not configured"
+              ? t("Server not configured")
               : authState === "checking"
-                ? "Checking login..."
+                ? t("Checking login...")
                 : signedOut
-                  ? "Not signed in"
-                  : `Signed in as ${displayName}`}
+                  ? t("Not signed in")
+                  : t("Signed in as {name}", { name: displayName ?? "" })}
           </strong>
-          <p>Server: {webEditorUrl || "none"}</p>
+          <p>
+            {t("Server: {server}", {
+              server: webEditorUrl || t("none"),
+            })}
+          </p>
         </div>
         {!configured ? (
-          <button onClick={() => void openOptions()}>Configure</button>
+          <button onClick={() => void openOptions()}>{t("Configure")}</button>
         ) : signedOut ? (
-          <button onClick={() => void openSignIn()}>Sign in</button>
+          <button onClick={() => void openSignIn()}>{t("Sign in")}</button>
         ) : (
           <button disabled={busy} onClick={() => void refreshAuth()}>
-            Refresh
+            {t("Refresh")}
           </button>
         )}
       </div>
@@ -145,30 +152,32 @@ export function Popup() {
           disabled={status !== "idle" || recoveryAvailable}
           onClick={() => void openOptions()}
         >
-          Server settings and permissions
+          {t("Server settings and permissions")}
         </button>
       )}
 
       {signedOut && (
         <p className="hint">
-          Log in to the web app using the same API host. Cookies for localhost
-          and 127.0.0.1 are separate.
+          {t(
+            "Log in to the web app using the same API host. Cookies for localhost and 127.0.0.1 are separate.",
+          )}
         </p>
       )}
 
       {recoveryAvailable && (
         <div className="recovery-panel">
-          <strong>Interrupted video found</strong>
+          <strong>{t("Interrupted video found")}</strong>
           <p>
-            Finalize the parts uploaded before the browser closed, or discard
-            the interrupted recording.
+            {t(
+              "Finalize the parts uploaded before the browser closed, or discard the interrupted recording.",
+            )}
           </p>
           <div>
             <button disabled={busy} onClick={() => act("recover-video")}>
-              Recover video
+              {t("Recover video")}
             </button>
             <button disabled={busy} onClick={() => act("discard-recovery")}>
-              Discard
+              {t("Discard")}
             </button>
           </div>
         </div>
@@ -176,17 +185,19 @@ export function Popup() {
 
       {followPending && !recoveryAvailable && (
         <div className="follow-panel">
-          <strong>New app tab detected</strong>
+          <strong>{t("New app tab detected")}</strong>
           <p>
             {pendingTabTitle
-              ? `Switch the recording to “${pendingTabTitle}”.`
-              : "Switch the recording to this tab."}
+              ? t("Switch the recording to “{title}”.", {
+                  title: pendingTabTitle,
+                })
+              : t("Switch the recording to this tab.")}
           </p>
           <button
             disabled={controlsDisabled}
             onClick={() => act("follow-pending-tab")}
           >
-            Follow this tab
+            {t("Follow this tab")}
           </button>
         </div>
       )}
@@ -198,7 +209,7 @@ export function Popup() {
               disabled={controlsDisabled}
               onClick={() => act("open-recording-setup")}
             >
-              Start recording
+              {t("Start recording")}
             </button>
           )}
           {status === "recording" && (
@@ -206,7 +217,7 @@ export function Popup() {
               disabled={controlsDisabled}
               onClick={() => act("pause-recording")}
             >
-              Pause
+              {t("Pause")}
             </button>
           )}
           {status === "paused" && (
@@ -214,7 +225,7 @@ export function Popup() {
               disabled={controlsDisabled}
               onClick={() => act("resume-recording")}
             >
-              Resume
+              {t("Resume")}
             </button>
           )}
           {status !== "idle" && (
@@ -222,7 +233,7 @@ export function Popup() {
               disabled={controlsDisabled}
               onClick={() => act("stop-recording")}
             >
-              Stop
+              {t("Stop")}
             </button>
           )}
         </section>
@@ -232,22 +243,23 @@ export function Popup() {
         <div className="progress-panel" role="status" aria-live="polite">
           <span className="spinner" aria-hidden="true" />
           <div>
-            <strong>Finalizing recording...</strong>
+            <strong>{t("Finalizing recording...")}</strong>
             <p>
-              Completing uploads and preparing your selected output. Keep this
-              window open until the preview appears.
+              {t(
+                "Completing uploads and preparing your selected output. Keep this window open until the preview appears.",
+              )}
             </p>
           </div>
         </div>
       )}
       {captureMode && status !== "idle" && (
         <p className="id">
-          Output:{" "}
+          {t("Output:")}{" "}
           {captureMode === "both"
-            ? "Video + Guide"
+            ? t("Video + Guide")
             : captureMode === "video"
-              ? "Video Only"
-              : "Guide Only"}
+              ? t("Video Only")
+              : t("Guide Only")}
         </p>
       )}
       {error && <p className="error">{error}</p>}

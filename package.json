@@ -23,12 +23,14 @@
     "dev:extension": "corepack pnpm --filter @infosteed/extension dev",
     "dev:render": "corepack pnpm --filter @infosteed/video-render-worker dev",
     "e2e": "playwright test",
-    "check": "corepack pnpm format:check && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build",
+    "check": "corepack pnpm format:check && corepack pnpm i18n:check && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build",
     "format:check": "prettier --check .",
     "notices:generate": "corepack pnpm licenses list --prod --json > .notices-inventory.json && NOTICE_INVENTORY_FILE=.notices-inventory.json node scripts/generate-third-party-notices.mjs && rm -f .notices-inventory.json",
     "notices:check": "corepack pnpm licenses list --prod --json > .notices-inventory.json && NOTICE_INVENTORY_FILE=.notices-inventory.json node scripts/generate-third-party-notices.mjs --check && rm -f .notices-inventory.json",
     "extension:package": "corepack pnpm --filter @infosteed/extension build && node scripts/package-extension.mjs",
-    "spdx:check": "node scripts/check-spdx.mjs"
+    "spdx:check": "node scripts/check-spdx.mjs",
+    "i18n:extract": "node scripts/i18n.mjs",
+    "i18n:check": "node scripts/i18n.mjs --check"
   },
   "devDependencies": {
     "@playwright/test": "1.62.1",

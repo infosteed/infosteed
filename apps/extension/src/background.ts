@@ -20,6 +20,7 @@ import {
   uploadEventsForSession,
   uploadScreenshot,
 } from "./apiClient";
+import { t } from "./i18n";
 
 interface RecorderState {
   status: "idle" | "recording" | "paused" | "finalizing";
@@ -106,7 +107,7 @@ async function setState(state: RecorderState): Promise<void> {
     await chrome.action.setBadgeBackgroundColor({ color: "#f79009" });
   await chrome.action.setTitle({
     title: followPending
-      ? "InfoSteed — click to follow the new tab"
+      ? t("InfoSteed — click to follow the new tab")
       : "InfoSteed",
   });
 }
@@ -140,7 +141,7 @@ function tabMediaStreamId(targetTabId: number): Promise<string> {
       const error = chrome.runtime.lastError;
       if (error || !streamId)
         reject(
-          new Error(error?.message ?? "Chrome could not capture this tab"),
+          new Error(error?.message ?? t("Chrome could not capture this tab")),
         );
       else resolve(streamId);
     }),
@@ -172,7 +173,9 @@ async function ensureContentRecorder(targetTabId: number): Promise<void> {
   });
   if (!installed.some((result) => result.result === true)) {
     throw new Error(
-      "The action recorder could not start in this tab. Reload the page and try again.",
+      t(
+        "The action recorder could not start in this tab. Reload the page and try again.",
+      ),
     );
   }
 }
@@ -193,7 +196,7 @@ async function offscreen<T>(
 ): Promise<T> {
   const response = await chrome.runtime.sendMessage({ type, ...extra });
   if (!response?.ok)
-    throw new Error(response?.error ?? "The video recorder did not respond");
+    throw new Error(response?.error ?? t("The video recorder did not respond"));
   return response.result as T;
 }
 
@@ -270,16 +273,16 @@ async function followPendingVideoTab(): Promise<void> {
     (current.captureMode !== "video" && current.captureMode !== "both") ||
     current.pendingFollowTabId === undefined
   ) {
-    throw new Error("There is no new tab waiting to be followed");
+    throw new Error(t("There is no new tab waiting to be followed"));
   }
   if (current.pendingFollowOpenerTabId !== current.targetTabId)
-    throw new Error("The pending tab no longer belongs to the recorded tab");
+    throw new Error(t("The pending tab no longer belongs to the recorded tab"));
   const tab = await chrome.tabs
     .get(current.pendingFollowTabId)
     .catch(() => undefined);
   if (!tab?.id || !tab.active || !isRecordableTab(tab))
     throw new Error(
-      "Activate the new app tab, then click Follow this tab again",
+      t("Activate the new app tab, then click Follow this tab again"),
     );
 
   await ensureContentRecorder(tab.id);
@@ -462,7 +465,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         await chrome.tabs.query({ active: true, currentWindow: true })
       )[0];
       if (!tab?.id || !tab.url?.match(/^https?:/))
-        throw new Error("Open the browser tab you want to record first");
+        throw new Error(t("Open the browser tab you want to record first"));
       await chrome.storage.local.set({ setupTargetTabId: tab.id });
       await chrome.tabs.create({
         url: chrome.runtime.getURL("src/setup.html"),
@@ -503,7 +506,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         !current.recordingId ||
         (current.captureMode !== "video" && current.captureMode !== "both")
       )
-        throw new Error("No video recording can be recovered");
+        throw new Error(t("No video recording can be recovered"));
       const [video, storedOffset] = await Promise.all([
         getRecordingVideo(current.recordingId),
         chrome.storage.local.get("lastVideoOffsetMs"),
@@ -533,7 +536,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === "discard-recovery") {
       const current = await getState();
       if (!current.recordingId)
-        throw new Error("No interrupted recording to discard");
+        throw new Error(t("No interrupted recording to discard"));
       await deleteRecordingVideo(current.recordingId);
       await chrome.storage.local.remove("lastVideoOffsetMs");
       await setState({ status: "idle" });
@@ -548,10 +551,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         ? await chrome.tabs.get(targetTabId)
         : (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
       if (!tab?.id)
-        throw new Error("The tab selected for recording is no longer open");
+        throw new Error(t("The tab selected for recording is no longer open"));
       await ensureContentRecorder(tab.id);
       const recording = await createRecording(
-        tab.title ? `Record ${tab.title}` : "Browser workflow",
+        tab.title
+          ? t("Record {title}", { title: tab.title })
+          : t("Browser workflow"),
         captureMode,
       );
       if (captureMode !== "guide") {
@@ -587,7 +592,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     if (message.type === "start-recording-existing") {
       if (typeof message.recordingId !== "string")
-        throw new Error("Missing recording id");
+        throw new Error(t("Missing recording id"));
       if (sender.tab?.id !== undefined)
         await ensureContentRecorder(sender.tab.id);
       const session = await createCaptureSession(message.recordingId);
@@ -617,7 +622,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     if (message.type === "resume-recording") {
       const current = await getState();
-      if (!current.recordingId) throw new Error("No recording to resume");
+      if (!current.recordingId) throw new Error(t("No recording to resume"));
       await resumeRecording(current.recordingId);
       if (current.captureMode === "video" || current.captureMode === "both")
         await offscreen("offscreen-resume");
@@ -738,7 +743,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return { ok: true, eventId: savedEvent.id };
     }
 
-    return { ok: false, error: "Unknown message type" };
+    return { ok: false, error: t("Unknown message type") };
   })()
     .then(sendResponse)
     .catch((error) => {
@@ -752,7 +757,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         );
         sendResponse({
           ok: false,
-          error: "Login required. Opened InfoSteed so you can sign in.",
+          error: t("Login required. Opened InfoSteed so you can sign in."),
         });
         return;
       }

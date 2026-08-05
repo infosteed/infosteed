@@ -210,6 +210,7 @@ if grep -q '^COMPOSE_FILE=' "$legacy_env"; then
   exit 1
 fi
 grep -q '^LLM_MODE=managed$' "$legacy_env"
+grep -q '^AI_MODEL=qwen3-vl:8b-instruct$' "$legacy_env"
 "$script_dir/configure-ai-services.sh" \
   --llm external --llm-provider ollama --llm-endpoint http://192.0.2.10:11434 --llm-model qwen3-vl:8b \
   --transcription external --transcription-endpoint http://192.0.2.10:8787/v1 \
@@ -218,6 +219,31 @@ grep -q '^LLM_MODE=managed$' "$legacy_env"
 grep -q '^LLM_MODE=external$' "$ENV_FILE"
 grep -q '^AI_ENDPOINT=http://192.0.2.10:11434$' "$ENV_FILE"
 grep -q '^TRANSCRIPTION_API_KEY=test-token-' "$ENV_FILE"
+
+external_legacy_env="$test_root/external-legacy-production.env"
+awk '
+  /^RELEASE_VERSION=/ { print "RELEASE_VERSION=0.1.0-beta.1"; next }
+  { print }
+' "$ENV_FILE" >"$external_legacy_env"
+chmod 600 "$external_legacy_env"
+ENV_FILE="$external_legacy_env" "$script_dir/upgrade-production.sh" \
+  --allow-dirty --allow-without-backup >/dev/null
+grep -q '^LLM_MODE=external$' "$external_legacy_env"
+grep -q '^AI_MODEL=qwen3-vl:8b$' "$external_legacy_env"
+
+ENV_FILE="$ENV_FILE" "$script_dir/configure-ai-services.sh" \
+  --llm managed --llm-model custom-vision:8b --llm-gpu 0 \
+  --transcription off --voiceover off >/dev/null
+custom_legacy_env="$test_root/custom-legacy-production.env"
+awk '
+  /^RELEASE_VERSION=/ { print "RELEASE_VERSION=0.1.0-beta.1"; next }
+  { print }
+' "$ENV_FILE" >"$custom_legacy_env"
+chmod 600 "$custom_legacy_env"
+ENV_FILE="$custom_legacy_env" "$script_dir/upgrade-production.sh" \
+  --allow-dirty --allow-without-backup >/dev/null
+grep -q '^LLM_MODE=managed$' "$custom_legacy_env"
+grep -q '^AI_MODEL=custom-vision:8b$' "$custom_legacy_env"
 grep -q '^TTS_BASE_URL=http://192.0.2.10:8880/v1$' "$ENV_FILE"
 
 AI_ENV_FILE="$test_root/ai-services.env" \

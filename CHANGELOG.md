@@ -4,6 +4,15 @@ All notable changes are documented here. The project uses Semantic Versioning on
 
 ## [Unreleased]
 
+## [0.1.0-beta.7] - 2026-08-05
+
+### Changed
+
+- Improved AI narration rewriting with timing-aware word limits, strict cue validation, corrective retries, transcription cleanup, and actionable model-output errors.
+- Added narration rewrite feedback and applied the selected voiceover speed when calculating cue limits.
+- Changed the recommended local narration model to the non-thinking `qwen3-vl:8b-instruct` variant and preserved the setting through production upgrades.
+- Improved Word template compatibility diagnostics, multilevel heading numbering, and content-control replacement.
+
 ## [0.1.0-beta.6] - 2026-08-05
 
 ### Changed

@@ -9,7 +9,7 @@ source "$script_dir/ai-common.sh"
 
 bind_address="" allow_client=""
 ollama_mode=off transcription_mode=off voiceover_mode=off
-llm_gpu=0 transcription_gpu=0 llm_model=qwen3-vl:8b transcription_model=large-v3-turbo
+llm_gpu=0 transcription_gpu=0 llm_model=qwen3-vl:8b-instruct transcription_model=large-v3-turbo
 ollama_endpoint="" wait_timeout=3600
 
 usage() {

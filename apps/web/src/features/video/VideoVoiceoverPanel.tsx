@@ -26,6 +26,8 @@ export function VideoVoiceoverPanel({
     scriptStyle,
     setScriptStyle,
     rewritingScript,
+    rewriteNotice,
+    setRewriteNotice,
     rewriteScript,
     previewVoiceoverCue,
     requestVoiceover,
@@ -70,9 +72,10 @@ export function VideoVoiceoverPanel({
           </select>
         </label>
         <button
-          onClick={() =>
-            setNarrationCues(materializeVideoCaptions(state, recipe))
-          }
+          onClick={() => {
+            setNarrationCues(materializeVideoCaptions(state, recipe));
+            setRewriteNotice(undefined);
+          }}
         >
           {t("Use edited captions")}
         </button>
@@ -102,6 +105,7 @@ export function VideoVoiceoverPanel({
             "The rewrite keeps cue timing but turns literal captions into narration. You can edit every cue before synthesis.",
           )}
         </small>
+        {rewriteNotice && <p className="rewrite-success">{rewriteNotice}</p>}
       </div>
       {voiceover && (
         <div className="voiceover-progress">

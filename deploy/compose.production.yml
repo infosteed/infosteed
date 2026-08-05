@@ -220,7 +220,7 @@ services:
     command:
       ['OLLAMA_HOST=http://ollama-local:11434 ollama pull "$${OLLAMA_MODEL}"']
     environment:
-      OLLAMA_MODEL: ${AI_MODEL:-qwen3-vl:8b}
+      OLLAMA_MODEL: ${AI_MODEL:-qwen3-vl:8b-instruct}
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
 

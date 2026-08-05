@@ -82,7 +82,7 @@ not trapped in a single viewing experience.
 
 ## Self-hosted deployment
 
-`v0.1.0-beta.4` is the current public prerelease, and `v0.1.0-beta.6` is in
+`v0.1.0-beta.6` is the current public prerelease, and `v0.1.0-beta.7` is in
 development. Deployments keep recordings, screenshots, transcripts, and media
 on infrastructure you control. Follow the [deployment guide](docs/deployment.md)
 and review [release readiness](docs/release-readiness.md) before production use.
@@ -96,6 +96,7 @@ for the current status.
 - [See how InfoSteed is deployed](docs/deployment.md)
 - [Understand privacy and data handling](docs/privacy-policy.md)
 - [Review optional AI services](docs/ai-services.md)
+- [Prepare administrator-managed Word templates](docs/word-templates.md)
 - [Explore the architecture](docs/architecture.md)
 - [Read the support policy](SUPPORT.md)
 - [View the original technical README](README.technical.md)

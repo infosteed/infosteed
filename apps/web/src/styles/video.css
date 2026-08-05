@@ -461,6 +461,11 @@
 .voiceover-progress progress {
   width: 100%;
 }
+
+.rewrite-success {
+  color: var(--success, #18794e);
+  margin: 0;
+}
 .overlong-cue {
   border-color: var(--warning-accent) !important;
   background: var(--warning-surface) !important;

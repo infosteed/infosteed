@@ -22,7 +22,7 @@ For a native Ollama service, ensure it listens on an address reachable from Dock
 http://host.docker.internal:11434
 ```
 
-Choose `external`, provider `ollama`, that endpoint, and `qwen3-vl:8b` in the wizard. InfoSteed adds Docker's `host-gateway` mapping but never changes the native Ollama service.
+Choose `external`, provider `ollama`, that endpoint, and `qwen3-vl:8b-instruct` in the wizard. InfoSteed adds Docker's `host-gateway` mapping but never changes the native Ollama service.
 
 Check the host service first:
 
@@ -86,7 +86,7 @@ Configure the providers, replacing `transcription.internal` with the address rea
   --llm external \
   --llm-provider ollama \
   --llm-endpoint http://host.docker.internal:11434 \
-  --llm-model qwen3-vl:8b \
+  --llm-model qwen3-vl:8b-instruct \
   --transcription external \
   --transcription-endpoint http://transcription.internal:8787/v1 \
   --transcription-model large-v3-turbo \

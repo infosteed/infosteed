@@ -648,10 +648,11 @@ export function rewriteVoiceoverScript(
   cues: VoiceoverCueInput[],
   style: "concise" | "natural" | "instructional",
   outputLocale: OutputLocale,
+  speed: number,
 ): Promise<{ cues: VoiceoverCueInput[] }> {
   return request(`/recordings/${recordingId}/video/voiceover/script`, {
     method: "POST",
-    body: JSON.stringify({ cues, style, outputLocale }),
+    body: JSON.stringify({ cues, style, outputLocale, speed }),
   });
 }
 

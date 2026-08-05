@@ -21,7 +21,7 @@ InfoSteed is a self-hosted browser recorder for teams that need to keep workflow
 - Protect accounts with optional TOTP two-factor authentication, one-time recovery codes, and administrator-enforced enrollment.
 - Localize the web application and extension through validated JSON catalogs with plural and right-to-left support.
 
-See [Sanity import setup](docs/sanity/README.md) for the one-time Studio schema installation and import commands.
+See [Sanity import setup](docs/sanity/README.md) for the one-time Studio schema installation and import commands. Administrators can also prepare deployment-wide DOCX layouts using the [Word template formatting guide](docs/word-templates.md).
 
 ## Local Development
 
@@ -40,7 +40,7 @@ Load `apps/extension/dist` as an unpacked extension in Chromium after running th
 
 ## Self-hosted deployment
 
-`v0.1.0-beta.4` is the current public prerelease, and `v0.1.0-beta.6` is being prepared. Beta builds are intended for evaluation and are not a production support commitment.
+`v0.1.0-beta.6` is the current public prerelease, and `v0.1.0-beta.7` is being prepared. Beta builds are intended for evaluation and are not a production support commitment.
 
 Use the supported local and production instructions in [docs/deployment.md](docs/deployment.md). Production uses Caddy-managed public or internal HTTPS, versioned GHCR images by default, an equivalent source-build fallback, internal-only application data services, and a mandatory 32-byte first-admin setup token. Ollama, Whisper, and Kokoro can each be managed locally, connected externally, or disabled; see [AI services](docs/ai-services.md). Back up before every upgrade using [docs/backup-and-upgrade.md](docs/backup-and-upgrade.md).
 
@@ -70,7 +70,7 @@ For Ollama running on the Docker host, use `host.docker.internal`:
 ```text
 AI_PROVIDER=openai-compatible
 AI_ENDPOINT=http://host.docker.internal:11434/v1
-AI_MODEL=qwen3-vl:8b
+AI_MODEL=qwen3-vl:8b-instruct
 AI_API_KEY=
 ```
 
@@ -189,7 +189,7 @@ For local Ollama with the OpenAI-compatible API, use:
 
 ```text
 AI_ENDPOINT=http://127.0.0.1:11434/v1
-AI_MODEL=qwen3-vl:8b
+AI_MODEL=qwen3-vl:8b-instruct
 AI_API_KEY=
 AI_TIMEOUT_MS=30000
 AI_SCRIPT_TIMEOUT_MS=300000
@@ -197,12 +197,12 @@ AI_SCRIPT_TIMEOUT_MS=300000
 
 The API calls `/chat/completions` and validates the returned JSON with Zod. If Ollama is unavailable, the model is missing, the request times out, or the response is invalid, guide generation falls back to deterministic local instructions.
 
-`qwen3-vl:8b` can spend tens of seconds loading on first use. For reliable AI output, keep the model warm before recording:
+`qwen3-vl:8b-instruct` can spend tens of seconds loading on first use. For reliable AI output, keep the model warm before recording:
 
 ```bash
 curl -s http://127.0.0.1:11434/v1/chat/completions \
   -H 'content-type: application/json' \
-  -d '{"model":"qwen3-vl:8b","stream":false,"max_tokens":32,"messages":[{"role":"user","content":"/no_think\nReply with: ok"}]}'
+  -d '{"model":"qwen3-vl:8b-instruct","stream":false,"messages":[{"role":"user","content":"Reply with: ok"}]}'
 ```
 
 ## Translations

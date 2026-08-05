@@ -135,6 +135,148 @@ function prohibitedPart(name: string): boolean {
   );
 }
 
+function styleElements(document: XmlDocument): Map<string, XmlElement> {
+  return new Map(
+    descendants(document, "style").flatMap((style) => {
+      const id = attr(style, W, "styleId");
+      return id ? [[id, style] as const] : [];
+    }),
+  );
+}
+
+function styleNumbering(
+  styles: Map<string, XmlElement>,
+  styleId: string,
+): { numId: string; level?: number } | undefined {
+  const visited = new Set<string>();
+  let currentId: string | undefined = styleId;
+  while (currentId && !visited.has(currentId)) {
+    visited.add(currentId);
+    const style = styles.get(currentId);
+    if (!style) return undefined;
+    const numbering = descendants(style, "numPr")[0];
+    const numId = numbering && descendants(numbering, "numId")[0];
+    if (numId) {
+      const value = attr(numId, W, "val");
+      if (!value || value === "0") return undefined;
+      const level = descendants(numbering, "ilvl")[0];
+      const parsedLevel = level ? Number(attr(level, W, "val")) : undefined;
+      return {
+        numId: value,
+        level: Number.isInteger(parsedLevel) ? parsedLevel : undefined,
+      };
+    }
+    const basedOn = descendants(style, "basedOn")[0];
+    currentId = basedOn ? attr(basedOn, W, "val") : undefined;
+  }
+  return undefined;
+}
+
+function numberingDefinition(
+  document: XmlDocument,
+  numId: string,
+): XmlElement | undefined {
+  const numbering = descendants(document, "num").find(
+    (item) => attr(item, W, "numId") === numId,
+  );
+  const abstractId = numbering && descendants(numbering, "abstractNumId")[0];
+  const value = abstractId && attr(abstractId, W, "val");
+  return value
+    ? descendants(document, "abstractNum").find(
+        (item) => attr(item, W, "abstractNumId") === value,
+      )
+    : undefined;
+}
+
+function levelDefinition(
+  abstractNumbering: XmlElement,
+  level: number,
+): XmlElement | undefined {
+  return descendants(abstractNumbering, "lvl").find(
+    (item) => attr(item, W, "ilvl") === String(level),
+  );
+}
+
+function templateFormattingWarnings(
+  xmlDocuments: Map<string, XmlDocument>,
+): string[] {
+  const stylesDocument = xmlDocuments.get("word/styles.xml");
+  if (!stylesDocument)
+    return ["Template has no styles.xml; generated content will use Normal"];
+
+  const warnings: string[] = [];
+  const styles = styleElements(stylesDocument);
+  const hasHeading1 = styles.has("Heading1");
+  const hasHeading2 = styles.has("Heading2");
+  if (!hasHeading1)
+    warnings.push(
+      "Template has no Heading1 style; guide sections will use bold Normal and will not be level-1 TOC entries",
+    );
+  if (!hasHeading2)
+    warnings.push(
+      "Template has no Heading2 style; steps will use manually numbered body text and will not be level-2 TOC entries",
+    );
+  if (!styles.has("BodyText"))
+    warnings.push(
+      "Template has no BodyText style; instructions, tips and alerts will use Normal",
+    );
+  if (!hasHeading1 || !hasHeading2) return warnings;
+
+  const heading1Numbering = styleNumbering(styles, "Heading1");
+  const heading2Numbering = styleNumbering(styles, "Heading2");
+  if (
+    !heading1Numbering ||
+    !heading2Numbering ||
+    heading1Numbering.numId !== heading2Numbering.numId ||
+    (heading1Numbering.level ?? 0) !== 0 ||
+    heading2Numbering.level !== 1
+  ) {
+    warnings.push(
+      "Heading1 and Heading2 must use the same multilevel list at levels 1 and 2; step headings may not display as 1.1, 1.2",
+    );
+    return warnings;
+  }
+
+  const numberingDocument = xmlDocuments.get("word/numbering.xml");
+  const abstractNumbering =
+    numberingDocument &&
+    numberingDefinition(numberingDocument, heading1Numbering.numId);
+  const level1 = abstractNumbering && levelDefinition(abstractNumbering, 0);
+  const level2 = abstractNumbering && levelDefinition(abstractNumbering, 1);
+  if (!numberingDocument || !abstractNumbering || !level1 || !level2) {
+    warnings.push(
+      "Heading1 and Heading2 numbering definitions are incomplete; configure one multilevel list with levels 1 and 2",
+    );
+    return warnings;
+  }
+
+  const level1Format = descendants(level1, "numFmt")[0];
+  const level2Format = descendants(level2, "numFmt")[0];
+  const level1Text = descendants(level1, "lvlText")[0];
+  const level2Text = descendants(level2, "lvlText")[0];
+  const level1Pattern = level1Text ? attr(level1Text, W, "val") : "";
+  const level2Pattern = level2Text ? attr(level2Text, W, "val") : "";
+  if (
+    !level1Format ||
+    !level2Format ||
+    attr(level1Format, W, "val") !== "decimal" ||
+    attr(level2Format, W, "val") !== "decimal" ||
+    !level1Pattern.includes("%1") ||
+    level1Pattern.includes("%2") ||
+    !/%1.*%2/.test(level2Pattern)
+  )
+    warnings.push(
+      "Heading numbering should use decimal patterns %1 for Heading1 and %1.%2 for Heading2",
+    );
+
+  const restart = descendants(level2, "lvlRestart")[0];
+  if (restart && attr(restart, W, "val") === "0")
+    warnings.push(
+      "Heading2 numbering is configured never to restart; restart level 2 after each Heading1 section",
+    );
+  return warnings;
+}
+
 async function loadAndValidateTemplate(
   template: Buffer | Uint8Array,
 ): Promise<{ zip: JSZip; inspection: WordTemplateInspection }> {
@@ -240,16 +382,12 @@ async function loadAndValidateTemplate(
         .flatMap(([, part]) => contentControlParts(part).map(({ tag }) => tag)),
     ),
   ).sort();
-  const warnings: string[] = [];
+  const warnings = templateFormattingWarnings(xmlDocuments);
   const unknownTags = foundTags.filter(
     (tag) => tag.startsWith("INFOSTEED_") && !KNOWN_TAGS.has(tag),
   );
   if (unknownTags.length > 0)
     warnings.push(`Unknown InfoSteed tags: ${unknownTags.join(", ")}`);
-  if (!zip.file("word/styles.xml"))
-    warnings.push(
-      "Template has no styles.xml; generated content will use Normal",
-    );
 
   return {
     zip,

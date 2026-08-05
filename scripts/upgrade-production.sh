@@ -66,6 +66,7 @@ awk -v version="$new_version" -v commit="$new_commit" -v image_tag="sha-$new_sho
   /^LLM_MODE=/ { print "LLM_MODE=" llm_mode; found_llm=1; next }
   /^TRANSCRIPTION_MODE=/ { print "TRANSCRIPTION_MODE=" transcription_mode; found_transcription=1; next }
   /^VOICEOVER_MODE=/ { print "VOICEOVER_MODE=" voiceover_mode; found_voiceover=1; next }
+  /^AI_MODEL=qwen3-vl:8b$/ && llm_mode == "managed" { print "AI_MODEL=qwen3-vl:8b-instruct"; next }
   /^COMPOSE_FILE=deploy\/compose.production.yml:deploy\/compose.hotfix.yml$/ { next }
   { print }
   END {

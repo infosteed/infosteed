@@ -7,6 +7,7 @@ import {
   getVideoEditor,
   getVideoMp4Export,
   publishVideoRender,
+  rewriteVoiceoverScript,
   saveVideoEditor,
 } from "../../api";
 import { openRecording } from "../../navigation";
@@ -183,5 +184,63 @@ describe("video editor controller", () => {
     );
     expect(onPublished).toHaveBeenCalledOnce();
     expect(openRecording).toHaveBeenCalledWith(recordingFixture.id, "video");
+  });
+
+  it("rewrites narration with the selected speed and reports changed cues", async () => {
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.recipe).toBeDefined());
+    act(() =>
+      result.current.setNarrationCues([
+        {
+          id: "cue-1",
+          sourceStartMs: 0,
+          sourceEndMs: 4_000,
+          text: "rough captions",
+        },
+      ]),
+    );
+    const rewritten = result.current.narrationCues.map((cue) => ({
+      ...cue,
+      text: `Rewritten ${cue.id}`,
+    }));
+    vi.mocked(rewriteVoiceoverScript).mockResolvedValue({ cues: rewritten });
+
+    act(() => result.current.setVoiceoverSpeed(1.25));
+    await act(() => result.current.rewriteScript());
+
+    expect(rewriteVoiceoverScript).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(Array),
+      "natural",
+      expect.any(String),
+      1.25,
+    );
+    expect(result.current.narrationCues).toEqual(rewritten);
+    expect(result.current.rewriteNotice).toContain(String(rewritten.length));
+  });
+
+  it("preserves narration when rewriting fails", async () => {
+    vi.mocked(rewriteVoiceoverScript).mockRejectedValue(
+      new Error("No usable narration"),
+    );
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.recipe).toBeDefined());
+    act(() =>
+      result.current.setNarrationCues([
+        {
+          id: "cue-1",
+          sourceStartMs: 0,
+          sourceEndMs: 4_000,
+          text: "keep this narration",
+        },
+      ]),
+    );
+    const before = result.current.narrationCues;
+
+    await act(() => result.current.rewriteScript());
+
+    expect(result.current.narrationCues).toEqual(before);
+    expect(result.current.rewriteNotice).toBeUndefined();
+    expect(result.current.error).toContain("No usable narration");
   });
 });

@@ -82,6 +82,7 @@ export function useVideoEditorController({
     "concise" | "natural" | "instructional"
   >("natural");
   const [rewritingScript, setRewritingScript] = useState(false);
+  const [rewriteNotice, setRewriteNotice] = useState<string>();
   const screenVideo = useRef<HTMLVideoElement>(null);
   const cameraVideo = useRef<HTMLVideoElement>(null);
   const microphoneAudio = useRef<HTMLAudioElement>(null);
@@ -454,15 +455,24 @@ export function useVideoEditorController({
   }
 
   async function rewriteScript() {
+    setRewriteNotice(undefined);
     setRewritingScript(true);
     try {
+      const before = new Map(narrationCues.map((cue) => [cue.id, cue.text]));
       const result = await rewriteVoiceoverScript(
         recording.id,
         narrationCues,
         scriptStyle,
         currentOutputLocale(),
+        voiceoverSpeed,
       );
       setNarrationCues(result.cues);
+      const changed = result.cues.filter(
+        (cue) => before.get(cue.id)?.trim() !== cue.text.trim(),
+      ).length;
+      setRewriteNotice(
+        t("Rewrote {count} narration cues.", { count: changed }),
+      );
       setError(undefined);
     } catch (rewriteError) {
       setError(errorMessage(rewriteError));
@@ -599,6 +609,8 @@ export function useVideoEditorController({
     scriptStyle,
     setScriptStyle,
     rewritingScript,
+    rewriteNotice,
+    setRewriteNotice,
     screenVideo,
     cameraVideo,
     microphoneAudio,

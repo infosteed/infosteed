@@ -124,12 +124,12 @@ production_configure_modes() {
       production_append_profile llm-local
       AI_PROVIDER=ollama
       AI_ENDPOINT=http://ollama-local:11434
-      AI_MODEL=${AI_MODEL:-qwen3-vl:8b}
+      AI_MODEL=${AI_MODEL:-qwen3-vl:8b-instruct}
       ;;
     external)
       [[ -n ${AI_ENDPOINT:-} ]] || { production_die "AI_ENDPOINT is required when LLM_MODE=external"; return 1; }
       AI_PROVIDER=${AI_PROVIDER:-ollama}
-      AI_MODEL=${AI_MODEL:-qwen3-vl:8b}
+      AI_MODEL=${AI_MODEL:-qwen3-vl:8b-instruct}
       ;;
     off) AI_ENDPOINT=; AI_API_KEY= ;;
   esac

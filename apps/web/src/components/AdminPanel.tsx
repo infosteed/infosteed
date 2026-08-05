@@ -205,6 +205,11 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                 "Templates must contain one block content control tagged INFOSTEED_REPORT_BODY. Tagged metadata controls are filled automatically.",
               )}
             </p>
+            <p className="settings-help">
+              {t(
+                "For 1/1.1 numbering, use Word's built-in Heading 1 and Heading 2 styles linked to the same multilevel list. Compatibility warnings appear after upload.",
+              )}
+            </p>
             <div className="template-upload-strip">
               <label className="file-picker">
                 <input

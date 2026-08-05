@@ -48,7 +48,7 @@ if [[ -f $env_file ]]; then
   if [[ ${OLLAMA_INSTALL_MODE:-off} == existing && -n ${OLLAMA_ENDPOINT:-} ]]; then
     if ollama_tags=$(curl -fsS --max-time 10 "${OLLAMA_ENDPOINT%/}/api/tags"); then
       pass "existing Ollama responds and was not modified"
-      if grep -Fq "${AI_MODEL:-qwen3-vl:8b}" <<<"$ollama_tags"; then pass "configured Ollama model is installed"; else fail "configured Ollama model is missing"; fi
+      if grep -Fq "${AI_MODEL:-qwen3-vl:8b-instruct}" <<<"$ollama_tags"; then pass "configured Ollama model is installed"; else fail "configured Ollama model is missing"; fi
     else
       fail "existing Ollama is unreachable"
     fi
@@ -65,7 +65,7 @@ if [[ -f $env_file ]]; then
     fi
     if [[ $deep == true && ,${COMPOSE_PROFILES:-}, == *,ollama,* ]]; then
       curl -fsS --max-time 300 -H 'Content-Type: application/json' \
-        -d "{\"model\":\"${AI_MODEL:-qwen3-vl:8b}\",\"messages\":[{\"role\":\"user\",\"content\":\"Reply OK\"}],\"stream\":false}" \
+        -d "{\"model\":\"${AI_MODEL:-qwen3-vl:8b-instruct}\",\"messages\":[{\"role\":\"user\",\"content\":\"Reply OK\"}],\"stream\":false}" \
         "http://$AI_BIND_ADDRESS:11434/api/chat" >/dev/null && pass "deep Ollama request completed" || fail "deep Ollama request failed"
     fi
     if [[ $deep == true && ,${COMPOSE_PROFILES:-}, == *,transcription,* ]]; then

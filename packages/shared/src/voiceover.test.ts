@@ -1,8 +1,38 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { describe, expect, it } from "vitest";
-import { createVoiceoverRequestSchema, videoEditRecipeSchema } from "./index";
+import {
+  createVoiceoverRequestSchema,
+  rewriteNarrationScriptRequestSchema,
+  videoEditRecipeSchema,
+} from "./index";
 
 describe("voiceover schemas", () => {
+  it.each([
+    [undefined, 1],
+    [0.75, 0.75],
+    [1.5, 1.5],
+  ])("parses rewrite speed %s as %s", (speed, expected) => {
+    expect(
+      rewriteNarrationScriptRequestSchema.parse({
+        outputLocale: "en",
+        style: "natural",
+        ...(speed === undefined ? {} : { speed }),
+        cues: [
+          { id: "cue", sourceStartMs: 0, sourceEndMs: 1_000, text: "Hello" },
+        ],
+      }).speed,
+    ).toBe(expected);
+  });
+  it("rejects rewrite speeds outside the TTS range", () => {
+    expect(() =>
+      rewriteNarrationScriptRequestSchema.parse({
+        speed: 2.1,
+        cues: [
+          { id: "cue", sourceStartMs: 0, sourceEndMs: 1_000, text: "Hello" },
+        ],
+      }),
+    ).toThrow();
+  });
   it("keeps legacy version-one edit recipes compatible", () => {
     const recipe = videoEditRecipeSchema.parse({
       version: 1,

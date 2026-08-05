@@ -116,7 +116,7 @@ case $llm_mode in
   managed)
     llm_provider=ollama
     llm_endpoint=http://ollama-local:11434
-    prompt_value llm_model "Ollama model" "${AI_MODEL:-qwen3-vl:8b}"
+    prompt_value llm_model "Ollama model" "${AI_MODEL:-qwen3-vl:8b-instruct}"
     prompt_value llm_gpu "Ollama GPU index or UUID" "${LLM_GPU_DEVICE:-0}"
     llm_api_key=""
     ;;
@@ -125,10 +125,10 @@ case $llm_mode in
     [[ $llm_provider == ollama || $llm_provider == openai-compatible ]] || ai_die "unsupported LLM provider: $llm_provider"
     prompt_value llm_endpoint "LLM endpoint" "${AI_ENDPOINT:-}"
     ai_validate_url AI_ENDPOINT "$llm_endpoint"
-    prompt_value llm_model "LLM model" "${AI_MODEL:-qwen3-vl:8b}"
+    prompt_value llm_model "LLM model" "${AI_MODEL:-qwen3-vl:8b-instruct}"
     prompt_optional_secret llm_api_key "LLM API key"
     ;;
-  off) llm_provider=ollama; llm_endpoint=""; llm_api_key=""; llm_model=qwen3-vl:8b ;;
+  off) llm_provider=ollama; llm_endpoint=""; llm_api_key=""; llm_model=qwen3-vl:8b-instruct ;;
 esac
 
 case $transcription_mode in

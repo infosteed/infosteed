@@ -4,7 +4,7 @@ import { z } from "zod";
 export const PRODUCT_METADATA = Object.freeze({
   displayName: "InfoSteed",
   slug: "infosteed",
-  releaseVersion: "0.1.0-beta.6",
+  releaseVersion: "0.1.0-beta.7",
   protocolVersion: 1,
   minimumExtensionVersion: "0.1.0",
 });
@@ -372,6 +372,7 @@ export const rewriteNarrationScriptRequestSchema = z.object({
   outputLocale: outputLocaleSchema.default("en"),
   cues: z.array(voiceoverCueInputSchema).min(1).max(500),
   style: z.enum(["concise", "natural", "instructional"]).default("natural"),
+  speed: z.number().finite().min(0.5).max(2).default(1),
 });
 
 export const voiceoverVoiceSchema = z.object({

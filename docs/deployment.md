@@ -2,7 +2,7 @@
 
 InfoSteed installs the core application first. LLM, transcription, and voiceover services are configured afterward and can each be managed by InfoSteed, supplied by another host, or disabled.
 
-`v0.1.0-beta.4` is the current public prerelease. The commands below prepare the unpublished `v0.1.0-beta.6` candidate after its signed tag exists; do not deploy an untagged checkout as a supported release.
+`v0.1.0-beta.6` is the current public prerelease. The commands below prepare the unpublished `v0.1.0-beta.7` candidate after its signed tag exists; do not deploy an untagged checkout as a supported release.
 
 ## Choose a topology
 
@@ -42,7 +42,7 @@ Do not rely on `ss` alone. Kubernetes ServiceLB and similar components can redir
 ```bash
 git clone https://github.com/infosteed/infosteed.git
 cd infosteed
-git checkout v0.1.0-beta.6
+git checkout v0.1.0-beta.7
 ```
 
 For a publicly resolvable host, use public ACME certificates:
@@ -105,11 +105,11 @@ For each service, choose:
 - `external`: use a URL on this host, another host, or the internet.
 - `off`: disable the integration.
 
-Managed defaults are Ollama with `qwen3-vl:8b`, GPU Whisper with `large-v3-turbo`, and CPU Kokoro. A non-interactive single-host configuration is:
+Managed defaults are Ollama with `qwen3-vl:8b-instruct`, GPU Whisper with `large-v3-turbo`, and CPU Kokoro. A non-interactive single-host configuration is:
 
 ```bash
 ./scripts/configure-ai-services.sh \
-  --llm managed --llm-model qwen3-vl:8b --llm-gpu 0 \
+  --llm managed --llm-model qwen3-vl:8b-instruct --llm-gpu 0 \
   --transcription managed --transcription-model large-v3-turbo --transcription-gpu 0 \
   --voiceover managed
 ```

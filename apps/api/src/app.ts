@@ -208,6 +208,7 @@ import { registerSystemRoutes } from "./routes/system.js";
 import { registerProjectRoutes } from "./routes/projects.js";
 import { registerUserRoutes } from "./routes/users.js";
 import { registerWordTemplateRoutes } from "./routes/wordTemplates.js";
+import { registerExtensionRoutes } from "./routes/extensions.js";
 import {
   findUserDisplayName,
   getDefaultWordTemplate,
@@ -1013,6 +1014,17 @@ export function buildApp(
   });
 
   registerWordTemplateRoutes(app, {
+    config,
+    pool,
+    videoStorage,
+    currentUser,
+    requireAdmin,
+    requireProjectRead,
+    requireProjectManage,
+    audit,
+    httpError,
+  });
+  registerExtensionRoutes(app, {
     config,
     pool,
     videoStorage,

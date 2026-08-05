@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, test } from "node:test";
@@ -13,14 +19,14 @@ afterEach(() => {
     rmSync(root, { recursive: true, force: true });
 });
 
-function fixture() {
+function fixture(releaseStatus = "candidate") {
   const root = mkdtempSync(
     path.join(os.tmpdir(), "infosteed-release-metadata-"),
   );
   roots.push(root);
   const version = "0.1.0-beta.8";
   const files = {
-    "package.json": JSON.stringify({ version }),
+    "package.json": JSON.stringify({ version, releaseStatus }),
     "apps/api/package.json": JSON.stringify({ version }),
     "packages/shared/package.json": JSON.stringify({ version }),
     "packages/shared/src/index.ts": `releaseVersion: "${version}"`,
@@ -37,17 +43,18 @@ function fixture() {
       `# TRANSCRIPTION_IMAGE=registry.example/infosteed-transcription:${version}@sha256:...`,
     ].join("\n"),
     ".github/workflows/ci.yml": `RELEASE_VERSION: ${version}\n`,
-    "docs/deployment.md": `## Install the core application\n\ngit checkout v${version}\n`,
     "docs/backup-and-upgrade.md": [
       "## Upgrade",
       `git checkout v${version}`,
       "## Upgrade from beta.1",
       "git checkout v0.1.0-beta.2",
     ].join("\n"),
-    "README.md": `## Self-hosted deployment\n\nv0.1.0-beta.3 was superseded; v${version} is being prepared.\n`,
-    "docs/release-readiness.md": `InfoSteed is preparing \`v${version}\`.\n\n## What remains before publishing beta.8\n`,
-    "SECURITY.md": `v${version}`,
-    "SUPPORT.md": `v${version}`,
+    "README.md": `## Self-hosted deployment\n\n\`v${version}\` is an unpublished InfoSteed release candidate.\n`,
+    "README.technical.md": `\`v${version}\` is an unpublished InfoSteed release candidate.\n`,
+    "docs/release-readiness.md": `\`v${version}\` is an unpublished InfoSteed release candidate.\n\n## What remains before publication\n`,
+    "docs/deployment.md": `\`v${version}\` is an unpublished InfoSteed release candidate.\n\n## Install the core application\n\ngit checkout v${version}\n`,
+    "SECURITY.md": `\`v${version}\` is an unpublished InfoSteed release candidate.`,
+    "SUPPORT.md": `\`v${version}\` is an unpublished InfoSteed release candidate.`,
     "docs/release-process.md":
       'release-metadata:check -- --release-tag "v$version"',
     "CHANGELOG.md": `## [Unreleased]\n\n## [${version}] - Unreleased\n`,
@@ -60,9 +67,48 @@ function fixture() {
   return { root, version };
 }
 
+function publishFixture(root, version) {
+  const candidate = `\`v${version}\` is an unpublished InfoSteed release candidate.`;
+  const published = `\`v${version}\` is the current published InfoSteed beta and supported release.`;
+  for (const filename of [
+    "README.md",
+    "README.technical.md",
+    "SECURITY.md",
+    "SUPPORT.md",
+    "docs/deployment.md",
+    "docs/release-readiness.md",
+  ]) {
+    const target = path.join(root, filename);
+    writeFileSync(
+      target,
+      readFileSync(target, "utf8")
+        .replace(candidate, published)
+        .replace(
+          "## What remains before publication",
+          "## Published beta details",
+        ),
+    );
+  }
+}
+
 test("accepts synchronized metadata and ignores the historical upgrade section", () => {
   const { root } = fixture();
   assert.deepEqual(validateReleaseMetadata(root).problems, []);
+});
+
+test("accepts synchronized published metadata", () => {
+  const { root, version } = fixture("published");
+  publishFixture(root, version);
+  assert.deepEqual(validateReleaseMetadata(root).problems, []);
+});
+
+test("rejects documentation that contradicts the manifest release state", () => {
+  const { root, version } = fixture();
+  publishFixture(root, version);
+  assert.match(
+    validateReleaseMetadata(root).problems.join("\n"),
+    /candidate release status/,
+  );
 });
 
 test("reports a stale workspace manifest", () => {
@@ -111,4 +157,19 @@ test("tag mode requires the current tag and a dated changelog entry", () => {
     releaseTag: "v0.1.0-beta.3",
   }).problems.join("\n");
   assert.match(problems, /release tag is v0\.1\.0-beta\.3/);
+});
+
+test("tag mode rejects metadata already marked as published", () => {
+  const { root, version } = fixture("published");
+  publishFixture(root, version);
+  writeFileSync(
+    path.join(root, "CHANGELOG.md"),
+    `## [Unreleased]\n\n## [${version}] - 2026-08-05\n`,
+  );
+  assert.match(
+    validateReleaseMetadata(root, { releaseTag: `v${version}` }).problems.join(
+      "\n",
+    ),
+    /must remain candidate/,
+  );
 });

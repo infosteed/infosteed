@@ -297,6 +297,7 @@ export function GuideBrowser({
     guides,
     total,
     hasMore,
+    isLoading,
     isLoadingMore,
     loadMore,
     projects,
@@ -343,6 +344,15 @@ export function GuideBrowser({
         : activeLibrary === "shared"
           ? t("Shared")
           : t("Recordings");
+  const showFirstRecordingOnboarding =
+    !isLoading &&
+    !error &&
+    guides.length === 0 &&
+    total === 0 &&
+    !search.trim() &&
+    !projectId &&
+    scope === "all" &&
+    activeLibrary === "library";
 
   async function handleImport(file?: File) {
     try {
@@ -515,12 +525,46 @@ export function GuideBrowser({
         </div>
         {error && <p className="error">{error}</p>}
         <div className={view === "grid" ? "guide-grid" : "guide-list"}>
-          {guides.length === 0 && (
-            <EmptyState
-              title={t("No recordings found")}
-              description={t("Try another search, project, or access filter.")}
-            />
+          {showFirstRecordingOnboarding && (
+            <section className="first-recording-onboarding">
+              <div>
+                <p className="onboarding-eyebrow">{t("Get started")}</p>
+                <h2>{t("Create your first recording")}</h2>
+                <ol>
+                  <li>{t("Install and connect the browser extension.")}</li>
+                  <li>
+                    {t("Open the browser workflow you want to document.")}
+                  </li>
+                  <li>{t("Record your first guide or video.")}</li>
+                </ol>
+                {user.role === "admin" && (
+                  <Button type="button" onClick={onOpenAdmin}>
+                    {t("Get browser extension")}
+                  </Button>
+                )}
+              </div>
+              <aside className="capture-safety-note">
+                <strong>{t("Recording a public demo?")}</strong>
+                <p>
+                  {t(
+                    "Use a clean browser profile, close password-manager and other sensitive overlays, and review every screenshot before publishing or sharing.",
+                  )}
+                </p>
+              </aside>
+            </section>
           )}
+          {!isLoading &&
+            !error &&
+            guides.length === 0 &&
+            !showFirstRecordingOnboarding && (
+              <EmptyState
+                className="library-empty-state"
+                title={t("No recordings found")}
+                description={t(
+                  "Try another search, project, or access filter.",
+                )}
+              />
+            )}
           {guides.map((guide) => (
             <article
               key={guide.id}

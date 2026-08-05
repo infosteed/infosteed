@@ -95,6 +95,20 @@ button {
   border-radius: 12px;
   background: #fff;
 }
+.capture-safety-note {
+  display: grid;
+  gap: 6px;
+  margin-top: 20px;
+  padding: 16px 20px;
+  border: 1px solid #fdb022;
+  border-radius: 12px;
+  background: #fffaeb;
+  color: #7a2e0e;
+}
+.capture-safety-note p {
+  margin: 0;
+  color: #93370d;
+}
 .consent-panel {
   display: grid;
   gap: 10px;

@@ -6,6 +6,7 @@ import {
   deleteWordTemplate,
   getAdminSystemStatus,
   getBranding,
+  listAdminExtensions,
   listProjects,
   listUsers,
   listWordTemplates,
@@ -19,6 +20,7 @@ vi.mock("../../api", () => ({
   deleteWordTemplate: vi.fn(),
   getAdminSystemStatus: vi.fn(),
   getBranding: vi.fn(),
+  listAdminExtensions: vi.fn(),
   listProjectMembers: vi.fn(),
   listProjects: vi.fn(),
   listUsers: vi.fn(),
@@ -66,6 +68,20 @@ describe("admin Word templates controller", () => {
       queues: {},
     });
     vi.mocked(listWordTemplates).mockResolvedValue({ templates: [template] });
+    vi.mocked(listAdminExtensions).mockResolvedValue({
+      artifacts: [
+        {
+          id: "chrome-offline",
+          browser: "chrome",
+          capability: "full",
+          filename: "extension-offline.zip",
+          contentType: "application/zip",
+          byteSize: 6,
+          sha256: "b".repeat(64),
+          installStatus: "available",
+        },
+      ],
+    });
     vi.mocked(uploadWordTemplate).mockResolvedValue(template);
     vi.mocked(updateWordTemplate).mockResolvedValue(template);
     vi.mocked(deleteWordTemplate).mockResolvedValue(undefined);
@@ -76,6 +92,7 @@ describe("admin Word templates controller", () => {
     await waitFor(() =>
       expect(result.current.wordTemplates).toEqual([template]),
     );
+    expect(result.current.extensionArtifacts).toHaveLength(1);
 
     const file = new File(["docx"], "Operations.docx", {
       type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

@@ -82,16 +82,17 @@ not trapped in a single viewing experience.
 
 ## Self-hosted deployment
 
-No InfoSteed release has been published. `v0.1.0-beta.8` is the current
-release candidate; earlier beta tags are unpublished candidates. Deployments keep recordings, screenshots, transcripts, and media
-on infrastructure you control. Follow the [deployment guide](docs/deployment.md)
-and review [release readiness](docs/release-readiness.md) before production use.
+`v0.1.0-beta.9` is an unpublished InfoSteed release candidate. Beta.8 and
+earlier beta tags were superseded without public publication. Deployments keep
+recordings, screenshots, transcripts, and media on infrastructure you control.
+Follow the [deployment guide](docs/deployment.md) and review [release
+readiness](docs/release-readiness.md) before production use.
 
 ## Explore the project
 
-InfoSteed is currently available only as tagged release candidates and should
-not yet be treated as a supported production release. See the [release readiness page](docs/release-readiness.md)
-for the current status.
+InfoSteed is available for private release-candidate evaluation and should not
+yet be treated as a supported production release. The publication gates are
+described on the [release readiness page](docs/release-readiness.md).
 
 - [See how InfoSteed is deployed](docs/deployment.md)
 - [Understand privacy and data handling](docs/privacy-policy.md)

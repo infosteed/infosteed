@@ -66,6 +66,7 @@ export function useLibraryController(
   const [sort, setSort] = useState<LibrarySort>(initialLibrarySort);
   const [view, setView] = useState<LibraryView>("grid");
   const [error, setError] = useState<string>();
+  const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [deleteCandidate, setDeleteCandidate] = useState<RecordingListItem>();
@@ -84,6 +85,7 @@ export function useLibraryController(
       sort,
     });
     loadingMore.current = false;
+    setIsLoading(true);
     setIsLoadingMore(false);
     try {
       const [guideResult, projectResult] = await Promise.all([
@@ -113,6 +115,12 @@ export function useLibraryController(
       )
         return;
       setError(errorMessage(loadError));
+    } finally {
+      if (
+        version === requestVersion.current &&
+        requestedQueryKey === queryKeyRef.current
+      )
+        setIsLoading(false);
     }
   }, [dependencies, projectId, scope, search, sort]);
 
@@ -203,6 +211,7 @@ export function useLibraryController(
     guides,
     total,
     hasMore: guides.length < total,
+    isLoading,
     isLoadingMore,
     loadMore,
     projects,

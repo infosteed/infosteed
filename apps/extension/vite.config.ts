@@ -4,6 +4,10 @@ import { copyFile, readFile } from "node:fs/promises";
 import { build as viteBuild, defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 
+const extensionTarget =
+  process.env.INFOSTEED_EXTENSION_TARGET === "firefox" ? "firefox" : "chrome";
+const outDir = resolve(import.meta.dirname, "dist", extensionTarget);
+
 function bundleClassicContentScript(): Plugin {
   return {
     name: "infosteed-classic-content-script",
@@ -13,7 +17,7 @@ function bundleClassicContentScript(): Plugin {
         configFile: false,
         build: {
           emptyOutDir: false,
-          outDir: resolve(import.meta.dirname, "dist"),
+          outDir,
           lib: {
             entry: resolve(import.meta.dirname, "src/contentScript.ts"),
             formats: ["iife"],
@@ -23,7 +27,7 @@ function bundleClassicContentScript(): Plugin {
         },
       });
       const output = await readFile(
-        resolve(import.meta.dirname, "dist/contentScript.js"),
+        resolve(outDir, "contentScript.js"),
         "utf8",
       );
       if (/^\s*import\s/m.test(output)) {
@@ -33,22 +37,35 @@ function bundleClassicContentScript(): Plugin {
       }
       await copyFile(
         resolve(import.meta.dirname, "../../LICENSE"),
-        resolve(import.meta.dirname, "dist/LICENSE"),
+        resolve(outDir, "LICENSE"),
       );
+      if (extensionTarget === "firefox") {
+        await copyFile(
+          resolve(import.meta.dirname, "manifests/firefox.json"),
+          resolve(outDir, "manifest.json"),
+        );
+      }
     },
   };
 }
 
 export default defineConfig({
   plugins: [react(), bundleClassicContentScript()],
+  define: {
+    "import.meta.env.VITE_INFOSTEED_EXTENSION_TARGET":
+      JSON.stringify(extensionTarget),
+  },
   build: {
     emptyOutDir: true,
+    outDir,
     rollupOptions: {
       input: {
         popup: resolve(import.meta.dirname, "src/popup.html"),
         setup: resolve(import.meta.dirname, "src/setup.html"),
         options: resolve(import.meta.dirname, "src/options.html"),
-        offscreen: resolve(import.meta.dirname, "src/offscreen.html"),
+        ...(extensionTarget === "chrome"
+          ? { offscreen: resolve(import.meta.dirname, "src/offscreen.html") }
+          : {}),
         background: resolve(import.meta.dirname, "src/background.ts"),
         contentScript: resolve(import.meta.dirname, "src/contentScript.ts"),
       },

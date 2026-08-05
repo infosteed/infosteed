@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { createHash } from "node:crypto";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import JSZip from "jszip";
 import { afterEach, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
@@ -134,18 +137,29 @@ function appFor(
   role?: "admin" | "user",
   csrfToken?: string,
   videoStorage: VideoStorage = storage,
+  configOverrides: Record<string, string> = {},
 ) {
   return buildApp(
-    readConfig({ NODE_ENV: "test", VIDEO_RENDER_ENABLED: "false" }),
+    readConfig({
+      NODE_ENV: "test",
+      VIDEO_RENDER_ENABLED: "false",
+      ...configOverrides,
+    }),
     testPool(role, csrfToken),
     videoStorage,
   );
 }
 
 const openApps: FastifyInstance[] = [];
+const tempDirs: string[] = [];
 
 afterEach(async () => {
   await Promise.all(openApps.splice(0).map((app) => app.close()));
+  await Promise.all(
+    tempDirs
+      .splice(0)
+      .map((directory) => rm(directory, { recursive: true, force: true })),
+  );
 });
 
 describe("API request boundaries", () => {
@@ -269,6 +283,68 @@ describe("API request boundaries", () => {
       headers: { cookie: "infosteed_session=session" },
     });
     expect(response.statusCode).toBe(403);
+  });
+
+  it("protects extension artifact downloads with administrator authorization", async () => {
+    const app = appFor("user");
+    openApps.push(app);
+    const response = await app.inject({
+      method: "GET",
+      url: "/admin/extensions",
+      headers: { cookie: "infosteed_session=session" },
+    });
+    expect(response.statusCode).toBe(403);
+  });
+
+  it("lists and serves only release-enabled extension artifacts", async () => {
+    const artifactDir = await mkdtemp(path.join(tmpdir(), "infosteed-ext-"));
+    tempDirs.push(artifactDir);
+    await writeFile(path.join(artifactDir, "extension-offline.zip"), "chrome");
+    await writeFile(path.join(artifactDir, "firefox-offline.xpi"), "firefox");
+    const app = appFor("admin", undefined, storage, {
+      EXTENSION_ARTIFACT_DIR: artifactDir,
+    });
+    openApps.push(app);
+
+    const list = await app.inject({
+      method: "GET",
+      url: "/admin/extensions",
+      headers: { cookie: "infosteed_session=session" },
+    });
+    expect(list.statusCode).toBe(200);
+    expect(list.json()).toEqual({
+      artifacts: [
+        {
+          id: "chrome-offline",
+          browser: "chrome",
+          capability: "full",
+          filename: "extension-offline.zip",
+          contentType: "application/zip",
+          byteSize: 6,
+          sha256: createHash("sha256").update("chrome").digest("hex"),
+          installStatus: "available",
+        },
+      ],
+    });
+
+    const chromeDownload = await app.inject({
+      method: "GET",
+      url: "/admin/extensions/chrome-offline/download",
+      headers: { cookie: "infosteed_session=session" },
+    });
+    expect(chromeDownload.statusCode).toBe(200);
+    expect(chromeDownload.headers["content-type"]).toBe("application/zip");
+    expect(chromeDownload.headers["content-disposition"]).toBe(
+      'attachment; filename="extension-offline.zip"',
+    );
+    expect(chromeDownload.body).toBe("chrome");
+
+    const firefoxDownload = await app.inject({
+      method: "GET",
+      url: "/admin/extensions/firefox-offline/download",
+      headers: { cookie: "infosteed_session=session" },
+    });
+    expect(firefoxDownload.statusCode).toBe(404);
   });
 
   it("lists Word templates for authenticated users", async () => {

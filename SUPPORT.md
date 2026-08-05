@@ -1,8 +1,8 @@
 # Support Policy
 
-No InfoSteed release has been published. `v0.1.0-beta.8` is being prepared as a release candidate. Private candidate evaluation is best-effort and is not a production support commitment.
+`v0.1.0-beta.9` is an unpublished InfoSteed release candidate. Beta.8 and earlier beta tags were superseded without public publication. Private candidate evaluation is best-effort and is not a production support commitment.
 
-After the first public beta, the supported deployment will be the production Docker Compose bundle on Linux amd64 using its pinned container versions. The latest published beta will receive security and data-loss fixes; older published betas will be supported only long enough to perform the documented backup and forward upgrade.
+After publication, the supported deployment will be the production Docker Compose bundle on Linux amd64 using its pinned container versions. The latest published beta will receive security and data-loss fixes; older published betas will be supported only long enough to perform the documented backup and forward upgrade.
 
 Community support is provided through public GitHub issues after publication. Include the application version, release commit, sanitized Compose configuration, relevant structured logs, and reproduction steps. Never attach recordings, speech text, media URLs, tokens, passwords, private hostnames, or database dumps.
 

@@ -18,10 +18,15 @@ import { recordingListItem } from "./test/fixtures";
 import { ThemeProvider } from "./theme";
 import {
   createProject,
+  getAdminSystemStatus,
   getBranding,
   getTwoFactorStatus,
+  listAdminExtensions,
+  listProjectMembers,
   listProjects,
   listRecordings,
+  listUsers,
+  listWordTemplates,
   me,
   setupStatus,
   updateMyPreferences,
@@ -30,10 +35,15 @@ import {
 vi.mock("./api", () => ({
   setupStatus: vi.fn(),
   me: vi.fn(),
+  getAdminSystemStatus: vi.fn(),
   getBranding: vi.fn(),
   getTwoFactorStatus: vi.fn(),
+  listAdminExtensions: vi.fn(),
+  listProjectMembers: vi.fn(),
   listRecordings: vi.fn(),
   listProjects: vi.fn(),
+  listUsers: vi.fn(),
+  listWordTemplates: vi.fn(),
   createProject: vi.fn(),
   importProject: vi.fn(),
   deleteRecording: vi.fn(),
@@ -77,6 +87,16 @@ describe("web presentation", () => {
     });
     vi.mocked(listRecordings).mockResolvedValue({ items: [], total: 0 });
     vi.mocked(listProjects).mockResolvedValue({ projects: [] });
+    vi.mocked(listUsers).mockResolvedValue({ users: [] });
+    vi.mocked(listWordTemplates).mockResolvedValue({ templates: [] });
+    vi.mocked(listAdminExtensions).mockResolvedValue({ artifacts: [] });
+    vi.mocked(listProjectMembers).mockResolvedValue({ members: [] });
+    vi.mocked(getAdminSystemStatus).mockResolvedValue({
+      protocolVersion: 1,
+      providers: {},
+      workers: {},
+      queues: {},
+    });
     vi.mocked(updateMyPreferences).mockImplementation(async (preference) => ({
       user: { ...currentUser, themePreference: preference },
     }));
@@ -105,6 +125,67 @@ describe("web presentation", () => {
       await screen.findByRole("heading", { name: "Recordings" }),
     ).toBeTruthy();
     expect(screen.getByPlaceholderText("Search recordings")).toBeTruthy();
+  });
+
+  it("onboards an administrator when the default library is empty", async () => {
+    const input = userEvent.setup();
+    renderApp();
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Create your first recording",
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("Install and connect the browser extension."),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("Open the browser workflow you want to document."),
+    ).toBeTruthy();
+    expect(screen.getByText("Record your first guide or video.")).toBeTruthy();
+    expect(screen.getByText("Recording a public demo?")).toBeTruthy();
+    await input.click(
+      screen.getByRole("button", { name: "Get browser extension" }),
+    );
+    expect(
+      await screen.findByRole("heading", { name: "Browser Extensions" }),
+    ).toBeTruthy();
+  });
+
+  it("keeps filtered empty guidance and hides the admin action from users", async () => {
+    const input = userEvent.setup();
+    vi.mocked(me).mockResolvedValue({
+      user: { ...currentUser, role: "user" },
+    });
+    renderApp();
+
+    const search = await screen.findByPlaceholderText("Search recordings");
+    expect(
+      screen.queryByRole("button", { name: "Get browser extension" }),
+    ).toBeNull();
+    await input.type(search, "missing workflow");
+
+    expect(await screen.findByText("No recordings found")).toBeTruthy();
+    expect(
+      screen.getByText("Try another search, project, or access filter."),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("heading", { name: "Create your first recording" }),
+    ).toBeNull();
+  });
+
+  it.each([
+    ["shared", "/?library=shared&scope=shared"],
+    ["projects", "/?library=projects&scope=owned"],
+    ["trash", "/?library=trash&scope=trash"],
+  ])("uses filtered empty guidance for the %s library", async (_name, url) => {
+    window.history.replaceState({}, "", url);
+    renderApp();
+
+    expect(await screen.findByText("No recordings found")).toBeTruthy();
+    expect(
+      screen.queryByRole("heading", { name: "Create your first recording" }),
+    ).toBeNull();
   });
 
   it("uses the authenticated account appearance over the browser cache", async () => {

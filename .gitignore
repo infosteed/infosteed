@@ -15,7 +15,8 @@ deploy/infosteed-local-ca.crt
 /backups/
 playwright-report/
 test-results/
-artifacts/
+artifacts/*
+!artifacts/.gitkeep
 /temp/
 whisper/.venv-stt/
 whisper/__pycache__/

@@ -4,7 +4,7 @@ import { z } from "zod";
 export const PRODUCT_METADATA = Object.freeze({
   displayName: "InfoSteed",
   slug: "infosteed",
-  releaseVersion: "0.1.0-beta.8",
+  releaseVersion: "0.1.0-beta.9",
   protocolVersion: 1,
   minimumExtensionVersion: "0.1.0",
 });
@@ -124,6 +124,39 @@ export const recordingEventSchema = z.object({
   videoOffsetMs: z.number().int().nonnegative().optional(),
   metadata: z.record(z.unknown()).default({}),
 });
+
+const INTERACTIVE_CLICK_ROLES = new Set([
+  "button",
+  "checkbox",
+  "combobox",
+  "field",
+  "link",
+  "list",
+  "listbox",
+  "menuitem",
+  "menuitemcheckbox",
+  "menuitemradio",
+  "option",
+  "radio",
+  "searchbox",
+  "slider",
+  "spinbutton",
+  "switch",
+  "tab",
+  "textbox",
+  "treeitem",
+]);
+
+export function recordingEventNeedsReview(
+  event: Pick<
+    z.infer<typeof recordingEventSchema>,
+    "actionType" | "elementName" | "elementRole"
+  >,
+): boolean {
+  if (!event.elementName?.trim()) return true;
+  if (event.actionType !== "click") return false;
+  return !INTERACTIVE_CLICK_ROLES.has(event.elementRole?.toLowerCase() ?? "");
+}
 
 export const createRecordingRequestSchema = z.object({
   title: safeTextSchema.default("Untitled workflow"),

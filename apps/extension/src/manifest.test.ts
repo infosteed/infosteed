@@ -4,8 +4,25 @@ import { describe, expect, it } from "vitest";
 
 const manifestUrl = new URL("../public/manifest.json", import.meta.url);
 const manifest = JSON.parse(readFileSync(manifestUrl, "utf8")) as {
+  background: Record<string, unknown>;
   icons: Record<string, string>;
   action: { default_icon: Record<string, string> };
+  permissions: string[];
+};
+const firefoxManifestUrl = new URL(
+  "../manifests/firefox.json",
+  import.meta.url,
+);
+const firefoxManifest = JSON.parse(
+  readFileSync(firefoxManifestUrl, "utf8"),
+) as {
+  background: Record<string, unknown>;
+  browser_specific_settings: {
+    gecko: { id: string; strict_min_version: string };
+  };
+  icons: Record<string, string>;
+  action: { default_icon: Record<string, string> };
+  permissions: string[];
 };
 
 function pngDimensions(relativePath: string) {
@@ -33,6 +50,29 @@ describe("extension product icons", () => {
       "16": "icons/infosteed-16.png",
       "32": "icons/infosteed-32.png",
     });
+  });
+});
+
+describe("browser-specific manifests", () => {
+  it("keeps the Chrome manifest on the MV3 service-worker video path", () => {
+    expect(manifest.background).toEqual({
+      service_worker: "background.js",
+      type: "module",
+    });
+    expect(manifest.permissions).toContain("tabCapture");
+    expect(manifest.permissions).toContain("offscreen");
+  });
+
+  it("uses a Firefox event-page manifest without Chrome-only video APIs", () => {
+    expect(firefoxManifest.background).toEqual({
+      scripts: ["background.js"],
+      type: "module",
+    });
+    expect(firefoxManifest.browser_specific_settings.gecko.id).toBe(
+      "infosteed@infosteed.org",
+    );
+    expect(firefoxManifest.permissions).not.toContain("tabCapture");
+    expect(firefoxManifest.permissions).not.toContain("offscreen");
   });
 });
 

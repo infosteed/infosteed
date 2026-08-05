@@ -6,9 +6,25 @@ ENV CI=1
 RUN corepack enable && corepack prepare pnpm@9.12.3 --activate
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+COPY LICENSE ./LICENSE
 COPY apps/api ./apps/api
+COPY apps/extension ./apps/extension
 COPY packages ./packages
+COPY scripts/package-extension.mjs ./scripts/package-extension.mjs
+COPY artifacts ./prebuilt-extension-artifacts
 RUN pnpm install --frozen-lockfile
+RUN if [ -f prebuilt-extension-artifacts/extension-offline.zip ]; then \
+    mkdir -p artifacts \
+    && cp prebuilt-extension-artifacts/extension-offline.zip artifacts/ \
+    && if [ -f prebuilt-extension-artifacts/extension-store.zip ]; then cp prebuilt-extension-artifacts/extension-store.zip artifacts/; fi \
+    && if [ -f prebuilt-extension-artifacts/extension-checksums.sha256 ]; then cp prebuilt-extension-artifacts/extension-checksums.sha256 artifacts/; fi \
+    && if [ -f prebuilt-extension-artifacts/extension-contents.txt ]; then cp prebuilt-extension-artifacts/extension-contents.txt artifacts/; fi; \
+  else \
+    node scripts/package-extension.mjs --chrome-only; \
+  fi
+RUN test ! -e artifacts/firefox-offline.xpi \
+  && if [ -f artifacts/extension-checksums.sha256 ]; then ! grep -qi firefox artifacts/extension-checksums.sha256; fi \
+  && if [ -f artifacts/extension-contents.txt ]; then ! grep -qi firefox artifacts/extension-contents.txt; fi
 RUN pnpm exec tsc -b --force \
   packages/shared/tsconfig.json \
   packages/ai-step-writer/tsconfig.json \
@@ -42,6 +58,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certi
 WORKDIR /app
 COPY --from=build --chown=pwuser:pwuser /release ./
 COPY --chown=pwuser:pwuser migrations ./migrations
+COPY --from=build --chown=pwuser:pwuser /source/artifacts ./extension-artifacts
 
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=3777
 USER pwuser

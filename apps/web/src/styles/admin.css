@@ -105,6 +105,20 @@
   font-size: 13px;
 }
 
+.extension-installation {
+  display: grid;
+  justify-items: start;
+  gap: 16px;
+}
+
+.extension-installation ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 22px;
+  color: var(--neutral-700);
+}
+
 .create-user-bar {
   grid-template-columns: repeat(3, minmax(150px, 1fr)) 130px auto;
 }

@@ -11,7 +11,12 @@ COPY packages ./packages
 RUN pnpm install --frozen-lockfile
 ARG VITE_API_BASE_URL=/api
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
-RUN pnpm exec tsc -b --force packages/shared/tsconfig.json packages/markdown-exporter/tsconfig.json apps/web/tsconfig.json \
+RUN pnpm exec tsc -b --force \
+  packages/shared/tsconfig.json \
+  packages/i18n/tsconfig.json \
+  packages/recorder-core/tsconfig.json \
+  packages/markdown-exporter/tsconfig.json \
+  apps/web/tsconfig.json \
   && pnpm --filter @infosteed/web build
 
 FROM nginxinc/nginx-unprivileged:1.30.4-alpine3.24@sha256:44e36330f74d4f3a1d4e222acca9e23b401fb87811a7597024502bb759c4dd49

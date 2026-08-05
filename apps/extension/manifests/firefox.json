@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "default_locale": "en",
+  "name": "__MSG_extensionName__",
+  "version": "0.1.0",
+  "description": "__MSG_extensionDescription__",
+  "icons": {
+    "16": "icons/infosteed-16.png",
+    "32": "icons/infosteed-32.png",
+    "48": "icons/infosteed-48.png",
+    "128": "icons/infosteed-128.png"
+  },
+  "action": {
+    "default_popup": "src/popup.html",
+    "default_title": "__MSG_extensionActionTitle__",
+    "default_icon": {
+      "16": "icons/infosteed-16.png",
+      "32": "icons/infosteed-32.png"
+    }
+  },
+  "background": {
+    "scripts": ["background.js"],
+    "type": "module"
+  },
+  "options_ui": {
+    "page": "src/options.html",
+    "open_in_tab": true
+  },
+  "permissions": ["activeTab", "tabs", "scripting", "storage", "webNavigation"],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "infosteed@infosteed.org",
+      "strict_min_version": "126.0"
+    }
+  }
+}

@@ -208,8 +208,25 @@ export interface AdminSystemStatus {
   queues: Record<string, number>;
 }
 
+export interface AdminExtensionArtifact {
+  id: string;
+  browser: "chrome" | "firefox";
+  capability: "full" | "guide-only";
+  filename: string;
+  contentType: string;
+  byteSize: number | null;
+  sha256: string | null;
+  installStatus: "available" | "missing";
+}
+
 export function getAdminSystemStatus(): Promise<AdminSystemStatus> {
   return request("/admin/system/status");
+}
+
+export function listAdminExtensions(): Promise<{
+  artifacts: AdminExtensionArtifact[];
+}> {
+  return request("/admin/extensions");
 }
 
 export function me() {
@@ -438,6 +455,10 @@ export async function deleteWordTemplate(id: string): Promise<void> {
 
 export function wordTemplateFileUrl(id: string): string {
   return `${API_BASE}/admin/word-templates/${id}/file`;
+}
+
+export function adminExtensionDownloadUrl(id: string): string {
+  return `${API_BASE}/admin/extensions/${id}/download`;
 }
 
 export function listProjectMembers(projectId: string) {

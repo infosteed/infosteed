@@ -103,8 +103,13 @@ const configSchema = z
     VIDEO_RENDER_RETENTION_DAYS: z.coerce.number().int().positive().default(7),
     WEB_ORIGIN: z.string().default("http://localhost:5173"),
     EXTENSION_ORIGINS: commaSeparatedOrigins,
+    EXTENSION_ARTIFACT_DIR: z
+      .string()
+      .trim()
+      .min(1)
+      .default("extension-artifacts"),
     APP_SOURCE_URL: optionalUrlEnv,
-    RELEASE_VERSION: z.string().trim().min(1).default("0.1.0-beta.8"),
+    RELEASE_VERSION: z.string().trim().min(1).default("0.1.0-beta.9"),
     RELEASE_COMMIT: z.string().trim().min(1).default("development"),
     APP_DOMAIN: optionalEnv,
     TWO_FACTOR_ENABLED: booleanEnv.default(false),

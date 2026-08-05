@@ -1,9 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { useAdminController } from "../features/admin/useAdminController";
-import { wordTemplateFileUrl } from "../api";
+import { adminExtensionDownloadUrl, wordTemplateFileUrl } from "../api";
 import { plural, t } from "../i18n";
 import { BrandMark, productLogoUrl } from "./BrandMark";
 import { StatusBadge } from "./design/StatusBadge";
+
+function formatBytes(byteSize: number | null): string {
+  if (byteSize === null) return t("Missing");
+  if (byteSize < 1024) return t("{count} bytes", { count: byteSize });
+  const units = ["KB", "MB", "GB"];
+  let value = byteSize / 1024;
+  for (const unit of units) {
+    if (value < 1024 || unit === "GB") return `${value.toFixed(1)} ${unit}`;
+    value /= 1024;
+  }
+  return `${byteSize}`;
+}
 
 export function AdminPanel({ onClose }: { onClose: () => void }) {
   const controller = useAdminController();
@@ -20,6 +32,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
     branding,
     setBranding,
     wordTemplates,
+    extensionArtifacts,
     newUser,
     setNewUser,
     error,
@@ -43,6 +56,9 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
     removeMember,
     confirmTwoFactorReset,
   } = controller;
+  const hasFirefoxArtifact = extensionArtifacts.some(
+    (artifact) => artifact.browser === "firefox",
+  );
 
   return (
     <main className="admin-page">
@@ -55,6 +71,13 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
       </header>
       <div className="admin-shell">
         <nav className="admin-sidebar" aria-label={t("Admin sections")}>
+          <button
+            onClick={() =>
+              document.getElementById("admin-extensions")?.scrollIntoView()
+            }
+          >
+            {t("Browser Extensions")}
+          </button>
           <button
             onClick={() =>
               document.getElementById("admin-branding")?.scrollIntoView()
@@ -92,6 +115,93 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
           </button>
         </nav>
         <section className="admin-content">
+          <article id="admin-extensions" className="admin-section">
+            <div className="section-title">
+              <div>
+                <p>{t("Deployment")}</p>
+                <h2>{t("Browser Extensions")}</h2>
+              </div>
+              <span className="status-pill neutral">
+                {t("{count} packages", {
+                  count: extensionArtifacts.length,
+                })}
+              </span>
+            </div>
+            <div className="extension-installation">
+              <ol>
+                <li>
+                  {t("Download the offline package for the target browser.")}
+                </li>
+                <li>
+                  {t(
+                    "For Chrome, extract the ZIP, open chrome://extensions, enable Developer mode, and choose Load unpacked.",
+                  )}
+                </li>
+                {hasFirefoxArtifact && (
+                  <li>
+                    {t(
+                      "For Firefox, install the signed XPI with your managed browser policy or temporary add-on workflow.",
+                    )}
+                  </li>
+                )}
+              </ol>
+              <p className="settings-help">
+                {t(
+                  "Download offline extension packages from this server for managed browser installation.",
+                )}
+              </p>
+              <div className="admin-table">
+                {extensionArtifacts.map((artifact) => (
+                  <div key={artifact.id} className="admin-row">
+                    <div>
+                      <strong>
+                        {artifact.browser === "chrome"
+                          ? t("Chrome")
+                          : t("Firefox")}
+                      </strong>
+                      <span>
+                        {artifact.capability === "full"
+                          ? t("Video and guide capture")
+                          : t("Guide Only")}
+                      </span>
+                      <small>{artifact.filename}</small>
+                      <small>
+                        {artifact.sha256
+                          ? t("SHA-256: {checksum}", {
+                              checksum: artifact.sha256.slice(0, 16),
+                            })
+                          : t("SHA-256 unavailable")}
+                      </small>
+                    </div>
+                    <span
+                      className={`status-pill ${
+                        artifact.installStatus === "available"
+                          ? "success"
+                          : "danger"
+                      }`}
+                    >
+                      {artifact.installStatus === "available"
+                        ? t("Available")
+                        : t("Missing")}
+                    </span>
+                    <span>{formatBytes(artifact.byteSize)}</span>
+                    <div className="admin-row-actions">
+                      {artifact.installStatus === "available" ? (
+                        <a href={adminExtensionDownloadUrl(artifact.id)}>
+                          {t("Download")}
+                        </a>
+                      ) : (
+                        <button disabled>{t("Download")}</button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {extensionArtifacts.length === 0 && (
+                  <p>{t("No extension packages bundled.")}</p>
+                )}
+              </div>
+            </div>
+          </article>
           <article id="admin-system" className="admin-section">
             <div className="section-title">
               <div>

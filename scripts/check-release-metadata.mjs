@@ -68,8 +68,13 @@ export function validateReleaseMetadata(root, { releaseTag } = {}) {
     return { version: undefined, problems };
   }
   const version = rootManifest.version;
+  const releaseStatus = rootManifest.releaseStatus;
   if (typeof version !== "string" || !version)
     problems.push("package.json: version must be a non-empty string");
+  if (!["candidate", "published"].includes(releaseStatus))
+    problems.push(
+      'package.json: releaseStatus must be either "candidate" or "published"',
+    );
   if (!version) return { version, problems };
 
   const packageFiles = [
@@ -137,7 +142,6 @@ export function validateReleaseMetadata(root, { releaseTag } = {}) {
       );
   }
 
-  const releaseName = version.replace(/^0\.1\.0-/, "");
   const tag = `v${version}`;
   const activeSections = [
     [
@@ -158,18 +162,27 @@ export function validateReleaseMetadata(root, { releaseTag } = {}) {
       );
   }
 
+  const releaseStatusText =
+    releaseStatus === "published"
+      ? `\`${tag}\` is the current published InfoSteed beta and supported release.`
+      : `\`${tag}\` is an unpublished InfoSteed release candidate.`;
+  for (const file of [
+    "README.md",
+    "README.technical.md",
+    "SECURITY.md",
+    "SUPPORT.md",
+    "docs/deployment.md",
+    "docs/release-readiness.md",
+  ])
+    requireText(file, releaseStatusText, `${releaseStatus} release status`);
+
   requireText(
     "docs/release-readiness.md",
-    `preparing \`${tag}\``,
-    "candidate status",
+    releaseStatus === "published"
+      ? "## Published beta details"
+      : "## What remains before publication",
+    `${releaseStatus} readiness heading`,
   );
-  requireText(
-    "docs/release-readiness.md",
-    `## What remains before publishing ${releaseName}`,
-    "candidate readiness heading",
-  );
-  requireText("SECURITY.md", tag, "supported-version status");
-  requireText("SUPPORT.md", tag, "support-version status");
   requireText(
     "docs/release-process.md",
     'release-metadata:check -- --release-tag "v$version"',
@@ -185,13 +198,17 @@ export function validateReleaseMetadata(root, { releaseTag } = {}) {
   } else if (releaseTag) {
     if (releaseTag !== tag)
       problems.push(`release tag is ${releaseTag}, expected ${tag}`);
+    if (releaseStatus !== "candidate")
+      problems.push(
+        "tagged release metadata must remain candidate until its draft is published",
+      );
     if (!/^\d{4}-\d{2}-\d{2}$/.test(heading[1]))
       problems.push(
         `CHANGELOG.md: ${version} must have an ISO release date before tagging`,
       );
   }
 
-  return { version, problems };
+  return { version, releaseStatus, problems };
 }
 
 function run() {

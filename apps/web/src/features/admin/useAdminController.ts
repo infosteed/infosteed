@@ -12,6 +12,7 @@ import {
   deleteWordTemplate,
   getAdminSystemStatus,
   getBranding,
+  listAdminExtensions,
   listProjectMembers,
   listProjects,
   listUsers,
@@ -39,6 +40,9 @@ export function useAdminController() {
     iconDataUrl: null,
   });
   const [wordTemplates, setWordTemplates] = useState<WordTemplateSummary[]>([]);
+  const [extensionArtifacts, setExtensionArtifacts] = useState<
+    Awaited<ReturnType<typeof listAdminExtensions>>["artifacts"]
+  >([]);
   const [newUser, setNewUser] = useState({
     username: "",
     displayName: "",
@@ -62,18 +66,21 @@ export function useAdminController() {
         projectResult,
         nextSystemStatus,
         templateResult,
+        extensionResult,
       ] = await Promise.all([
         listUsers(),
         getBranding(),
         listProjects(),
         getAdminSystemStatus(),
         listWordTemplates(),
+        listAdminExtensions(),
       ]);
       setUsers(userResult.users);
       setBranding(brandingResult);
       setProjects(projectResult.projects);
       setSystemStatus(nextSystemStatus);
       setWordTemplates(templateResult.templates);
+      setExtensionArtifacts(extensionResult.artifacts);
       const nextProjectId =
         selectedProjectId || projectResult.projects[0]?.id || "";
       setSelectedProjectId(nextProjectId);
@@ -230,6 +237,7 @@ export function useAdminController() {
     branding,
     setBranding,
     wordTemplates,
+    extensionArtifacts,
     newUser,
     setNewUser,
     error,

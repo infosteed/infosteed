@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import type { CaptureMode, VideoCaptureSettings } from "@infosteed/shared";
 import { getVideoCapability } from "./apiClient";
 import { BrandMark } from "./BrandMark";
+import { firefoxGuideOnly } from "./browserTarget";
 import { errorMessage } from "./errors";
 import { i18n, t } from "./i18n";
 import "./setup.css";
@@ -16,7 +17,9 @@ interface DeviceChoice {
 }
 
 export function Setup() {
-  const [captureMode, setCaptureMode] = useState<CaptureMode>("both");
+  const [captureMode, setCaptureMode] = useState<CaptureMode>(
+    firefoxGuideOnly ? "guide" : "both",
+  );
   const [videoEnabled, setVideoEnabled] = useState<boolean | undefined>();
   const [tabAudio, setTabAudio] = useState(true);
   const [microphone, setMicrophone] = useState(true);
@@ -154,6 +157,12 @@ export function Setup() {
   useEffect(() => {
     void (async () => {
       try {
+        if (firefoxGuideOnly) {
+          setVideoEnabled(false);
+          setCaptureMode("guide");
+          setDevices(await navigator.mediaDevices.enumerateDevices());
+          return;
+        }
         const [capability, stored] = await Promise.all([
           getVideoCapability(),
           chrome.storage.local.get([
@@ -230,7 +239,9 @@ export function Setup() {
             className={captureMode === value ? "mode active" : "mode"}
             role="radio"
             aria-checked={captureMode === value}
-            disabled={value !== "guide" && videoEnabled === false}
+            disabled={
+              value !== "guide" && (videoEnabled === false || firefoxGuideOnly)
+            }
             onClick={() => setCaptureMode(value)}
           >
             <strong>
@@ -243,9 +254,22 @@ export function Setup() {
       </div>
       {videoEnabled === false && (
         <p className="notice">
-          {t("Video storage is not configured. Guide Only remains available.")}
+          {firefoxGuideOnly
+            ? t("Firefox support is Guide Only in this version.")
+            : t(
+                "Video storage is not configured. Guide Only remains available.",
+              )}
         </p>
       )}
+
+      <aside className="capture-safety-note">
+        <strong>{t("Recording a public demo?")}</strong>
+        <p>
+          {t(
+            "Use a clean browser profile, close password-manager and other sensitive overlays, and review every screenshot before publishing or sharing.",
+          )}
+        </p>
+      </aside>
 
       {usesVideo && (
         <section className="media-panel">

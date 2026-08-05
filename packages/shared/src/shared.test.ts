@@ -7,6 +7,7 @@ import {
   guideItemSchema,
   initializeVideoRequestSchema,
   outputLocaleRequestSchema,
+  recordingEventNeedsReview,
   recordingProjectSchema,
   uploadScreenshotRequestSchema,
   updateOwnPreferencesRequestSchema,
@@ -59,6 +60,43 @@ describe("shared schemas", () => {
     });
 
     expect(parsed.metadata).toEqual({});
+  });
+
+  it("flags unnamed and non-interactive click targets for review", () => {
+    expect(
+      recordingEventNeedsReview({
+        actionType: "click",
+        elementName: "Save",
+        elementRole: "button",
+      }),
+    ).toBe(false);
+    expect(
+      recordingEventNeedsReview({
+        actionType: "click",
+        elementName: "ACCOUNT",
+        elementRole: "p",
+      }),
+    ).toBe(true);
+    expect(
+      recordingEventNeedsReview({
+        actionType: "click",
+        elementName: "Section",
+        elementRole: "div",
+      }),
+    ).toBe(true);
+    expect(
+      recordingEventNeedsReview({
+        actionType: "input",
+        elementName: "Email",
+        elementRole: "field",
+      }),
+    ).toBe(false);
+    expect(
+      recordingEventNeedsReview({
+        actionType: "click",
+        elementRole: "button",
+      }),
+    ).toBe(true);
   });
 
   it("rejects unsupported screenshot content types", () => {

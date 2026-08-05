@@ -63,6 +63,7 @@ describe("extension presentation", () => {
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
   });
 
   it("shows recording controls without raw diagnostics", async () => {
@@ -118,9 +119,39 @@ describe("extension presentation", () => {
     expect(
       screen.getByText("A screenshot-based guide you can review and edit."),
     ).toBeTruthy();
+    expect(screen.getByText("Recording a public demo?")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Use a clean browser profile, close password-manager and other sensitive overlays, and review every screenshot before publishing or sharing.",
+      ),
+    ).toBeTruthy();
     expect(
       document.querySelector(".product-header .product-mark"),
     ).toBeTruthy();
+  });
+
+  it("limits Firefox setup to guide-only capture", async () => {
+    vi.resetModules();
+    vi.stubEnv("VITE_INFOSTEED_EXTENSION_TARGET", "firefox");
+    storageGet.mockResolvedValue({});
+    const { Setup: FirefoxSetup } = await import("./setup");
+
+    render(<FirefoxSetup />);
+
+    expect(
+      await screen.findByText("Firefox support is Guide Only in this version."),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("radio", { name: /Video \+ Guide/ }),
+    ).toHaveProperty("disabled", true);
+    expect(screen.getByRole("radio", { name: /Video Only/ })).toHaveProperty(
+      "disabled",
+      true,
+    );
+    expect(screen.getByRole("radio", { name: /Guide Only/ })).toHaveProperty(
+      "disabled",
+      false,
+    );
   });
 
   it("shows product identity on the extension options page", async () => {

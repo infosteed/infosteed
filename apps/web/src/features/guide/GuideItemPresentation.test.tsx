@@ -37,4 +37,42 @@ describe("guide item presentation", () => {
       "Check permissions",
     );
   });
+
+  it("marks a captured paragraph click for review without suppressing it", () => {
+    const rendered = render(
+      <GuideItemEditor
+        recordingId="recording-id"
+        item={guideItem({
+          eventId: "00000000-0000-4000-8000-000000000099",
+          source: "ai",
+          userEdited: false,
+          body: "Click ACCOUNT.",
+        })}
+        event={{
+          id: "00000000-0000-4000-8000-000000000099",
+          ordinal: 0,
+          actionType: "click",
+          pageTitle: "Security",
+          sanitizedUrl: "https://example.test/security",
+          elementName: "ACCOUNT",
+          elementRole: "p",
+          metadata: {},
+        }}
+        stepNumber={1}
+        onImageSaved={vi.fn()}
+        isSelected={false}
+        onSelect={vi.fn()}
+        onCloseEdit={vi.fn()}
+        editable
+        onDraftChange={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+
+    expect(rendered.container.textContent).toContain("Click ACCOUNT.");
+    expect(rendered.container.querySelector(".needs-review")).not.toBeNull();
+    expect(rendered.container.querySelector(".review")?.textContent).toBe(
+      "Review",
+    );
+  });
 });

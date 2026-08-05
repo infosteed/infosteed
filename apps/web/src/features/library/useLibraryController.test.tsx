@@ -32,6 +32,24 @@ describe("library controller", () => {
     );
   });
 
+  it("reports initial and query loading without treating stale responses as complete", async () => {
+    const api = libraryApiMocks();
+    let resolveInitial!: (value: {
+      items: ReturnType<typeof recordingListItem>[];
+      total: number;
+    }) => void;
+    vi.mocked(api.listRecordings).mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveInitial = resolve;
+      }),
+    );
+    const { result } = renderHook(() => useLibraryController(api));
+
+    expect(result.current.isLoading).toBe(true);
+    await act(async () => resolveInitial({ items: [], total: 0 }));
+    expect(result.current.isLoading).toBe(false);
+  });
+
   it("appends the next page and tracks the server total", async () => {
     const api = libraryApiMocks();
     const first = recordingListItem({ id: "recording-1", title: "First" });

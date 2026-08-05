@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import React, { useEffect, useRef } from "react";
 import type { GuideItem, Recording, RecordingVideo } from "@infosteed/shared";
-import { PRODUCT_IDENTIFIERS } from "@infosteed/shared";
+import {
+  PRODUCT_IDENTIFIERS,
+  recordingEventNeedsReview,
+} from "@infosteed/shared";
 import {
   Check,
   Crop,
@@ -720,10 +723,8 @@ export function GuideItemEditor({
   const needsReview =
     item.kind === "step" &&
     (item.source === "deterministic" ||
-      !event?.elementName ||
-      /^(div|span|i|svg|path|canvas|field|element)$/i.test(
-        event.elementRole ?? "",
-      ));
+      !event ||
+      recordingEventNeedsReview(event));
 
   const imageFilename = item.imageFilename;
   const kindLabel =

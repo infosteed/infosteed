@@ -4,7 +4,20 @@ All notable changes are documented here. The project uses Semantic Versioning on
 
 ## [Unreleased]
 
+## [0.1.0-beta.9] - 2026-08-05
+
+### Fixed
+
+- Made recorded action type, target name, and semantic role authoritative during AI guide generation, with deterministic instructions for buttons, links, tabs, and menu items.
+- Rejected AI step output that changes the recorded target or adds an unverified action outcome, and flagged clicks on non-interactive elements for review.
+
+### Known limitations
+
+- Beta.9 packages and advertises the Chrome extension only. The preserved Firefox implementation remains release-disabled while its distribution path is prepared for a later release.
+
 ## [0.1.0-beta.8] - 2026-08-05
+
+This signed candidate was superseded before public publication. Its tag and published images remain immutable, and its draft must not be published as the supported beta.
 
 ### Changed
 

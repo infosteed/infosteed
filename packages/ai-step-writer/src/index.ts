@@ -27,7 +27,16 @@ const generatedStepInputSchema = z.object({
   altText: z.string().trim().min(1),
 });
 
+export const generatedStepCandidateSchema = generatedStepInputSchema.extend({
+  actionType: z.string().min(1),
+  elementName: z.string().nullable(),
+  elementRole: z.string().nullable(),
+});
+
 export type GeneratedStep = z.infer<typeof generatedStepSchema>;
+export type GeneratedStepCandidate = z.infer<
+  typeof generatedStepCandidateSchema
+>;
 export type GeneratedOverview = z.infer<typeof generatedOverviewSchema>;
 export type GeneratedChapter = z.infer<typeof generatedChapterSchema>;
 
@@ -57,7 +66,7 @@ export interface ChapterWritingContext {
 }
 
 export interface AiStepWriterProvider {
-  generateStep(context: StepWritingContext): Promise<GeneratedStep>;
+  generateStep(context: StepWritingContext): Promise<GeneratedStepCandidate>;
   generateOverview?(context: GuideOverviewContext): Promise<GeneratedOverview>;
   generateChapter?(context: ChapterWritingContext): Promise<GeneratedChapter>;
 }
@@ -299,9 +308,14 @@ function clampText(value: string, maxLength: number): string {
   return normalized.slice(0, maxLength - 3).trimEnd() + "...";
 }
 
-function normalizeGeneratedStep(value: unknown): GeneratedStep {
-  const parsed = generatedStepInputSchema.parse(value);
+function normalizeGeneratedStepCandidate(
+  value: unknown,
+): GeneratedStepCandidate {
+  const parsed = generatedStepCandidateSchema.parse(value);
   return {
+    actionType: parsed.actionType,
+    elementName: parsed.elementName,
+    elementRole: parsed.elementRole,
     title: clampText(parsed.title, 120),
     instruction: clampText(parsed.instruction, 500),
     altText: clampText(parsed.altText, 160),
@@ -462,6 +476,185 @@ export function deterministicInstruction(
   };
 }
 
+const DETERMINISTIC_CLICK_ROLES = new Set([
+  "button",
+  "link",
+  "menuitem",
+  "tab",
+]);
+
+const imperativePrefixes: Record<
+  OutputLocale,
+  Record<RecordingEvent["actionType"], string[]>
+> = {
+  en: {
+    click: ["click"],
+    input: ["enter", "type"],
+    select: ["select", "choose"],
+    checkbox: ["choose", "select", "check"],
+    radio: ["choose", "select"],
+    submit: ["submit"],
+    navigation: ["open"],
+    keyboard: ["press"],
+    modal: ["click", "close", "open"],
+  },
+  ga: {
+    click: ["cliceáil"],
+    input: ["cuir"],
+    select: ["roghnaigh"],
+    checkbox: ["roghnaigh"],
+    radio: ["roghnaigh"],
+    submit: ["seol"],
+    navigation: ["oscail"],
+    keyboard: ["brúigh"],
+    modal: ["cliceáil", "dún", "oscail"],
+  },
+  fr: {
+    click: ["cliquez"],
+    input: ["saisissez"],
+    select: ["sélectionnez", "choisissez"],
+    checkbox: ["choisissez", "sélectionnez"],
+    radio: ["choisissez", "sélectionnez"],
+    submit: ["envoyez"],
+    navigation: ["ouvrez"],
+    keyboard: ["appuyez"],
+    modal: ["cliquez", "fermez", "ouvrez"],
+  },
+  de: {
+    click: ["klicken sie"],
+    input: ["geben sie"],
+    select: ["wählen sie"],
+    checkbox: ["wählen sie"],
+    radio: ["wählen sie"],
+    submit: ["senden sie"],
+    navigation: ["öffnen sie"],
+    keyboard: ["drücken sie"],
+    modal: ["klicken sie", "schließen sie", "öffnen sie"],
+  },
+};
+
+function plainGeneratedText(value: string): string {
+  return value
+    .normalize("NFKC")
+    .replace(/\\([*_`])/g, "$1")
+    .replace(/[*_`'\"“”‘’]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizedForMatch(value: string): string {
+  return plainGeneratedText(value).toLocaleLowerCase();
+}
+
+function includesTarget(value: string, target: string): boolean {
+  return normalizedForMatch(value).includes(normalizedForMatch(target));
+}
+
+function validateDirectInstruction(
+  instruction: string,
+  context: StepWritingContext,
+): void {
+  const target = context.current.elementName;
+  if (!target) throw new Error("AI output cannot be target-validated");
+
+  const plainInstruction = plainGeneratedText(instruction);
+  const comparableInstruction = plainInstruction.toLocaleLowerCase();
+  const comparableTarget = normalizedForMatch(target);
+  const targetIndex = comparableInstruction.indexOf(comparableTarget);
+  if (
+    targetIndex < 0 ||
+    comparableInstruction.lastIndexOf(comparableTarget) !== targetIndex
+  ) {
+    throw new Error("AI instruction did not preserve the recorded target");
+  }
+
+  const beforeTarget = comparableInstruction.slice(0, targetIndex).trim();
+  const afterTarget = comparableInstruction
+    .slice(targetIndex + comparableTarget.length)
+    .trim();
+  const prefixes =
+    imperativePrefixes[context.outputLocale][context.current.actionType];
+  if (
+    !prefixes.some(
+      (prefix) =>
+        beforeTarget === prefix || beforeTarget.startsWith(`${prefix} `),
+    )
+  ) {
+    throw new Error("AI instruction did not preserve the recorded action");
+  }
+  if (
+    /[.!?;:,()[\]{}\n\r]/.test(beforeTarget) ||
+    !/^[.!?]?$/.test(afterTarget)
+  ) {
+    throw new Error(
+      "AI instruction added an outcome, location, or extra clause",
+    );
+  }
+}
+
+function validateGeneratedAuthority(
+  generated: GeneratedStepCandidate,
+  context: StepWritingContext,
+): void {
+  const currentName = context.current.elementName ?? null;
+  const currentRole = context.current.elementRole ?? null;
+  if (
+    generated.actionType !== context.current.actionType ||
+    generated.elementName !== currentName ||
+    generated.elementRole !== currentRole
+  ) {
+    throw new Error("AI output changed the authoritative recorded action");
+  }
+  if (!currentName) throw new Error("AI output cannot be target-validated");
+
+  for (const [field, value] of [
+    ["title", generated.title],
+    ["instruction", generated.instruction],
+    ["alt text", generated.altText],
+  ] as const) {
+    if (!includesTarget(value, currentName))
+      throw new Error(`AI ${field} did not preserve the recorded target`);
+  }
+
+  for (const neighbor of [context.previous, context.next]) {
+    const neighborName = neighbor?.elementName;
+    if (
+      !neighborName ||
+      normalizedForMatch(neighborName) === normalizedForMatch(currentName)
+    )
+      continue;
+    if (
+      includesTarget(generated.title, neighborName) ||
+      includesTarget(generated.instruction, neighborName) ||
+      includesTarget(generated.altText, neighborName)
+    ) {
+      throw new Error("AI output substituted an adjacent recorded target");
+    }
+  }
+
+  validateDirectInstruction(generated.instruction, context);
+}
+
+function acceptedGeneratedStep(
+  generated: GeneratedStepCandidate,
+  context: StepWritingContext,
+): GeneratedStep & { source: "ai" } {
+  validateGeneratedAuthority(generated, context);
+  const deterministic = deterministicInstruction(
+    context.current,
+    context.outputLocale,
+  );
+  const role = context.current.elementRole?.toLowerCase() ?? "";
+  return {
+    title: generated.title,
+    instruction: DETERMINISTIC_CLICK_ROLES.has(role)
+      ? deterministic.instruction
+      : generated.instruction,
+    altText: generated.altText,
+    source: "ai",
+  };
+}
+
 export async function writeStep(
   provider: AiStepWriterProvider | undefined,
   context: StepWritingContext,
@@ -474,10 +667,10 @@ export async function writeStep(
   }
 
   try {
-    const generated = normalizeGeneratedStep(
+    const generated = normalizeGeneratedStepCandidate(
       await provider.generateStep(context),
     );
-    return { ...generated, source: "ai" };
+    return acceptedGeneratedStep(generated, context);
   } catch (error) {
     console.warn(
       "InfoSteed AI step generation failed; using deterministic fallback.",
@@ -554,10 +747,10 @@ async function postProviderJson<T>(input: {
   return (await response.json()) as T;
 }
 
-function parseGeneratedStep(value: string): GeneratedStep {
+function parseGeneratedStep(value: string): GeneratedStepCandidate {
   const trimmed = value.trim();
   try {
-    return normalizeGeneratedStep(JSON.parse(trimmed));
+    return normalizeGeneratedStepCandidate(JSON.parse(trimmed));
   } catch {
     // Fall through to extracting a JSON object from provider wrapper text.
   }
@@ -565,7 +758,7 @@ function parseGeneratedStep(value: string): GeneratedStep {
   const objectMatch = trimmed.match(/\{[\s\S]*\}/);
   if (!objectMatch)
     throw new Error("AI provider response did not contain a JSON object");
-  return normalizeGeneratedStep(JSON.parse(objectMatch[0]));
+  return normalizeGeneratedStepCandidate(JSON.parse(objectMatch[0]));
 }
 
 export class OpenAiCompatibleStepWriter implements AiStepWriterProvider {
@@ -633,7 +826,7 @@ export class OpenAiCompatibleStepWriter implements AiStepWriterProvider {
   private async requestStep(
     context: StepWritingContext,
     includeScreenshot: boolean,
-  ): Promise<GeneratedStep> {
+  ): Promise<GeneratedStepCandidate> {
     const stepContext = {
       workflowPurpose: context.workflowPurpose,
       audience: context.audience,
@@ -646,14 +839,21 @@ export class OpenAiCompatibleStepWriter implements AiStepWriterProvider {
         includeScreenshot &&
         Boolean(context.screenshotDataUrl || context.screenshotBase64),
     };
+    const authoritativeAction = {
+      actionType: context.current.actionType,
+      elementName: context.current.elementName ?? null,
+      elementRole: context.current.elementRole ?? null,
+    };
     const jsonContract =
-      'Return exactly one compact JSON object: {"title":"...","instruction":"...","altText":"..."}. No markdown outside JSON. No reasoning.';
+      'Return exactly one compact JSON object: {"actionType":"...","elementName":"... or null","elementRole":"... or null","title":"...","instruction":"...","altText":"..."}. No markdown outside JSON. No reasoning.';
     const userText =
       "/no_think\n" +
       JSON.stringify(stepContext) +
       "\n" +
       targetLanguageInstruction(context.outputLocale) +
-      "\nWrite what the user should do, not raw accessibility text. Prefer visible product words, nearby headings, and the screenshot. Ignore page furniture like item counts, pagination, and sort controls unless those were the clicked target.\n" +
+      "\nAUTHORITATIVE_ACTION=" +
+      JSON.stringify(authoritativeAction) +
+      "\nCopy every AUTHORITATIVE_ACTION value exactly into the matching JSON field. The current action, element name, and role override the screenshot, transcript, previous event, and next event. Write one direct imperative instruction that starts with the recorded action and ends with the literal elementName. Do not add a destination, outcome, location, adjacent target, or explanatory clause. The title and altText must contain the literal elementName.\n" +
       jsonContract +
       "\n/no_think";
 
@@ -691,7 +891,7 @@ export class OpenAiCompatibleStepWriter implements AiStepWriterProvider {
         messages: [
           {
             role: "system",
-            content: `/no_think\nWrite concise browser workflow instructions. ${jsonContract} Do not invent actions or outcomes. Avoid mechanical words like div, canvas, field, i, or full page text.\n/no_think`,
+            content: `/no_think\nWrite concise browser workflow instructions. ${jsonContract} Treat AUTHORITATIVE_ACTION as immutable. Never infer the target action from the screenshot or neighboring events. Avoid mechanical words like div, canvas, field, i, or full page text.\n/no_think`,
           },
           {
             role: "user",
@@ -723,7 +923,9 @@ export class OpenAiCompatibleStepWriter implements AiStepWriterProvider {
     }
   }
 
-  async generateStep(context: StepWritingContext): Promise<GeneratedStep> {
+  async generateStep(
+    context: StepWritingContext,
+  ): Promise<GeneratedStepCandidate> {
     try {
       return await this.requestStep(context, true);
     } catch (error) {
@@ -813,15 +1015,25 @@ export class OllamaNativeStepWriter implements AiStepWriterProvider {
     );
   }
 
-  async generateStep(context: StepWritingContext): Promise<GeneratedStep> {
+  async generateStep(
+    context: StepWritingContext,
+  ): Promise<GeneratedStepCandidate> {
     const imageBase64 = context.screenshotDataUrl?.replace(
       /^data:image\/[a-zA-Z0-9.+-]+;base64,/,
       "",
     );
+    const authoritativeAction = {
+      actionType: context.current.actionType,
+      elementName: context.current.elementName ?? null,
+      elementRole: context.current.elementRole ?? null,
+    };
     const prompt =
-      "Return ONLY JSON with keys title, instruction, altText for this browser workflow step.\n" +
+      "Return ONLY JSON with keys actionType, elementName, elementRole, title, instruction, altText for this browser workflow step.\n" +
       "Do not include prose outside JSON.\n" +
       targetLanguageInstruction(context.outputLocale) +
+      "\nAUTHORITATIVE_ACTION=" +
+      JSON.stringify(authoritativeAction) +
+      "\nCopy every AUTHORITATIVE_ACTION value exactly into the matching JSON field. The current action, element name, and role override the image, transcript, previous event, and next event. Write one direct imperative instruction that starts with the recorded action and ends with the literal elementName. Do not add a destination, outcome, location, adjacent target, or explanatory clause. The title and altText must contain the literal elementName.\n" +
       "\n" +
       JSON.stringify({
         workflowPurpose: context.workflowPurpose,

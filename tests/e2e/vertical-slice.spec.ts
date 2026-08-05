@@ -77,6 +77,32 @@ async function authenticate(
   return { "x-csrf-token": csrfToken };
 }
 
+test("serves the matching offline extension from the web deployment", async ({
+  request,
+}) => {
+  test.skip(!apiUrl, "Set INFOSTEED_API_URL to a running InfoSteed deployment");
+
+  const deploymentOrigin = new URL(apiUrl!).origin;
+  const response = await request.get(
+    `${deploymentOrigin}/downloads/extension-offline.zip`,
+  );
+  expect(response.ok()).toBe(true);
+  expect(response.headers()["content-type"]).toContain("application/zip");
+
+  const zip = await JSZip.loadAsync(Buffer.from(await response.body()));
+  const manifestText = await zip.file("manifest.json")?.async("string");
+  expect(manifestText).toBeTruthy();
+  const manifest = JSON.parse(manifestText!) as {
+    manifest_version: number;
+    key?: string;
+  };
+  expect(manifest.manifest_version).toBe(3);
+  expect(manifest.key).toBeTruthy();
+  expect(zip.file("background.js")).toBeTruthy();
+  expect(zip.file("contentScript.js")).toBeTruthy();
+  expect(zip.file("src/popup.html")).toBeTruthy();
+});
+
 test("creates and exports an offline guide over HTTP", async ({ request }) => {
   const mutationHeaders = await authenticate(request);
 

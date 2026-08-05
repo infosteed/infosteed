@@ -2,7 +2,7 @@
 
 InfoSteed installs the core application first. LLM, transcription, and voiceover services are configured afterward and can each be managed by InfoSteed, supplied by another host, or disabled.
 
-`v0.1.0-beta.6` is the current public prerelease. The commands below prepare the unpublished `v0.1.0-beta.8` candidate after its signed tag exists; do not deploy an untagged checkout as a supported release.
+`v0.1.0-beta.9` is an unpublished InfoSteed release candidate. Beta.8 and earlier beta tags were superseded without public publication. Use the commands below only after the signed beta.9 tag exists; do not deploy an untagged checkout as a supported release.
 
 ## Choose a topology
 
@@ -42,7 +42,7 @@ Do not rely on `ss` alone. Kubernetes ServiceLB and similar components can redir
 ```bash
 git clone https://github.com/infosteed/infosteed.git
 cd infosteed
-git checkout v0.1.0-beta.8
+git checkout v0.1.0-beta.9
 ```
 
 For a publicly resolvable host, use public ACME certificates:
@@ -126,9 +126,9 @@ For existing or split-host services, follow [AI services](ai-services.md). Crede
 
 ## Install the browser extension offline
 
-The extension ZIP is a release asset, not part of `deploy/` or the Git checkout. Build output under `artifacts/` and `apps/extension/dist/` is deliberately ignored by Git.
+The beta.9 API image bundles the Chrome browser extension package. Sign in as an administrator, open **Administration**, select **Browser Extensions**, and download `extension-offline.zip`.
 
-Download `extension-offline.zip` from the matching GitHub Release. Assets on a draft release are visible only to an authenticated repository owner; the public download URL returns `404` until that draft is published. Do not use GitHub's automatically generated source-code ZIP as the extension.
+The matching GitHub Release assets are an alternative when the deployment is not yet running. Assets on a draft release are visible only to an authenticated repository owner; the public download URL returns `404` until that draft is published. Do not use GitHub's automatically generated source-code ZIP as the extension. Build output under `artifacts/` and `apps/extension/dist/` remains deliberately ignored by Git.
 
 Extract `extension-offline.zip` to a permanent directory, open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select the directory containing `manifest.json`. For the official package, verify that Chrome reports this extension ID:
 

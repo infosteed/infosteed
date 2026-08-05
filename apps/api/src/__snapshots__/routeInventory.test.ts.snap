@@ -12,6 +12,22 @@ exports[`API route contract > preserves every registered method and path 1`] = `
   },
   {
     "method": "GET",
+    "url": "/admin/extensions",
+  },
+  {
+    "method": "HEAD",
+    "url": "/admin/extensions",
+  },
+  {
+    "method": "GET",
+    "url": "/admin/extensions/:id/download",
+  },
+  {
+    "method": "HEAD",
+    "url": "/admin/extensions/:id/download",
+  },
+  {
+    "method": "GET",
     "url": "/admin/system/status",
   },
   {

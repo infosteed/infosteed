@@ -53,10 +53,10 @@ jobs:
           --workdir /repo
           ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
           git --redact --no-banner /repo
-      - run: corepack pnpm extension:package
+      - run: corepack pnpm extension:package -- --chrome-only
       - uses: anchore/sbom-action@v0
         with:
-          path: apps/extension/dist
+          path: apps/extension/dist/chrome
           format: cyclonedx-json
           output-file: artifacts/extension.cdx.json
           upload-artifact: false
@@ -99,6 +99,10 @@ jobs:
             context: whisper
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
+        with:
+          name: extension-${{ github.sha }}
+          path: artifacts
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:

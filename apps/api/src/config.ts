@@ -104,7 +104,7 @@ const configSchema = z
     WEB_ORIGIN: z.string().default("http://localhost:5173"),
     EXTENSION_ORIGINS: commaSeparatedOrigins,
     APP_SOURCE_URL: optionalUrlEnv,
-    RELEASE_VERSION: z.string().trim().min(1).default("0.1.0-beta.4"),
+    RELEASE_VERSION: z.string().trim().min(1).default("0.1.0-beta.5"),
     RELEASE_COMMIT: z.string().trim().min(1).default("development"),
     APP_DOMAIN: optionalEnv,
     TWO_FACTOR_ENABLED: booleanEnv.default(false),

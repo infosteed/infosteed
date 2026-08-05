@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { useEffect, useState } from "react";
 import {
   exportUrl,
   htmlExportUrl,
   pdfExportUrl,
   projectExportUrl,
   sanityExportUrl,
+  listWordTemplates,
   wiziwigExportUrl,
   wordExportUrl,
 } from "../../api";
+import type { WordTemplateSummary } from "@infosteed/shared";
 import {
   BookOpen,
   CirclePlus,
@@ -35,6 +38,12 @@ export function RecordingHeader({
   controller: RecordingController;
   contentView: RecordingView;
 }) {
+  const [wordTemplates, setWordTemplates] = useState<WordTemplateSummary[]>([]);
+  useEffect(() => {
+    void listWordTemplates()
+      .then((result) => setWordTemplates(result.templates))
+      .catch(() => setWordTemplates([]));
+  }, []);
   const {
     recording,
     viewOnly,
@@ -218,7 +227,35 @@ export function RecordingHeader({
                 <a href={projectExportUrl(recording.id)}>{t("Project")}</a>
                 <a href={htmlExportUrl(recording.id)}>HTML</a>
                 <a href={wiziwigExportUrl(recording.id)}>Wiziwig</a>
-                <a href={wordExportUrl(recording.id)}>Word</a>
+                <a href={wordExportUrl(recording.id)}>
+                  {wordTemplates.find((template) => template.isDefault)
+                    ? t("Word — {name}", {
+                        name: wordTemplates.find(
+                          (template) => template.isDefault,
+                        )!.name,
+                      })
+                    : "Word"}
+                </a>
+                {wordTemplates.length > 0 && (
+                  <>
+                    <span className="header-more-label">
+                      {t("Word Templates")}
+                    </span>
+                    <a href={wordExportUrl(recording.id, "standard")}>
+                      {t("Word — Standard")}
+                    </a>
+                    {wordTemplates
+                      .filter((template) => !template.isDefault)
+                      .map((template) => (
+                        <a
+                          key={template.id}
+                          href={wordExportUrl(recording.id, template.id)}
+                        >
+                          {t("Word — {name}", { name: template.name })}
+                        </a>
+                      ))}
+                  </>
+                )}
                 <a href={pdfExportUrl(recording.id)}>PDF</a>
                 <a href={sanityExportUrl(recording.id)}>Sanity</a>
                 <a href={exportUrl(recording.id)}>ZIP</a>

@@ -152,6 +152,7 @@ This file is generated from the production pnpm lockfile by `pnpm notices:genera
 | @types/react-dom | 18.3.7 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react-dom |
 | @types/unist | 3.0.3 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/unist |
 | @types/validate-npm-package-name | 4.0.2 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/validate-npm-package-name |
+| @xmldom/xmldom | 0.9.10 | MIT | https://github.com/xmldom/xmldom |
 | abstract-logging | 2.0.1 | MIT | https://github.com/jsumners/abstract-logging#readme |
 | accepts | 2.0.0 | MIT | https://github.com/jshttp/accepts#readme |
 | ajv | 8.20.0 | MIT | https://ajv.js.org |

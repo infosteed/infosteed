@@ -5,20 +5,25 @@ import type {
   CurrentUser,
   Project,
   ProjectMember,
+  WordTemplateSummary,
 } from "@infosteed/shared";
 import {
   createUser,
+  deleteWordTemplate,
   getAdminSystemStatus,
   getBranding,
   listProjectMembers,
   listProjects,
   listUsers,
+  listWordTemplates,
   removeProjectMember,
   resetUserTwoFactor,
   setProjectMember,
   updateBranding,
   updateProject,
   updateUser,
+  updateWordTemplate,
+  uploadWordTemplate,
 } from "../../api";
 import { errorMessage } from "../../errors";
 
@@ -33,6 +38,7 @@ export function useAdminController() {
     displayName: "InfoSteed",
     iconDataUrl: null,
   });
+  const [wordTemplates, setWordTemplates] = useState<WordTemplateSummary[]>([]);
   const [newUser, setNewUser] = useState({
     username: "",
     displayName: "",
@@ -50,17 +56,24 @@ export function useAdminController() {
 
   async function load() {
     try {
-      const [userResult, brandingResult, projectResult, nextSystemStatus] =
-        await Promise.all([
-          listUsers(),
-          getBranding(),
-          listProjects(),
-          getAdminSystemStatus(),
-        ]);
+      const [
+        userResult,
+        brandingResult,
+        projectResult,
+        nextSystemStatus,
+        templateResult,
+      ] = await Promise.all([
+        listUsers(),
+        getBranding(),
+        listProjects(),
+        getAdminSystemStatus(),
+        listWordTemplates(),
+      ]);
       setUsers(userResult.users);
       setBranding(brandingResult);
       setProjects(projectResult.projects);
       setSystemStatus(nextSystemStatus);
+      setWordTemplates(templateResult.templates);
       const nextProjectId =
         selectedProjectId || projectResult.projects[0]?.id || "";
       setSelectedProjectId(nextProjectId);
@@ -106,6 +119,47 @@ export function useAdminController() {
 
   async function updateBrandingName() {
     await updateBranding({ displayName: branding.displayName });
+  }
+
+  async function uploadTemplate(file?: File) {
+    if (!file) return;
+    try {
+      await uploadWordTemplate({
+        name: file.name.replace(/\.docx$/i, ""),
+        file,
+      });
+      await load();
+    } catch (uploadError) {
+      setError(errorMessage(uploadError));
+    }
+  }
+
+  async function renameTemplate(id: string, name: string) {
+    if (!name.trim()) return;
+    try {
+      await updateWordTemplate(id, { name: name.trim() });
+      await load();
+    } catch (updateError) {
+      setError(errorMessage(updateError));
+    }
+  }
+
+  async function setDefaultTemplate(id: string) {
+    try {
+      await updateWordTemplate(id, { isDefault: true });
+      await load();
+    } catch (updateError) {
+      setError(errorMessage(updateError));
+    }
+  }
+
+  async function removeTemplate(id: string) {
+    try {
+      await deleteWordTemplate(id);
+      await load();
+    } catch (deleteError) {
+      setError(errorMessage(deleteError));
+    }
   }
 
   async function addMember() {
@@ -175,6 +229,7 @@ export function useAdminController() {
     setMemberRole,
     branding,
     setBranding,
+    wordTemplates,
     newUser,
     setNewUser,
     error,
@@ -186,6 +241,10 @@ export function useAdminController() {
     addUser,
     readIcon,
     updateBrandingName,
+    uploadTemplate,
+    renameTemplate,
+    setDefaultTemplate,
+    removeTemplate,
     addMember,
     toggleProjectPrivate,
     updateUserRole,

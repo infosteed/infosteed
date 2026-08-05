@@ -24,7 +24,7 @@ Fetch tags and check out the new official release, leaving the existing `deploy/
 
 ```bash
 git fetch --tags
-git checkout v0.1.0-beta.4
+git checkout v0.1.0-beta.5
 scripts/upgrade-production.sh
 ```
 

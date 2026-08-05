@@ -2,7 +2,7 @@
 
 InfoSteed installs the core application first. LLM, transcription, and voiceover services are configured afterward and can each be managed by InfoSteed, supplied by another host, or disabled.
 
-There is no supported public release yet. The commands below prepare the unpublished `v0.1.0-beta.4` candidate after its signed tag exists; do not publish or deploy the superseded `v0.1.0-beta.3` artifacts as a supported release.
+`v0.1.0-beta.4` is the current public prerelease. The commands below prepare the unpublished `v0.1.0-beta.5` candidate after its signed tag exists; do not deploy an untagged checkout as a supported release.
 
 ## Choose a topology
 
@@ -31,7 +31,7 @@ Do not run the development `docker-compose.yml` on an exposed host. It contains 
 ```bash
 git clone https://github.com/infosteed/infosteed.git
 cd infosteed
-git checkout v0.1.0-beta.4
+git checkout v0.1.0-beta.5
 ```
 
 For a publicly resolvable host, use public ACME certificates:

@@ -16,6 +16,7 @@ deploy/infosteed-local-ca.crt
 playwright-report/
 test-results/
 artifacts/
+/temp/
 whisper/.venv-stt/
 whisper/__pycache__/
 

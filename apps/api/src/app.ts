@@ -13,6 +13,7 @@ import {
 } from "@infosteed/image-processor";
 import {
   buildEmbeddedHtml,
+  buildTemplatedWorkflowDocx,
   buildWiziwigZip,
   buildWorkflowDocx,
   buildWorkflowZip,
@@ -206,6 +207,12 @@ import {
 import { registerSystemRoutes } from "./routes/system.js";
 import { registerProjectRoutes } from "./routes/projects.js";
 import { registerUserRoutes } from "./routes/users.js";
+import { registerWordTemplateRoutes } from "./routes/wordTemplates.js";
+import {
+  findUserDisplayName,
+  getDefaultWordTemplate,
+  getWordTemplate,
+} from "./repositories/wordTemplates.js";
 
 export interface RegisteredRoute {
   method: string;
@@ -267,6 +274,11 @@ export function buildApp(
 
   app.addContentTypeParser(
     "application/octet-stream",
+    { parseAs: "buffer" },
+    (_request, body, done) => done(null, body),
+  );
+  app.addContentTypeParser(
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     { parseAs: "buffer" },
     (_request, body, done) => done(null, body),
   );
@@ -989,6 +1001,18 @@ export function buildApp(
   });
 
   registerProjectRoutes(app, {
+    config,
+    pool,
+    videoStorage,
+    currentUser,
+    requireAdmin,
+    requireProjectRead,
+    requireProjectManage,
+    audit,
+    httpError,
+  });
+
+  registerWordTemplateRoutes(app, {
     config,
     pool,
     videoStorage,
@@ -2857,38 +2881,76 @@ export function buildApp(
     },
   );
 
-  app.get<{ Params: { id: string } }>(
-    "/recordings/:id/export/word",
-    async (request, reply) => {
-      await requireRecordingRead(request, request.params.id);
-      const { recording, images } = await loadRecordingAndImages(
-        request.params.id,
-      );
-      const wordImages = await Promise.all(
-        images.map(async (image) => ({
-          filename: image.filename,
-          content: await convertImageToPng(Buffer.from(image.content)),
-          contentType: "image/png",
-        })),
-      );
-      const docx = await buildWorkflowDocx(
-        recording,
-        wordImages,
-        await getDocxBranding(),
-      );
+  app.get<{
+    Params: { id: string };
+    Querystring: { templateId?: string };
+  }>("/recordings/:id/export/word", async (request, reply) => {
+    await requireRecordingRead(request, request.params.id);
+    const { recording, images } = await loadRecordingAndImages(
+      request.params.id,
+    );
+    const wordImages = await Promise.all(
+      images.map(async (image) => ({
+        filename: image.filename,
+        content: await convertImageToPng(Buffer.from(image.content)),
+        contentType: "image/png",
+      })),
+    );
+    const selection = request.query.templateId;
+    if (
+      selection &&
+      selection !== "standard" &&
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        selection,
+      )
+    )
+      throw httpError(400, "Invalid Word template id");
+    const template =
+      selection === "standard"
+        ? null
+        : selection
+          ? await getWordTemplate(pool, selection)
+          : await getDefaultWordTemplate(pool);
+    if (selection && selection !== "standard" && !template)
+      throw httpError(404, "Word template not found");
 
-      return reply
-        .header(
-          "content-type",
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    const user = currentUser(request);
+    const author =
+      (await findUserDisplayName(pool, recording.ownerUserId)) ??
+      user.displayName;
+    const finalized = recording.state === "finalized";
+    const docx = template
+      ? await buildTemplatedWorkflowDocx(
+          template.content,
+          recording,
+          wordImages,
+          {
+            title: recording.title,
+            purpose: recording.purpose ?? "",
+            author,
+            status: finalized ? "Final" : "Draft",
+            version: finalized ? "1.0" : "0.1",
+            date: new Intl.DateTimeFormat("en-GB", {
+              dateStyle: "long",
+              timeZone: "UTC",
+            }).format(new Date()),
+            approver: "",
+            changeLogDetails: "Initial InfoSteed export",
+          },
         )
-        .header(
-          "content-disposition",
-          `attachment; filename="${PRODUCT_IDENTIFIERS.exportPrefix}-${recording.id}.docx"`,
-        )
-        .send(docx);
-    },
-  );
+      : await buildWorkflowDocx(recording, wordImages, await getDocxBranding());
+
+    return reply
+      .header(
+        "content-type",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      )
+      .header(
+        "content-disposition",
+        `attachment; filename="${PRODUCT_IDENTIFIERS.exportPrefix}-${recording.id}.docx"`,
+      )
+      .send(docx);
+  });
 
   app.get<{ Params: { id: string } }>(
     "/recordings/:id/export/pdf",

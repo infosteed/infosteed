@@ -27,6 +27,7 @@ import type {
   ScreenshotEditOperations,
   ThemePreference,
   UserDirectoryEntry,
+  WordTemplateSummary,
 } from "@infosteed/shared";
 import type { PublicSystemInfo } from "@infosteed/shared";
 import { PRODUCT_IDENTIFIERS } from "@infosteed/shared";
@@ -387,6 +388,56 @@ export function updateBranding(patch: Partial<BrandingSettings>) {
     method: "PATCH",
     body: JSON.stringify(patch),
   });
+}
+
+export function listWordTemplates() {
+  return request<{ templates: WordTemplateSummary[] }>("/word-templates");
+}
+
+export function uploadWordTemplate(input: {
+  name: string;
+  file: File;
+  makeDefault?: boolean;
+}) {
+  const query = new URLSearchParams({
+    name: input.name,
+    filename: input.file.name,
+    makeDefault: String(Boolean(input.makeDefault)),
+  });
+  return request<WordTemplateSummary>(`/admin/word-templates?${query}`, {
+    method: "POST",
+    headers: {
+      "content-type":
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    },
+    body: input.file,
+  });
+}
+
+export function updateWordTemplate(
+  id: string,
+  patch: { name?: string; isDefault?: boolean },
+) {
+  return request<WordTemplateSummary>(`/admin/word-templates/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function deleteWordTemplate(id: string): Promise<void> {
+  const response = await requestResponse(`/admin/word-templates/${id}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(
+      `API request failed: ${response.status}${detail ? ` ${detail}` : ""}`,
+    );
+  }
+}
+
+export function wordTemplateFileUrl(id: string): string {
+  return `${API_BASE}/admin/word-templates/${id}/file`;
 }
 
 export function listProjectMembers(projectId: string) {
@@ -843,8 +894,14 @@ export function pdfExportUrl(recordingId: string): string {
   return `${API_BASE}/recordings/${recordingId}/export/pdf`;
 }
 
-export function wordExportUrl(recordingId: string): string {
-  return `${API_BASE}/recordings/${recordingId}/export/word`;
+export function wordExportUrl(
+  recordingId: string,
+  templateId?: string,
+): string {
+  const query = templateId
+    ? `?templateId=${encodeURIComponent(templateId)}`
+    : "";
+  return `${API_BASE}/recordings/${recordingId}/export/word${query}`;
 }
 
 export function projectExportUrl(recordingId: string): string {

@@ -4,6 +4,18 @@ All notable changes are documented here. The project uses Semantic Versioning on
 
 ## [Unreleased]
 
+## [0.1.0-beta.5] - Unreleased
+
+### Added
+
+- Added administrator-managed Word `.docx` templates with upload validation, compatibility reporting, default-template selection, and localized management controls.
+- Added template-based Word export that fills tagged content controls while preserving the template's cover, layout, styles, headers, footers, numbering, document properties, and table of contents.
+
+### Changed
+
+- Reworked the public README around product capabilities while retaining the detailed development and operations guide in `README.technical.md`.
+- Reduced routine GitHub Actions work with selective integration checks, dependency and BuildKit caching, cancellation of superseded runs, weekly container security scans, and stricter release-time artifact reuse and verification.
+
 ## [0.1.0-beta.4] - 2026-08-05
 
 ### Added

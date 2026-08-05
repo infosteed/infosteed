@@ -4,7 +4,7 @@ import { z } from "zod";
 export const PRODUCT_METADATA = Object.freeze({
   displayName: "InfoSteed",
   slug: "infosteed",
-  releaseVersion: "0.1.0-beta.4",
+  releaseVersion: "0.1.0-beta.5",
   protocolVersion: 1,
   minimumExtensionVersion: "0.1.0",
 });
@@ -955,6 +955,36 @@ export const brandingSettingsSchema = z.object({
 export const updateBrandingSettingsRequestSchema =
   brandingSettingsSchema.partial();
 
+export const wordTemplateInspectionSchema = z.object({
+  valid: z.boolean(),
+  foundTags: z.array(z.string()),
+  missingRequiredTags: z.array(z.string()),
+  warnings: z.array(z.string()),
+});
+
+export const wordTemplateSummarySchema = z.object({
+  id: z.string().uuid(),
+  name: shortTextSchema,
+  originalFilename: safeTextSchema,
+  sha256: z.string().length(64),
+  isDefault: z.boolean(),
+  inspection: wordTemplateInspectionSchema,
+  uploadedByUserId: z.string().uuid().nullable(),
+  uploadedByDisplayName: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export const updateWordTemplateRequestSchema = z
+  .object({
+    name: shortTextSchema.optional(),
+    isDefault: z.boolean().optional(),
+  })
+  .refine(
+    (value) => value.name !== undefined || value.isDefault !== undefined,
+    "At least one template setting is required",
+  );
+
 export const currentUserSchema = z.object({
   id: z.string().uuid(),
   username: z.string(),
@@ -1050,6 +1080,13 @@ export type Project = z.infer<typeof projectSchema>;
 export type ProjectMember = z.infer<typeof projectMemberSchema>;
 export type RecordingListItem = z.infer<typeof recordingListItemSchema>;
 export type BrandingSettings = z.infer<typeof brandingSettingsSchema>;
+export type WordTemplateInspection = z.infer<
+  typeof wordTemplateInspectionSchema
+>;
+export type WordTemplateSummary = z.infer<typeof wordTemplateSummarySchema>;
+export type UpdateWordTemplateRequest = z.infer<
+  typeof updateWordTemplateRequestSchema
+>;
 export type CsrfResponse = z.infer<typeof csrfResponseSchema>;
 export type AuditEvent = z.infer<typeof auditEventSchema>;
 export type GuideVersionListItem = z.infer<typeof guideVersionListItemSchema>;

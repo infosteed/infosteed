@@ -2,6 +2,16 @@
 import JSZip from "jszip";
 import type { GuideItem, GuideStep, Recording } from "@infosteed/shared";
 
+export {
+  buildTemplatedWorkflowDocx,
+  inspectWordTemplate,
+  WORD_TEMPLATE_TEXT_TAGS,
+} from "./docx-template.js";
+export type {
+  WordTemplateInspection,
+  WordTemplateMetadata,
+} from "./docx-template.js";
+
 const REMOTE_IMAGE_PATTERNS = [
   /https?:\/\//i,
   /s3:\/\//i,
@@ -259,20 +269,23 @@ function docxRuns(value: string): string {
   return runs.join("");
 }
 
-function docxParagraph(value: string, style?: string): string {
-  const styleXml = style ? `<w:pPr><w:pStyle w:val="${style}"/></w:pPr>` : "";
-  return `<w:p>${styleXml}${docxRuns(value)}</w:p>`;
+function docxParagraph(value: string, style?: string, properties = ""): string {
+  const styleXml = style ? `<w:pStyle w:val="${style}"/>` : "";
+  const paragraphProperties =
+    styleXml || properties ? `<w:pPr>${styleXml}${properties}</w:pPr>` : "";
+  return `<w:p>${paragraphProperties}${docxRuns(value)}</w:p>`;
 }
 
-function docxImage(
+function docxImageDrawing(
   relId: string,
   name: string,
   altText: string,
   size?: { cx: number; cy: number },
+  border = true,
 ): string {
   const cx = size?.cx ?? 5_486_400;
   const cy = size?.cy ?? 3_429_000;
-  return `<w:p><w:r><w:drawing>
+  return `<w:r><w:rPr><w:noProof/></w:rPr><w:drawing>
     <wp:inline distT="0" distB="0" distL="0" distR="0">
       <wp:extent cx="${cx}" cy="${cy}"/>
       <wp:docPr id="${escapeXml(relId.replace(/\D/g, "") || "1")}" name="${escapeXml(name)}" descr="${escapeXml(altText)}"/>
@@ -282,12 +295,72 @@ function docxImage(
           <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
             <pic:nvPicPr><pic:cNvPr id="0" name="${escapeXml(name)}" descr="${escapeXml(altText)}"/><pic:cNvPicPr/></pic:nvPicPr>
             <pic:blipFill><a:blip r:embed="${relId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>
-            <pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>
+            <pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom>${border ? '<a:ln w="9525"><a:solidFill><a:srgbClr val="D0D5DD"/></a:solidFill></a:ln>' : "<a:ln><a:noFill/></a:ln>"}</pic:spPr>
           </pic:pic>
         </a:graphicData>
       </a:graphic>
     </wp:inline>
-  </w:drawing></w:r></w:p>`;
+  </w:drawing></w:r>`;
+}
+
+function docxImage(
+  relId: string,
+  name: string,
+  altText: string,
+  size?: { cx: number; cy: number },
+): string {
+  return `<w:p><w:pPr><w:spacing w:before="120" w:after="0"/></w:pPr>${docxImageDrawing(relId, name, altText, size)}</w:p>`;
+}
+
+function pngSize(
+  image: ExportImage,
+  maxWidth = 5_486_400,
+  maxHeight = 6_858_000,
+): { cx: number; cy: number } {
+  const content = Buffer.from(image.content);
+  if (
+    content.length >= 24 &&
+    content
+      .subarray(0, 8)
+      .equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+  ) {
+    const width = content.readUInt32BE(16);
+    const height = content.readUInt32BE(20);
+    if (width > 0 && height > 0) {
+      const scale = Math.min(maxWidth / width, maxHeight / height);
+      return { cx: Math.round(width * scale), cy: Math.round(height * scale) };
+    }
+  }
+  return { cx: maxWidth, cy: 3_429_000 };
+}
+
+function docxTitleRow(
+  title: string,
+  logo?: { relId: string; name: string; altText: string },
+): string {
+  const logoCell = logo
+    ? `<w:p><w:pPr><w:jc w:val="right"/><w:spacing w:after="0"/></w:pPr>${docxImageDrawing(
+        logo.relId,
+        logo.name,
+        logo.altText,
+        { cx: 495_300, cy: 495_300 },
+        false,
+      )}</w:p>`
+    : "<w:p/>";
+  return `<w:tbl><w:tblPr><w:tblW w:w="9638" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="8780"/><w:gridCol w:w="858"/></w:tblGrid><w:tr><w:tc><w:tcPr><w:tcW w:w="8780" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr>${docxParagraph(title, "Title")}</w:tc><w:tc><w:tcPr><w:tcW w:w="858" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr>${logoCell}</w:tc></w:tr></w:tbl>`;
+}
+
+function docxCallout(kind: "tip" | "alert", body: string): string {
+  const isTip = kind === "tip";
+  const label = isTip ? "Tip" : "Alert";
+  const background = isTip ? "EFF8FF" : "FFFAEB";
+  const border = isTip ? "2E90FA" : "F79009";
+  return `<w:tbl><w:tblPr><w:tblW w:w="9638" w:type="dxa"/><w:tblBorders><w:left w:val="single" w:sz="24" w:color="${border}"/><w:top w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders><w:tblCellMar><w:top w:w="160" w:type="dxa"/><w:left w:w="220" w:type="dxa"/><w:bottom w:w="160" w:type="dxa"/><w:right w:w="220" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tr><w:trPr><w:cantSplit/></w:trPr><w:tc><w:tcPr><w:shd w:val="clear" w:fill="${background}"/></w:tcPr><w:p><w:pPr><w:spacing w:after="80"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>${label}</w:t></w:r></w:p>${docxParagraph(body, "CalloutText")}</w:tc></w:tr></w:tbl><w:p><w:pPr><w:spacing w:after="120"/></w:pPr></w:p>`;
+}
+
+function docxStep(number: number, content: string): string {
+  const badge = `<w:p><w:pPr><w:spacing w:after="0"/></w:pPr><w:r><w:pict><v:roundrect style="width:27pt;height:27pt;v-text-anchor:middle" arcsize="50%" fillcolor="#DBEAFE" stroked="f"><v:textbox inset="0,0,0,0"><w:txbxContent><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="60" w:after="0"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="1D4ED8"/></w:rPr><w:t>${number}</w:t></w:r></w:p></w:txbxContent></v:textbox></v:roundrect></w:pict></w:r></w:p>`;
+  return `<w:tbl><w:tblPr><w:tblW w:w="9638" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="720"/><w:gridCol w:w="8918"/></w:tblGrid><w:tr><w:trPr><w:cantSplit/></w:trPr><w:tc><w:tcPr><w:tcW w:w="720" w:type="dxa"/><w:vAlign w:val="top"/></w:tcPr>${badge}</w:tc><w:tc><w:tcPr><w:tcW w:w="8918" w:type="dxa"/><w:tcMar><w:left w:w="220" w:type="dxa"/></w:tcMar></w:tcPr>${content}</w:tc></w:tr></w:tbl><w:p><w:pPr><w:spacing w:after="180"/></w:pPr></w:p>`;
 }
 
 function basenameWithoutExtension(filename: string): string {
@@ -309,6 +382,7 @@ export async function buildWorkflowDocx(
   }> = [];
   const body: string[] = [];
 
+  let logo: { relId: string; name: string; altText: string } | undefined;
   if (branding?.docxIcon) {
     const mediaFilename = "branding-icon.png";
     const relId = `rId${mediaFiles.length + 1}`;
@@ -318,16 +392,16 @@ export async function buildWorkflowDocx(
       image: branding.docxIcon,
       relId,
     });
-    body.push(
-      docxImage(relId, mediaFilename, branding.displayName ?? "Brand icon", {
-        cx: 609_600,
-        cy: 609_600,
-      }),
-    );
+    logo = {
+      relId,
+      name: mediaFilename,
+      altText: branding.displayName ?? "Brand icon",
+    };
   }
 
-  body.push(docxParagraph(recording.title, "Title"));
-  if (recording.purpose) body.push(docxParagraph(recording.purpose));
+  body.push(docxTitleRow(recording.title, logo));
+  if (recording.purpose)
+    body.push(docxParagraph(recording.purpose, "Overview"));
 
   let stepNumber = 0;
   for (const item of itemsForRecording(recording)
@@ -341,14 +415,18 @@ export async function buildWorkflowDocx(
     }
 
     if (item.kind === "tip" || item.kind === "alert") {
-      body.push(
-        docxParagraph(`${item.kind === "tip" ? "Tip" : "Alert"}: ${item.body}`),
-      );
+      body.push(docxCallout(item.kind, item.body));
       continue;
     }
 
     stepNumber += 1;
-    body.push(docxParagraph(`${stepNumber}. ${item.body}`));
+    const stepContent = [
+      docxParagraph(
+        item.body,
+        "StepText",
+        item.imageFilename ? "<w:keepNext/>" : "",
+      ),
+    ];
     if (item.imageFilename) {
       const image = imageMap.get(item.imageFilename);
       if (!image)
@@ -363,8 +441,16 @@ export async function buildWorkflowDocx(
         image,
         relId,
       });
-      body.push(docxImage(relId, mediaFilename, item.altText ?? item.title));
+      stepContent.push(
+        docxImage(
+          relId,
+          mediaFilename,
+          item.altText ?? item.title,
+          pngSize(image),
+        ),
+      );
     }
+    body.push(docxStep(stepNumber, stepContent.join("")));
   }
 
   const relationships = mediaFiles
@@ -395,14 +481,22 @@ export async function buildWorkflowDocx(
   zip.file(
     "word/_rels/document.xml.rels",
     `<?xml version="1.0" encoding="UTF-8"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${relationships}</Relationships>`,
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+  ${relationships}
+</Relationships>`,
   );
   zip.file(
     "word/styles.xml",
     `<?xml version="1.0" encoding="UTF-8"?>
 <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/><w:rPr><w:b/><w:sz w:val="56"/></w:rPr></w:style>
-  <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:rPr><w:b/><w:sz w:val="36"/></w:rPr></w:style>
+  <w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Aptos" w:hAnsi="Aptos" w:cs="Aptos"/><w:color w:val="111827"/><w:sz w:val="22"/><w:szCs w:val="22"/><w:lang w:val="en-GB"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="160" w:line="341" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>
+  <w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>
+  <w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="0" w:after="280" w:line="288" w:lineRule="auto"/></w:pPr><w:rPr><w:b/><w:color w:val="111827"/><w:sz w:val="45"/><w:szCs w:val="45"/></w:rPr></w:style>
+  <w:style w:type="paragraph" w:styleId="Overview"><w:name w:val="Overview"/><w:basedOn w:val="Normal"/><w:pPr><w:spacing w:before="0" w:after="360" w:line="372" w:lineRule="auto"/></w:pPr><w:rPr><w:color w:val="475467"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr></w:style>
+  <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="300" w:after="120"/></w:pPr><w:rPr><w:b/><w:sz w:val="33"/><w:szCs w:val="33"/></w:rPr></w:style>
+  <w:style w:type="paragraph" w:styleId="StepText"><w:name w:val="Step Text"/><w:basedOn w:val="Normal"/><w:pPr><w:spacing w:before="40" w:after="120" w:line="341" w:lineRule="auto"/></w:pPr></w:style>
+  <w:style w:type="paragraph" w:styleId="CalloutText"><w:name w:val="Callout Text"/><w:basedOn w:val="Normal"/><w:pPr><w:spacing w:after="0" w:line="341" w:lineRule="auto"/></w:pPr></w:style>
 </w:styles>`,
   );
   zip.file(

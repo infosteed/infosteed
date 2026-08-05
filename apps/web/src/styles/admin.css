@@ -94,6 +94,17 @@
   grid-template-columns: 78px minmax(240px, 1fr) auto;
 }
 
+.template-upload-strip {
+  display: flex;
+  margin: 12px 0;
+}
+
+.settings-help {
+  margin: 8px 0 0;
+  color: var(--neutral-600);
+  font-size: 13px;
+}
+
 .create-user-bar {
   grid-template-columns: repeat(3, minmax(150px, 1fr)) 130px auto;
 }
@@ -176,6 +187,19 @@
 .admin-row > div {
   display: grid;
   gap: 2px;
+}
+
+.admin-row > div:first-child small {
+  display: block;
+  color: var(--neutral-500);
+  overflow-wrap: anywhere;
+}
+
+.admin-row .admin-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .admin-row strong,

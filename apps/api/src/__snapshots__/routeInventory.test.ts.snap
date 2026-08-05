@@ -19,6 +19,26 @@ exports[`API route contract > preserves every registered method and path 1`] = `
     "url": "/admin/system/status",
   },
   {
+    "method": "POST",
+    "url": "/admin/word-templates",
+  },
+  {
+    "method": "DELETE",
+    "url": "/admin/word-templates/:id",
+  },
+  {
+    "method": "PATCH",
+    "url": "/admin/word-templates/:id",
+  },
+  {
+    "method": "GET",
+    "url": "/admin/word-templates/:id/file",
+  },
+  {
+    "method": "HEAD",
+    "url": "/admin/word-templates/:id/file",
+  },
+  {
     "method": "GET",
     "url": "/auth/csrf",
   },
@@ -621,6 +641,14 @@ exports[`API route contract > preserves every registered method and path 1`] = `
   {
     "method": "HEAD",
     "url": "/users/directory",
+  },
+  {
+    "method": "GET",
+    "url": "/word-templates",
+  },
+  {
+    "method": "HEAD",
+    "url": "/word-templates",
   },
 ]
 `;

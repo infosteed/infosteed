@@ -1,7 +1,7 @@
 {
   "name": "@infosteed/markdown-exporter",
   "private": true,
-  "version": "0.1.0-beta.4",
+  "version": "0.1.0-beta.5",
   "license": "AGPL-3.0-only",
   "type": "module",
   "main": "dist/index.js",
@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@infosteed/shared": "workspace:*",
+    "@xmldom/xmldom": "^0.9.10",
     "jszip": "^3.10.1",
     "mdast-util-from-markdown": "^2.0.2",
     "tar-stream": "^3.1.7"

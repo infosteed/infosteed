@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { useAdminController } from "../features/admin/useAdminController";
+import { wordTemplateFileUrl } from "../api";
 import { plural, t } from "../i18n";
 import { BrandMark, productLogoUrl } from "./BrandMark";
 import { StatusBadge } from "./design/StatusBadge";
@@ -18,6 +19,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
     setMemberRole,
     branding,
     setBranding,
+    wordTemplates,
     newUser,
     setNewUser,
     error,
@@ -29,6 +31,10 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
     addUser,
     readIcon,
     updateBrandingName,
+    uploadTemplate,
+    renameTemplate,
+    setDefaultTemplate,
+    removeTemplate,
     addMember,
     toggleProjectPrivate,
     updateUserRole,
@@ -62,6 +68,13 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
             }
           >
             {t("Users")}
+          </button>
+          <button
+            onClick={() =>
+              document.getElementById("admin-word-templates")?.scrollIntoView()
+            }
+          >
+            {t("Word Templates")}
           </button>
           <button
             onClick={() =>
@@ -175,6 +188,85 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                 />
                 {t("Upload Icon")}
               </label>
+            </div>
+          </article>
+          <article id="admin-word-templates" className="admin-section">
+            <div className="section-title">
+              <div>
+                <p>{t("Exports")}</p>
+                <h2>{t("Word Templates")}</h2>
+              </div>
+              <span className="status-pill neutral">
+                {t("{count} templates", { count: wordTemplates.length })}
+              </span>
+            </div>
+            <p className="settings-help">
+              {t(
+                "Templates must contain one block content control tagged INFOSTEED_REPORT_BODY. Tagged metadata controls are filled automatically.",
+              )}
+            </p>
+            <div className="template-upload-strip">
+              <label className="file-picker">
+                <input
+                  type="file"
+                  accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  onChange={(event) => {
+                    void uploadTemplate(event.target.files?.[0]);
+                    event.currentTarget.value = "";
+                  }}
+                />
+                {t("Upload Word Template")}
+              </label>
+            </div>
+            <div className="admin-table">
+              {wordTemplates.map((template) => (
+                <div key={template.id} className="admin-row">
+                  <div>
+                    <input
+                      aria-label={t("Template name")}
+                      defaultValue={template.name}
+                      onBlur={(event) => {
+                        if (event.target.value.trim() !== template.name)
+                          void renameTemplate(template.id, event.target.value);
+                      }}
+                    />
+                    <small>{template.originalFilename}</small>
+                    <small>
+                      {t("Tags: {tags}", {
+                        tags: template.inspection.foundTags.join(", "),
+                      })}
+                    </small>
+                    {template.inspection.warnings.map((warning) => (
+                      <small key={warning}>{warning}</small>
+                    ))}
+                  </div>
+                  <div className="admin-row-actions">
+                    {template.isDefault ? (
+                      <StatusBadge variant="success">
+                        {t("Default")}
+                      </StatusBadge>
+                    ) : (
+                      <button
+                        onClick={() => void setDefaultTemplate(template.id)}
+                      >
+                        {t("Set Default")}
+                      </button>
+                    )}
+                    <a href={wordTemplateFileUrl(template.id)}>
+                      {t("Download")}
+                    </a>
+                    <button
+                      className="danger-action"
+                      onClick={() => void removeTemplate(template.id)}
+                    >
+                      {t("Delete")}
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {wordTemplates.length === 0 && (
+                <p>{t("No Word templates uploaded.")}</p>
+              )}
             </div>
           </article>
 

@@ -437,12 +437,16 @@ describe("markdown exporter", () => {
   });
 
   it("builds a Word docx with embedded image media", async () => {
+    const screenshot = Buffer.alloc(24);
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).copy(screenshot);
+    screenshot.writeUInt32BE(2_000, 16);
+    screenshot.writeUInt32BE(1_000, 20);
     const docxBuffer = await buildWorkflowDocx(
       recording,
       [
         {
           filename: "step-001-open-customers.webp",
-          content: Buffer.from("png-image"),
+          content: screenshot,
           contentType: "image/png",
         },
       ],
@@ -457,6 +461,7 @@ describe("markdown exporter", () => {
     );
     const docx = await JSZip.loadAsync(docxBuffer);
     const documentXml = await docx.file("word/document.xml")?.async("string");
+    const stylesXml = await docx.file("word/styles.xml")?.async("string");
 
     expect(docx.file("[Content_Types].xml")).toBeTruthy();
     expect(docx.file("word/_rels/document.xml.rels")).toBeTruthy();
@@ -465,6 +470,12 @@ describe("markdown exporter", () => {
     expect(documentXml).toContain("Update a customer record");
     expect(documentXml).toContain("Acme Support");
     expect(documentXml).toContain("Click ");
+    expect(documentXml).toContain("<v:roundrect");
+    expect(documentXml).toContain('w:fill="EFF8FF"');
+    expect(documentXml).toContain('w:val="StepText"');
+    expect(documentXml).toContain('<wp:extent cx="5486400" cy="2743200"/>');
+    expect(stylesXml).toContain('w:styleId="Overview"');
+    expect(stylesXml).toContain('w:styleId="CalloutText"');
   });
 
   it("derives ordered sections from header guide items", () => {

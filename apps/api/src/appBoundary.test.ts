@@ -50,6 +50,7 @@ function testPool(role: "admin" | "user" = "user", csrfToken?: string): Pool {
       if (sql.includes("count(*) as count from users"))
         return { rows: [{ count: "1" }] };
       if (sql.includes("delete from sessions")) return { rows: [] };
+      if (sql.includes("from word_export_templates")) return { rows: [] };
       if (sql.includes("join users u")) return { rows: [user] };
       if (sql.includes("set theme_preference = $2"))
         return {
@@ -93,6 +94,10 @@ function testPool(role: "admin" | "user" = "user", csrfToken?: string): Pool {
           ],
         };
       }
+      if (sql.includes("select display_name from users where id"))
+        return { rows: [{ display_name: user.display_name }] };
+      if (sql.includes("select value from app_settings where key = 'branding'"))
+        return { rows: [] };
       if (sql.includes("select * from recordings where id")) {
         return {
           rows: [
@@ -188,6 +193,21 @@ describe("API request boundaries", () => {
     expect(zip.file("guide.html")).toBeTruthy();
   });
 
+  it("keeps standard Word export available without a configured template", async () => {
+    const app = appFor("admin");
+    openApps.push(app);
+    const response = await app.inject({
+      method: "GET",
+      url: "/recordings/00000000-0000-4000-8000-000000000010/export/word?templateId=standard",
+      headers: { cookie: "infosteed_session=session" },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["content-type"]).toContain(
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    );
+    await expect(JSZip.loadAsync(response.rawPayload)).resolves.toBeTruthy();
+  });
+
   it("protects MP4 export status and download routes", async () => {
     const app = appFor();
     openApps.push(app);
@@ -249,6 +269,55 @@ describe("API request boundaries", () => {
       headers: { cookie: "infosteed_session=session" },
     });
     expect(response.statusCode).toBe(403);
+  });
+
+  it("lists Word templates for authenticated users", async () => {
+    const app = appFor("user");
+    openApps.push(app);
+    const response = await app.inject({
+      method: "GET",
+      url: "/word-templates",
+      headers: { cookie: "infosteed_session=session" },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ templates: [] });
+  });
+
+  it("restricts Word template uploads to administrators", async () => {
+    const token = "test-csrf-token";
+    const app = appFor("user", token);
+    openApps.push(app);
+    const response = await app.inject({
+      method: "POST",
+      url: "/admin/word-templates?name=QA&filename=qa.docx",
+      headers: {
+        cookie: "infosteed_session=session",
+        "x-csrf-token": token,
+        "content-type":
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      },
+      payload: Buffer.from("not-a-docx"),
+    });
+    expect(response.statusCode).toBe(403);
+  });
+
+  it("validates uploaded Word packages", async () => {
+    const token = "test-csrf-token";
+    const app = appFor("admin", token);
+    openApps.push(app);
+    const response = await app.inject({
+      method: "POST",
+      url: "/admin/word-templates?name=QA&filename=qa.docx",
+      headers: {
+        cookie: "infosteed_session=session",
+        "x-csrf-token": token,
+        "content-type":
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      },
+      payload: Buffer.from("not-a-docx"),
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toContain("not a readable DOCX archive");
   });
 
   it("rejects state changes without a CSRF token", async () => {

@@ -211,9 +211,17 @@ async function loadAndValidateTemplate(
   const bodyControls = documentControls.filter(
     ({ tag }) => tag === REQUIRED_BODY_TAG,
   );
-  if (bodyControls.length !== 1)
+  if (bodyControls.length === 0) {
+    const untaggedControlCount = descendants(document, "sdt").filter(
+      (control) => !templateTag(control),
+    ).length;
     throw new Error(
-      `Word template must contain exactly one ${REQUIRED_BODY_TAG} content control`,
+      `Word template has no ${REQUIRED_BODY_TAG} content control (${untaggedControlCount} untagged content controls found). In Microsoft Word, set the content control Tag rather than only its visible placeholder text`,
+    );
+  }
+  if (bodyControls.length > 1)
+    throw new Error(
+      `Word template has ${bodyControls.length} ${REQUIRED_BODY_TAG} content controls; exactly one is required`,
     );
   if (
     (bodyControls[0].element.parentNode as XmlElement | null)?.localName !==
@@ -587,6 +595,7 @@ export async function buildTemplatedWorkflowDocx(
     stylesPart ? await stylesPart.async("string") : undefined,
   );
   const headingStyle = styles.has("Heading1") ? "Heading1" : "Normal";
+  const stepHeadingStyle = styles.has("Heading2") ? "Heading2" : undefined;
   const bodyStyle = styles.has("BodyText") ? "BodyText" : "Normal";
   const documentPart = zip.file("word/document.xml")!;
   const document = parseXml(
@@ -689,12 +698,29 @@ export async function buildTemplatedWorkflowDocx(
     }
 
     stepNumber += 1;
-    content.appendChild(
-      paragraph(document, bodyStyle, item.body, {
-        prefix: `${stepNumber}. `,
-        keepNext: Boolean(item.imageFilename),
-      }),
-    );
+    if (stepHeadingStyle) {
+      content.appendChild(
+        paragraph(
+          document,
+          stepHeadingStyle,
+          item.title || `Step ${stepNumber}`,
+          { keepNext: Boolean(item.body || item.imageFilename) },
+        ),
+      );
+      if (item.body && item.body !== item.title)
+        content.appendChild(
+          paragraph(document, bodyStyle, item.body, {
+            keepNext: Boolean(item.imageFilename),
+          }),
+        );
+    } else {
+      content.appendChild(
+        paragraph(document, bodyStyle, item.body || item.title, {
+          prefix: `${stepNumber}. `,
+          keepNext: Boolean(item.imageFilename),
+        }),
+      );
+    }
     if (!item.imageFilename) continue;
     const image = imageMap.get(item.imageFilename);
     if (!image)

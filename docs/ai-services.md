@@ -31,6 +31,83 @@ curl -fsS http://127.0.0.1:11434/api/tags
 ollama list
 ```
 
+Then test from the InfoSteed API container. A provider can work on the host and still be unreachable from Docker:
+
+```bash
+docker exec infosteed-api-1 node -e '
+fetch("http://host.docker.internal:11434/api/tags")
+  .then(r => { console.log("Ollama:", r.status); process.exit(r.ok ? 0 : 1) })
+  .catch(error => { console.error(error.message); process.exit(1) })
+'
+```
+
+Test transcription the same way, replacing the example hostname with the address reachable from the API container:
+
+```bash
+docker exec infosteed-api-1 node -e '
+fetch("http://transcription.internal:8787/health")
+  .then(async r => {
+    console.log("Transcription:", r.status, await r.text())
+    process.exit(r.ok ? 0 : 1)
+  })
+  .catch(error => { console.error(error.message); process.exit(1) })
+'
+```
+
+A service published only on a particular host address must be configured with an address the API container can reach; host loopback is not enough.
+
+## Existing Ollama and Whisper, managed voiceover
+
+This mixed layout keeps a native Ollama service and an existing GPU Whisper container while adding InfoSteed's CPU Kokoro container. First check whether the existing Whisper container requires a token. This example uses the standard InfoSteed transcription container name:
+
+```bash
+docker inspect infosteed-whisper-transcription-1 \
+  --format '{{range .Config.Env}}{{println .}}{{end}}' \
+  | grep -q '^WHISPER_API_TOKEN=.\+' \
+  && echo 'token-required' \
+  || echo 'no-token'
+```
+
+If it prints `token-required`, copy the value to a temporary mode-`0600` file without displaying it:
+
+```bash
+umask 077
+token_file=$(mktemp /tmp/infosteed-transcription-token.XXXXXX)
+docker inspect infosteed-whisper-transcription-1 \
+  --format '{{range .Config.Env}}{{println .}}{{end}}' \
+  | sed -n 's/^WHISPER_API_TOKEN=//p' >"$token_file"
+test -s "$token_file" || { echo 'transcription token was not found' >&2; exit 1; }
+```
+
+Configure the providers, replacing `transcription.internal` with the address reachable from the API container:
+
+```bash
+./scripts/configure-ai-services.sh \
+  --llm external \
+  --llm-provider ollama \
+  --llm-endpoint http://host.docker.internal:11434 \
+  --llm-model qwen3-vl:8b \
+  --transcription external \
+  --transcription-endpoint http://transcription.internal:8787/v1 \
+  --transcription-model large-v3-turbo \
+  --transcription-token-file "$token_file" \
+  --voiceover managed
+```
+
+If Whisper printed `no-token`, omit `--transcription-token-file` from the command. Managed voiceover runs on CPU at `http://voiceover-cpu:8880/v1` inside the Compose network and does not publish port 8880 on the host.
+
+After configuration, remove any temporary token copy and run a real request through each provider:
+
+```bash
+if [[ -n ${token_file:-} ]]; then
+  rm -f "$token_file"
+  unset token_file
+fi
+./scripts/doctor-production.sh --deep
+```
+
+The configuration script copies the token into mode-`0600` `deploy/production.env`. Do not put the token directly on the command line. A mode-`0600` secret file must be owned by the account running the configuration script; a root-owned file under `/etc` is not readable by an ordinary operator account.
+
 ## Split-host managed services
 
 On the AI host, check existing workloads before doing anything:
@@ -48,10 +125,10 @@ Install only the selected services. This example preserves an existing Ollama, i
 
 ```bash
 ./scripts/install-ai-services.sh \
-  --bind-address 192.168.0.183 \
-  --allow-client 192.168.0.156 \
+  --bind-address 192.0.2.20 \
+  --allow-client 192.0.2.10 \
   --ollama existing \
-  --ollama-endpoint http://192.168.0.183:11434 \
+  --ollama-endpoint http://192.0.2.20:11434 \
   --transcription managed \
   --transcription-gpu 0 \
   --voiceover off

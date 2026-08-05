@@ -4,7 +4,17 @@ All notable changes are documented here. The project uses Semantic Versioning on
 
 ## [Unreleased]
 
+## [0.1.0-beta.6] - 2026-08-05
+
+### Changed
+
+- Improved narration rewriting so generated scripts flow coherently across timed cues and recover safely from altered cue structures.
+- Improved standard and template-based Word exports with structured numbered headings and clearer template validation.
+- Strengthened production deployment diagnostics, remote AI-service configuration, and HTTPS certificate verification.
+
 ## [0.1.0-beta.5] - 2026-08-05
+
+This signed candidate was superseded before public publication. Its tag and published images remain immutable and must not be republished as the supported beta.
 
 ### Added
 

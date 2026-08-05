@@ -2,7 +2,7 @@
 
 InfoSteed installs the core application first. LLM, transcription, and voiceover services are configured afterward and can each be managed by InfoSteed, supplied by another host, or disabled.
 
-`v0.1.0-beta.4` is the current public prerelease. The commands below prepare the unpublished `v0.1.0-beta.5` candidate after its signed tag exists; do not deploy an untagged checkout as a supported release.
+`v0.1.0-beta.4` is the current public prerelease. The commands below prepare the unpublished `v0.1.0-beta.6` candidate after its signed tag exists; do not deploy an untagged checkout as a supported release.
 
 ## Choose a topology
 
@@ -14,11 +14,9 @@ InfoSteed installs the core application first. LLM, transcription, and voiceover
 | Existing services | Core plus operator-provided Ollama or compatible APIs     | Matching services `external`                 |
 | Cloud provider    | Core only                                                 | OpenAI-compatible endpoint and protected key |
 
-The addresses `192.168.0.156` and `192.168.0.183` below are examples, not defaults.
-
 ## Requirements
 
-- Linux amd64, Docker Engine, Docker Compose v2, Git, and OpenSSL.
+- Linux amd64, Docker Engine, Docker Compose v2, Git, OpenSSL, and curl.
 - A clean checkout of the exact release tag.
 - A hostname resolving to the application host.
 - TCP 80 and 443 reachable by intended clients.
@@ -26,12 +24,25 @@ The addresses `192.168.0.156` and `192.168.0.183` below are examples, not defaul
 
 Do not run the development `docker-compose.yml` on an exposed host. It contains development credentials.
 
+## Check the host before installing
+
+Make sure an old web server or Kubernetes ingress does not already own ports 80 and 443:
+
+```bash
+sudo ss -ltnp | grep -E ':(80|443)\b' || true
+docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Ports}}'
+systemctl is-active k3s || true
+kubectl get services,ingress -A 2>/dev/null || true
+```
+
+Do not rely on `ss` alone. Kubernetes ServiceLB and similar components can redirect traffic with host-port or firewall rules without appearing as an ordinary listening process. If the machine already runs an ingress controller, decide which proxy will own 80 and 443 before starting InfoSteed.
+
 ## Install the core application
 
 ```bash
 git clone https://github.com/infosteed/infosteed.git
 cd infosteed
-git checkout v0.1.0-beta.5
+git checkout v0.1.0-beta.6
 ```
 
 For a publicly resolvable host, use public ACME certificates:
@@ -40,9 +51,9 @@ For a publicly resolvable host, use public ACME certificates:
 ./scripts/install-production.sh \
   --source ghcr \
   --tls public \
-  --domain guides.example.com \
+  --domain infosteed.example.com \
   --email admin@example.com \
-  --extension-origin chrome-extension://abcdefghijklmnopabcdefghijklmnop
+  --extension-origin chrome-extension://mdhecibghobakiihpoeenmjfgegnkinp
 ```
 
 For private DNS or a LAN-only host, use Caddy's internal CA:
@@ -51,13 +62,24 @@ For private DNS or a LAN-only host, use Caddy's internal CA:
 ./scripts/install-production.sh \
   --source ghcr \
   --tls internal \
-  --domain mtl.infosteed.com \
-  --extension-origin chrome-extension://abcdefghijklmnopabcdefghijklmnop
+  --domain infosteed.internal \
+  --extension-origin chrome-extension://mdhecibghobakiihpoeenmjfgegnkinp
 ```
 
 To avoid a registry dependency, replace `--source ghcr` with `--source build`. A source build requires a clean checkout unless `--allow-dirty` is explicitly accepted.
 
-The installer creates `deploy/production.env` with mode `0600`, generates independent database, object-storage, and setup secrets, validates Compose, starts the stack, and waits for health. It never overwrites an existing environment file. Save the printed setup token, open the HTTPS URL, create the first administrator, and then rotate `SETUP_TOKEN` in the environment file.
+The installer creates `deploy/production.env` with mode `0600`, generates independent database, object-storage, and setup secrets, validates Compose, starts the stack, and waits for health. It then connects through the host-published HTTPS port and confirms that the certificate, web application, product identity, version, and commit all belong to this deployment. It never overwrites an existing environment file.
+
+The setup token is an administrator credential. Do not paste it into chat, issue trackers, or shared logs. Save it privately, create the first administrator, and rotate it afterward without printing the replacement:
+
+```bash
+new_setup_token=$(openssl rand -hex 32)
+sed -i "s/^SETUP_TOKEN=.*/SETUP_TOKEN=$new_setup_token/" deploy/production.env
+unset new_setup_token
+./scripts/deploy-production.sh
+```
+
+If the token is disclosed before the administrator exists, replace it immediately and use only the replacement for setup.
 
 For internal TLS, the installer exports the public root certificate to `deploy/infosteed-local-ca.crt`. Trust it on each client using [Internal HTTPS](internal-https.md).
 
@@ -102,6 +124,24 @@ The services may share a GPU, but simultaneous requests can exhaust VRAM. Select
 
 For existing or split-host services, follow [AI services](ai-services.md). Credentials must be entered at the silent prompt, read from a mode-`0600` file, or imported from the protected connection file. They are not accepted directly as command arguments.
 
+## Install the browser extension offline
+
+The extension ZIP is a release asset, not part of `deploy/` or the Git checkout. Build output under `artifacts/` and `apps/extension/dist/` is deliberately ignored by Git.
+
+Download `extension-offline.zip` from the matching GitHub Release. Assets on a draft release are visible only to an authenticated repository owner; the public download URL returns `404` until that draft is published. Do not use GitHub's automatically generated source-code ZIP as the extension.
+
+Extract `extension-offline.zip` to a permanent directory, open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select the directory containing `manifest.json`. For the official package, verify that Chrome reports this extension ID:
+
+```text
+mdhecibghobakiihpoeenmjfgegnkinp
+```
+
+The origin passed to the installer must use the same ID:
+
+```text
+chrome-extension://mdhecibghobakiihpoeenmjfgegnkinp
+```
+
 ## Operate the stack
 
 All production operations use the source and profiles recorded in `production.env`:
@@ -111,6 +151,13 @@ All production operations use the source and profiles recorded in `production.en
 ./scripts/doctor-production.sh --deep
 ./scripts/backup.sh /srv/backups/infosteed
 ./scripts/upgrade-production.sh
+```
+
+`scripts/production-compose.sh` is a library sourced by the operational scripts; running it directly does nothing. To inspect the core stack yourself, use:
+
+```bash
+docker compose --env-file deploy/production.env \
+  -f deploy/compose.production.yml ps -a
 ```
 
 The normal doctor checks configuration, DNS, HTTPS, containers, and provider reachability. `--deep` performs small billable or compute-consuming LLM, transcription, and voiceover requests.

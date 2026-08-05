@@ -47,6 +47,7 @@ production_check_platform() {
   }
   command -v docker >/dev/null 2>&1 || { production_die "docker is required"; return 1; }
   docker compose version >/dev/null 2>&1 || { production_die "Docker Compose v2 is required"; return 1; }
+  command -v curl >/dev/null 2>&1 || { production_die "curl is required"; return 1; }
 }
 
 production_check_env_permissions() {
@@ -230,4 +231,78 @@ production_export_internal_ca() {
   mv "$temporary" "$destination"
   printf 'Internal CA certificate: %s\n' "$destination"
   openssl x509 -in "$destination" -noout -fingerprint -sha256
+}
+
+production_describe_host_certificate() {
+  command -v openssl >/dev/null 2>&1 || return 0
+  command -v timeout >/dev/null 2>&1 || return 0
+  local certificate
+  certificate=$(
+    timeout 5 openssl s_client -connect 127.0.0.1:443 -servername "$APP_DOMAIN" </dev/null 2>/dev/null |
+      openssl x509 -noout -subject -issuer -fingerprint -sha256 2>/dev/null
+  ) || return 0
+  [[ -n $certificate ]] || return 0
+  printf 'Certificate currently served on 127.0.0.1:443:\n%s\n' "$certificate" >&2
+}
+
+production_verify_host_https() {
+  local wait_seconds=${1:-60}
+  [[ $wait_seconds =~ ^[0-9]+$ ]] || {
+    production_die "host HTTPS verification timeout must be a non-negative integer"
+    return 1
+  }
+
+  local -a curl_args=(
+    --noproxy '*'
+    --silent
+    --show-error
+    --fail
+    --connect-timeout 3
+    --max-time 8
+    --resolve "$APP_DOMAIN:443:127.0.0.1"
+  )
+  if [[ $TLS_MODE == internal ]]; then
+    local ca_file=${INTERNAL_CA_FILE:-$production_root/deploy/infosteed-local-ca.crt}
+    [[ $ca_file == /* ]] || ca_file=$production_root/$ca_file
+    [[ -f $ca_file ]] || {
+      production_die "internal CA certificate is missing: $ca_file"
+      return 1
+    }
+    curl_args+=(--cacert "$ca_file")
+  fi
+
+  local temporary response_error deadline
+  temporary=$(mktemp -d "${TMPDIR:-/tmp}/infosteed-host-https-check.XXXXXX")
+  response_error=$temporary/curl-error
+  deadline=$((SECONDS + wait_seconds))
+
+  while true; do
+    : >"$response_error"
+    if curl "${curl_args[@]}" "https://$APP_DOMAIN/api/system/info" \
+        >"$temporary/system-info" 2>"$response_error" &&
+      grep -Fq '"productSlug":"infosteed"' "$temporary/system-info" &&
+      grep -Fq "\"releaseVersion\":\"$RELEASE_VERSION\"" "$temporary/system-info" &&
+      grep -Fq "\"releaseCommit\":\"$RELEASE_COMMIT\"" "$temporary/system-info" &&
+      curl "${curl_args[@]}" "https://$APP_DOMAIN/" \
+        >"$temporary/index.html" 2>"$response_error" &&
+      grep -Fq '<title>InfoSteed Editor</title>' "$temporary/index.html"; then
+      rm -rf "$temporary"
+      return 0
+    fi
+    (( SECONDS < deadline )) || break
+    sleep 2
+  done
+
+  printf 'Host-published HTTPS did not serve this InfoSteed release at https://%s.\n' "$APP_DOMAIN" >&2
+  if [[ -s $response_error ]]; then
+    printf 'Last HTTPS error: %s\n' "$(tr '\n' ' ' <"$response_error")" >&2
+  else
+    printf 'The HTTPS response did not contain the expected InfoSteed product and release metadata.\n' >&2
+  fi
+  production_describe_host_certificate
+  printf '%s\n' \
+    'Another ingress, Kubernetes ServiceLB, or reverse proxy may still own ports 80 or 443.' \
+    'The InfoSteed containers were left running for diagnosis.' >&2
+  rm -rf "$temporary"
+  return 1
 }

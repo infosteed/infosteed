@@ -45,18 +45,23 @@ note "Configured modes: TLS=$TLS_MODE LLM=$LLM_MODE transcription=$TRANSCRIPTION
 "${production_compose[@]}" ps -a || fail "container state could not be read"
 
 if getent ahosts "$APP_DOMAIN" >/dev/null 2>&1; then pass "$APP_DOMAIN resolves on this host"; else fail "$APP_DOMAIN does not resolve on this host"; fi
-tls_args=()
-if [[ $TLS_MODE == internal && -f $production_root/deploy/infosteed-local-ca.crt ]]; then
-  tls_args=(--cacert "$production_root/deploy/infosteed-local-ca.crt")
-fi
-if curl -fsSI --max-time 10 "${tls_args[@]}" "https://$APP_DOMAIN" >/dev/null 2>&1; then
-  pass "HTTPS responds at https://$APP_DOMAIN"
-else
-  fail "HTTPS did not respond at https://$APP_DOMAIN"
-fi
 if [[ $TLS_MODE == internal && -f $production_root/deploy/infosteed-local-ca.crt ]]; then
   pass "internal CA certificate has been exported"
   openssl x509 -in "$production_root/deploy/infosteed-local-ca.crt" -noout -fingerprint -sha256 || fail "exported CA certificate is invalid"
+fi
+tls_args=(--noproxy '*')
+if [[ $TLS_MODE == internal && -f $production_root/deploy/infosteed-local-ca.crt ]]; then
+  tls_args+=(--cacert "$production_root/deploy/infosteed-local-ca.crt")
+fi
+if curl -fsSI --max-time 10 "${tls_args[@]}" "https://$APP_DOMAIN" >/dev/null 2>&1; then
+  pass "DNS-routed HTTPS responds at https://$APP_DOMAIN"
+else
+  fail "DNS-routed HTTPS did not respond at https://$APP_DOMAIN"
+fi
+if production_verify_host_https 0; then
+  pass "host-published HTTPS serves this InfoSteed release"
+else
+  fail "host-published HTTPS does not serve this InfoSteed release"
 fi
 
 provider_check='const clean=(u)=>u.replace(/\/$/,"");

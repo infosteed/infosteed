@@ -462,20 +462,25 @@ describe("markdown exporter", () => {
     const docx = await JSZip.loadAsync(docxBuffer);
     const documentXml = await docx.file("word/document.xml")?.async("string");
     const stylesXml = await docx.file("word/styles.xml")?.async("string");
+    const numberingXml = await docx.file("word/numbering.xml")?.async("string");
 
     expect(docx.file("[Content_Types].xml")).toBeTruthy();
     expect(docx.file("word/_rels/document.xml.rels")).toBeTruthy();
     expect(docx.file("word/media/branding-icon.png")).toBeTruthy();
     expect(docx.file("word/media/step-001-open-customers.png")).toBeTruthy();
+    expect(docx.file("word/numbering.xml")).toBeTruthy();
     expect(documentXml).toContain("Update a customer record");
     expect(documentXml).toContain("Acme Support");
     expect(documentXml).toContain("Click ");
-    expect(documentXml).toContain("<v:roundrect");
+    expect(documentXml).toContain("Open customers");
+    expect(documentXml).toContain('w:val="Heading2"');
     expect(documentXml).toContain('w:fill="EFF8FF"');
     expect(documentXml).toContain('w:val="StepText"');
     expect(documentXml).toContain('<wp:extent cx="5486400" cy="2743200"/>');
     expect(stylesXml).toContain('w:styleId="Overview"');
+    expect(stylesXml).toContain('w:styleId="Heading2"');
     expect(stylesXml).toContain('w:styleId="CalloutText"');
+    expect(numberingXml).toContain('w:val="%1.%2"');
   });
 
   it("derives ordered sections from header guide items", () => {

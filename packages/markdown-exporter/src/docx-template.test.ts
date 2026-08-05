@@ -55,7 +55,7 @@ async function template(options?: {
   );
   zip.file(
     "word/styles.xml",
-    `<?xml version="1.0"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:style w:type="paragraph" w:styleId="Normal"><w:name w:val="Normal"/></w:style><w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/></w:style><w:style w:type="paragraph" w:styleId="BodyText"><w:name w:val="Body Text"/></w:style></w:styles>`,
+    `<?xml version="1.0"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:style w:type="paragraph" w:styleId="Normal"><w:name w:val="Normal"/></w:style><w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/></w:style><w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/></w:style><w:style w:type="paragraph" w:styleId="BodyText"><w:name w:val="Body Text"/></w:style></w:styles>`,
   );
   zip.file(
     "word/document.xml",
@@ -88,7 +88,7 @@ describe("Word template exporter", () => {
   it("rejects missing anchors and external relationships", async () => {
     await expect(
       inspectWordTemplate(await template({ bodyTag: false })),
-    ).rejects.toThrow("exactly one INFOSTEED_REPORT_BODY");
+    ).rejects.toThrow("no INFOSTEED_REPORT_BODY");
     await expect(
       inspectWordTemplate(await template({ externalRelationship: true })),
     ).rejects.toThrow("external relationship");
@@ -149,8 +149,11 @@ describe("Word template exporter", () => {
     expect(document).toContain("Preserved cover");
     expect(document).toContain("Customer guide");
     expect(document).toContain("Steps");
+    expect(document).toContain("Open customers");
+    expect(document).toContain('w:val="Heading2"');
     expect(document).toContain("Click ");
     expect(document).toContain("Customers");
+    expect(document).not.toContain('<w:t xml:space="preserve">1. </w:t>');
     expect(document).not.toContain("Body placeholder");
     expect(header).toContain("Customer guide");
     expect(settings).toContain("updateFields");

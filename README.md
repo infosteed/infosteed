@@ -82,7 +82,7 @@ not trapped in a single viewing experience.
 
 ## Self-hosted deployment
 
-`v0.1.0-beta.4` is the current public prerelease, and `v0.1.0-beta.5` is in
+`v0.1.0-beta.4` is the current public prerelease, and `v0.1.0-beta.6` is in
 development. Deployments keep recordings, screenshots, transcripts, and media
 on infrastructure you control. Follow the [deployment guide](docs/deployment.md)
 and review [release readiness](docs/release-readiness.md) before production use.

@@ -40,11 +40,33 @@ Firefox may use its own certificate store. Open **Settings → Privacy & Securit
 
 ## Verify
 
-Ensure private DNS points at the application host, then test without `-k`:
+Ensure private DNS points at the application host:
 
 ```bash
-getent hosts mtl.infosteed.com
-curl -I https://mtl.infosteed.com
+getent hosts infosteed.internal
+curl -I https://infosteed.internal
 ```
 
 Using `curl -k` only bypasses verification for a diagnostic; it does not install trust.
+
+To test the HTTPS listener on the application host without relying on DNS or proxy settings, force the connection to loopback while retaining the correct hostname for SNI and certificate verification:
+
+```bash
+curl --noproxy '*' \
+  --cacert deploy/infosteed-local-ca.crt \
+  --resolve infosteed.internal:443:127.0.0.1 \
+  -I https://infosteed.internal
+```
+
+Inspect the leaf certificate when the wrong service appears to answer:
+
+```bash
+openssl s_client \
+  -connect 127.0.0.1:443 \
+  -servername infosteed.internal </dev/null 2>/dev/null \
+  | openssl x509 -noout -subject -issuer -fingerprint -sha256
+```
+
+The subject must name `infosteed.internal`, and the issuer must be the Caddy local authority whose root you exported. `Kubernetes Ingress Controller Fake Certificate` means a Kubernetes ingress is intercepting port 443 before the request reaches InfoSteed.
+
+Browsers may use secure DNS or an explicit proxy instead of the operating system resolver. If the forced local test succeeds but a client still reaches the wrong service, disable secure DNS for the private hostname and add `infosteed.internal` to the client's proxy-bypass list.

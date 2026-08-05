@@ -48,4 +48,5 @@ if ! production_start; then
   exit 1
 fi
 production_export_internal_ca
+production_verify_host_https "${PRODUCTION_HOST_VERIFY_TIMEOUT:-60}"
 printf 'InfoSteed %s is healthy at https://%s\n' "$RELEASE_VERSION" "$APP_DOMAIN"

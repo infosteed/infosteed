@@ -358,11 +358,6 @@ function docxCallout(kind: "tip" | "alert", body: string): string {
   return `<w:tbl><w:tblPr><w:tblW w:w="9638" w:type="dxa"/><w:tblBorders><w:left w:val="single" w:sz="24" w:color="${border}"/><w:top w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders><w:tblCellMar><w:top w:w="160" w:type="dxa"/><w:left w:w="220" w:type="dxa"/><w:bottom w:w="160" w:type="dxa"/><w:right w:w="220" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tr><w:trPr><w:cantSplit/></w:trPr><w:tc><w:tcPr><w:shd w:val="clear" w:fill="${background}"/></w:tcPr><w:p><w:pPr><w:spacing w:after="80"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>${label}</w:t></w:r></w:p>${docxParagraph(body, "CalloutText")}</w:tc></w:tr></w:tbl><w:p><w:pPr><w:spacing w:after="120"/></w:pPr></w:p>`;
 }
 
-function docxStep(number: number, content: string): string {
-  const badge = `<w:p><w:pPr><w:spacing w:after="0"/></w:pPr><w:r><w:pict><v:roundrect style="width:27pt;height:27pt;v-text-anchor:middle" arcsize="50%" fillcolor="#DBEAFE" stroked="f"><v:textbox inset="0,0,0,0"><w:txbxContent><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="60" w:after="0"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="1D4ED8"/></w:rPr><w:t>${number}</w:t></w:r></w:p></w:txbxContent></v:textbox></v:roundrect></w:pict></w:r></w:p>`;
-  return `<w:tbl><w:tblPr><w:tblW w:w="9638" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="720"/><w:gridCol w:w="8918"/></w:tblGrid><w:tr><w:trPr><w:cantSplit/></w:trPr><w:tc><w:tcPr><w:tcW w:w="720" w:type="dxa"/><w:vAlign w:val="top"/></w:tcPr>${badge}</w:tc><w:tc><w:tcPr><w:tcW w:w="8918" w:type="dxa"/><w:tcMar><w:left w:w="220" w:type="dxa"/></w:tcMar></w:tcPr>${content}</w:tc></w:tr></w:tbl><w:p><w:pPr><w:spacing w:after="180"/></w:pPr></w:p>`;
-}
-
 function basenameWithoutExtension(filename: string): string {
   return filename.replace(/\.[^.]+$/, "");
 }
@@ -403,10 +398,13 @@ export async function buildWorkflowDocx(
   if (recording.purpose)
     body.push(docxParagraph(recording.purpose, "Overview"));
 
-  let stepNumber = 0;
-  for (const item of itemsForRecording(recording)
+  const items = itemsForRecording(recording)
     .slice()
-    .sort((a, b) => a.ordinal - b.ordinal)) {
+    .sort((a, b) => a.ordinal - b.ordinal);
+  if (!items.some((item) => item.kind === "header"))
+    body.push(docxParagraph("Steps", "Heading1"));
+
+  for (const item of items) {
     if (item.kind === "header") {
       body.push(docxParagraph(item.title, "Heading1"));
       if (item.body && item.body !== item.title)
@@ -419,14 +417,21 @@ export async function buildWorkflowDocx(
       continue;
     }
 
-    stepNumber += 1;
-    const stepContent = [
+    body.push(
       docxParagraph(
-        item.body,
-        "StepText",
-        item.imageFilename ? "<w:keepNext/>" : "",
+        item.title || "Step",
+        "Heading2",
+        item.body || item.imageFilename ? "<w:keepNext/>" : "",
       ),
-    ];
+    );
+    if (item.body && item.body !== item.title)
+      body.push(
+        docxParagraph(
+          item.body,
+          "StepText",
+          item.imageFilename ? "<w:keepNext/>" : "",
+        ),
+      );
     if (item.imageFilename) {
       const image = imageMap.get(item.imageFilename);
       if (!image)
@@ -441,7 +446,7 @@ export async function buildWorkflowDocx(
         image,
         relId,
       });
-      stepContent.push(
+      body.push(
         docxImage(
           relId,
           mediaFilename,
@@ -450,7 +455,6 @@ export async function buildWorkflowDocx(
         ),
       );
     }
-    body.push(docxStep(stepNumber, stepContent.join("")));
   }
 
   const relationships = mediaFiles
@@ -469,6 +473,7 @@ export async function buildWorkflowDocx(
   <Default Extension="png" ContentType="image/png"/>
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
   <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+  <Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>
 </Types>`,
   );
   zip.file(
@@ -483,6 +488,7 @@ export async function buildWorkflowDocx(
     `<?xml version="1.0" encoding="UTF-8"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+  <Relationship Id="rIdNumbering" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>
   ${relationships}
 </Relationships>`,
   );
@@ -494,10 +500,22 @@ export async function buildWorkflowDocx(
   <w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>
   <w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="0" w:after="280" w:line="288" w:lineRule="auto"/></w:pPr><w:rPr><w:b/><w:color w:val="111827"/><w:sz w:val="45"/><w:szCs w:val="45"/></w:rPr></w:style>
   <w:style w:type="paragraph" w:styleId="Overview"><w:name w:val="Overview"/><w:basedOn w:val="Normal"/><w:pPr><w:spacing w:before="0" w:after="360" w:line="372" w:lineRule="auto"/></w:pPr><w:rPr><w:color w:val="475467"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr></w:style>
-  <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="300" w:after="120"/></w:pPr><w:rPr><w:b/><w:sz w:val="33"/><w:szCs w:val="33"/></w:rPr></w:style>
+  <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/><w:pPr><w:keepNext/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr><w:spacing w:before="300" w:after="120"/><w:outlineLvl w:val="0"/></w:pPr><w:rPr><w:b/><w:sz w:val="33"/><w:szCs w:val="33"/></w:rPr></w:style>
+  <w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/><w:pPr><w:keepNext/><w:numPr><w:ilvl w:val="1"/><w:numId w:val="1"/></w:numPr><w:spacing w:before="220" w:after="100"/><w:outlineLvl w:val="1"/></w:pPr><w:rPr><w:b/><w:sz w:val="28"/><w:szCs w:val="28"/></w:rPr></w:style>
   <w:style w:type="paragraph" w:styleId="StepText"><w:name w:val="Step Text"/><w:basedOn w:val="Normal"/><w:pPr><w:spacing w:before="40" w:after="120" w:line="341" w:lineRule="auto"/></w:pPr></w:style>
   <w:style w:type="paragraph" w:styleId="CalloutText"><w:name w:val="Callout Text"/><w:basedOn w:val="Normal"/><w:pPr><w:spacing w:after="0" w:line="341" w:lineRule="auto"/></w:pPr></w:style>
 </w:styles>`,
+  );
+  zip.file(
+    "word/numbering.xml",
+    `<?xml version="1.0" encoding="UTF-8"?>
+<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:abstractNum w:abstractNumId="0"><w:multiLevelType w:val="multilevel"/>
+    <w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:pStyle w:val="Heading1"/><w:lvlText w:val="%1"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="432" w:hanging="432"/></w:pPr></w:lvl>
+    <w:lvl w:ilvl="1"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:pStyle w:val="Heading2"/><w:lvlText w:val="%1.%2"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="576" w:hanging="576"/></w:pPr></w:lvl>
+  </w:abstractNum>
+  <w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>
+</w:numbering>`,
   );
   zip.file(
     "word/document.xml",

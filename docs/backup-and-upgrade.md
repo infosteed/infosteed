@@ -24,7 +24,7 @@ Fetch tags and check out the new official release, leaving the existing `deploy/
 
 ```bash
 git fetch --tags
-git checkout v0.1.0-beta.5
+git checkout v0.1.0-beta.6
 scripts/upgrade-production.sh
 ```
 
@@ -62,7 +62,7 @@ After success:
 
 ```bash
 scripts/doctor-production.sh
-curl -I https://YOUR_INFOSTEED_HOST
+curl -I https://infosteed.example.com
 ```
 
 Do not delete the beta.1 environment backup or retired hotfix until the application, database, stored media, TLS, and configured providers have been verified.

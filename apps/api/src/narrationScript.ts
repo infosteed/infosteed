@@ -13,6 +13,41 @@ const outputSchema = z.object({
   ),
 });
 
+function reflowTextAcrossCues(
+  cues: VoiceoverCueInput[],
+  texts: string[],
+): VoiceoverCueInput[] {
+  const words = texts.join(" ").trim().split(/\s+/).filter(Boolean);
+  if (words.length < cues.length) {
+    return cues.map((cue, index) => ({
+      ...cue,
+      text: texts[index]?.trim() || cue.text,
+    }));
+  }
+
+  const totalDurationMs = cues.reduce(
+    (total, cue) => total + cue.sourceEndMs - cue.sourceStartMs,
+    0,
+  );
+  let wordOffset = 0;
+  let elapsedMs = 0;
+  return cues.map((cue, index) => {
+    elapsedMs += cue.sourceEndMs - cue.sourceStartMs;
+    const cuesLeft = cues.length - index;
+    const desiredEnd =
+      index === cues.length - 1
+        ? words.length
+        : Math.round((elapsedMs / totalDurationMs) * words.length);
+    const end = Math.min(
+      words.length - (cuesLeft - 1),
+      Math.max(wordOffset + 1, desiredEnd),
+    );
+    const text = words.slice(wordOffset, end).join(" ");
+    wordOffset = end;
+    return { ...cue, text };
+  });
+}
+
 function extractJson(value: string): unknown {
   const trimmed = value
     .trim()
@@ -43,10 +78,10 @@ export async function rewriteNarrationScript(
     });
   const prompt = [
     "/no_think",
-    "Rewrite caption cues into a polished spoken narration script.",
+    "Rewrite the caption track into one coherent, polished spoken narration, then divide it across the supplied timed cues.",
     `Write all narration in ${OUTPUT_LOCALE_NAMES[input.outputLocale]}. Preserve literal product names and application control labels in their original language.`,
     `Style: ${input.style}. Keep each cue concise enough for its available time.`,
-    "Preserve every cue id and cue count. Do not change timestamps. Do not add markdown.",
+    "Make adjacent cues flow naturally as a continuous script. Preserve every cue id and cue count, and return non-empty text for every cue. Do not change timing or add markdown.",
     'Return only JSON shaped as {"cues":[{"id":"...","text":"..."}]}.',
     JSON.stringify(
       input.cues.map((cue) => ({
@@ -119,10 +154,14 @@ export async function rewriteNarrationScript(
   const parsed = outputSchema.parse(extractJson(content));
   const byId = new Map(parsed.cues.map((cue) => [cue.id, cue.text]));
   if (
-    byId.size !== input.cues.length ||
-    input.cues.some((cue) => !byId.has(cue.id))
+    byId.size === input.cues.length &&
+    input.cues.every((cue) => byId.has(cue.id))
   ) {
-    throw new Error("The local model changed the narration cue structure");
+    return input.cues.map((cue) => ({ ...cue, text: byId.get(cue.id)! }));
   }
-  return input.cues.map((cue) => ({ ...cue, text: byId.get(cue.id)! }));
+
+  return reflowTextAcrossCues(
+    input.cues,
+    parsed.cues.map((cue) => cue.text),
+  );
 }

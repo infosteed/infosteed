@@ -48,35 +48,66 @@ describe("local caption-to-script rewriting", () => {
     expect(requestedBody).toContain("Irish (Gaeilge)");
   });
 
-  it("rejects a model response that drops cues", async () => {
+  it("flows a restructured model response across the original timed cues", async () => {
     const fetcher = vi.fn(
       async () =>
-        new Response(JSON.stringify({ message: { content: '{"cues":[]}' } }), {
-          status: 200,
-        }),
-    );
-    await expect(
-      rewriteNarrationScript(
-        readConfig({
-          AI_PROVIDER: "ollama",
-          AI_ENDPOINT: "http://127.0.0.1:11434",
-          AI_MODEL: "local",
-        }),
-        {
-          outputLocale: "en",
-          cues: [
-            {
-              id: "cue-1",
-              sourceStartMs: 0,
-              sourceEndMs: 1_000,
-              text: "Hello",
+        new Response(
+          JSON.stringify({
+            message: {
+              content: JSON.stringify({
+                cues: [
+                  {
+                    id: "merged-cue",
+                    text: "Open the reports page, then choose this month's summary.",
+                  },
+                ],
+              }),
             },
-          ],
-          style: "natural",
-        },
-        fetcher as typeof fetch,
-      ),
-    ).rejects.toThrow("cue structure");
+          }),
+          { status: 200 },
+        ),
+    );
+    const result = await rewriteNarrationScript(
+      readConfig({
+        AI_PROVIDER: "ollama",
+        AI_ENDPOINT: "http://127.0.0.1:11434",
+        AI_MODEL: "local",
+      }),
+      {
+        outputLocale: "en",
+        cues: [
+          {
+            id: "cue-1",
+            sourceStartMs: 0,
+            sourceEndMs: 1_000,
+            text: "reports",
+          },
+          {
+            id: "cue-2",
+            sourceStartMs: 1_000,
+            sourceEndMs: 3_000,
+            text: "summary",
+          },
+        ],
+        style: "natural",
+      },
+      fetcher as typeof fetch,
+    );
+
+    expect(result).toEqual([
+      {
+        id: "cue-1",
+        sourceStartMs: 0,
+        sourceEndMs: 1_000,
+        text: "Open the reports",
+      },
+      {
+        id: "cue-2",
+        sourceStartMs: 1_000,
+        sourceEndMs: 3_000,
+        text: "page, then choose this month's summary.",
+      },
+    ]);
   });
 
   it("returns a useful gateway timeout for a slow local model", async () => {

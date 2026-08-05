@@ -4,7 +4,7 @@ All notable changes are documented here. The project uses Semantic Versioning on
 
 ## [Unreleased]
 
-## [0.1.0-beta.5] - Unreleased
+## [0.1.0-beta.5] - 2026-08-05
 
 ### Added
 

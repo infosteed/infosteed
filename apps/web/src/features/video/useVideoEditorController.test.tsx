@@ -2,6 +2,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { VoiceoverGeneration } from "@infosteed/shared";
 import {
   createVideoRender,
   getVideoEditor,
@@ -44,6 +45,60 @@ vi.mock("../../navigation", () => ({
 }));
 
 describe("video editor controller", () => {
+  const readyVoiceover: VoiceoverGeneration = {
+    id: "00000000-0000-4000-8000-000000000060",
+    status: "ready",
+    progress: 1,
+    provider: "fixture",
+    model: "fixture",
+    voice: "fixture",
+    speed: 1,
+    scriptHash: "fixture",
+    assetId: "00000000-0000-4000-8000-000000000061",
+    errorMessage: null,
+    attempts: 1,
+    cues: [
+      {
+        id: "cue-1",
+        ordinal: 0,
+        sourceStartMs: 1_000,
+        sourceEndMs: 3_000,
+        text: "Generated narration",
+        contentHash: "cue-1",
+        status: "ready",
+        durationMs: 2_700,
+        overlongByMs: 700,
+        errorMessage: null,
+      },
+      {
+        id: "cue-2",
+        ordinal: 1,
+        sourceStartMs: 9_000,
+        sourceEndMs: 9_500,
+        text: "Ends at the video boundary",
+        contentHash: "cue-2",
+        status: "ready",
+        durationMs: 2_000,
+        overlongByMs: 1_500,
+        errorMessage: null,
+      },
+      {
+        id: "cue-3",
+        ordinal: 2,
+        sourceStartMs: 5_000,
+        sourceEndMs: 6_500,
+        text: "Duration unavailable",
+        contentHash: "cue-3",
+        status: "ready",
+        durationMs: null,
+        overlongByMs: 0,
+        errorMessage: null,
+      },
+    ],
+    createdAt: "2026-01-03T00:00:00.000Z",
+    completedAt: "2026-01-03T00:01:00.000Z",
+  };
+
   beforeEach(() => {
     vi.mocked(getVideoEditor).mockResolvedValue(videoEditorState());
     vi.mocked(saveVideoEditor).mockResolvedValue({
@@ -87,6 +142,40 @@ describe("video editor controller", () => {
     expect(result.current.dirty).toBe(false);
   });
 
+  it("marks a ready preview stale as soon as the recipe changes", async () => {
+    vi.mocked(getVideoEditor).mockResolvedValue(
+      videoEditorState({
+        renders: [
+          {
+            id: "00000000-0000-4000-8000-000000000070",
+            editVersionId: "00000000-0000-4000-8000-000000000071",
+            status: "ready",
+            progress: 1,
+            durationMs: 10_000,
+            byteSize: 1_024,
+            errorMessage: null,
+            stale: false,
+            createdAt: "2026-01-03T00:00:00.000Z",
+            completedAt: "2026-01-03T00:01:00.000Z",
+          },
+        ],
+      }),
+    );
+    vi.mocked(getVideoMp4Export).mockRejectedValue(new Error("No export"));
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.render?.status).toBe("ready"));
+
+    act(() =>
+      result.current.change(
+        videoEditRecipe({
+          audio: { tabGain: 0.75, microphoneGain: 1, voiceoverGain: 1 },
+        }),
+      ),
+    );
+
+    expect(result.current.render?.stale).toBe(true);
+  });
+
   it("pauses autosave when the server reports a revision conflict", async () => {
     vi.mocked(saveVideoEditor).mockRejectedValueOnce(new Error("409 conflict"));
     const { result } = renderController();
@@ -113,6 +202,114 @@ describe("video editor controller", () => {
     expect(result.current.recipe?.webcam.visible).toBe(false);
     act(() => result.current.redo());
     expect(result.current.recipe?.webcam.visible).toBe(true);
+  });
+
+  it("attaches a completed voiceover and synchronizes captions to its speech", async () => {
+    const previousRecipe = videoEditRecipe({
+      voiceover: {
+        enabled: true,
+        assetId: "00000000-0000-4000-8000-000000000062",
+        generationId: "00000000-0000-4000-8000-000000000063",
+      },
+      captions: {
+        mode: "manual",
+        cues: [
+          {
+            id: "old-caption",
+            sourceStartMs: 0,
+            sourceEndMs: 500,
+            text: "Old caption",
+          },
+        ],
+      },
+    });
+    vi.mocked(getVideoEditor).mockResolvedValue(
+      videoEditorState({
+        draft: {
+          revision: 1,
+          recipe: previousRecipe,
+          updatedAt: "2026-01-02T00:00:00.000Z",
+        },
+        voiceover: readyVoiceover,
+      }),
+    );
+
+    const { result } = renderController();
+
+    await waitFor(() =>
+      expect(result.current.recipe?.voiceover.generationId).toBe(
+        readyVoiceover.id,
+      ),
+    );
+    expect(result.current.recipe?.voiceover).toEqual({
+      enabled: true,
+      assetId: readyVoiceover.assetId,
+      generationId: readyVoiceover.id,
+    });
+    expect(result.current.recipe?.captions).toEqual({
+      mode: "manual",
+      cues: [
+        {
+          id: "cue-1",
+          sourceStartMs: 1_000,
+          sourceEndMs: 3_700,
+          text: "Generated narration",
+        },
+        {
+          id: "cue-2",
+          sourceStartMs: 9_000,
+          sourceEndMs: 10_000,
+          text: "Ends at the video boundary",
+        },
+        {
+          id: "cue-3",
+          sourceStartMs: 5_000,
+          sourceEndMs: 6_500,
+          text: "Duration unavailable",
+        },
+      ],
+    });
+
+    act(() => result.current.undo());
+    expect(result.current.recipe).toEqual(previousRecipe);
+  });
+
+  it("does not overwrite caption edits after the voiceover is attached", async () => {
+    const editedCaptions = {
+      mode: "manual" as const,
+      cues: [
+        {
+          id: "edited-caption",
+          sourceStartMs: 2_000,
+          sourceEndMs: 4_000,
+          text: "Edited after generation",
+        },
+      ],
+    };
+    const attachedRecipe = videoEditRecipe({
+      voiceover: {
+        enabled: true,
+        assetId: readyVoiceover.assetId,
+        generationId: readyVoiceover.id,
+      },
+      captions: editedCaptions,
+    });
+    vi.mocked(getVideoEditor).mockResolvedValue(
+      videoEditorState({
+        draft: {
+          revision: 1,
+          recipe: attachedRecipe,
+          updatedAt: "2026-01-02T00:00:00.000Z",
+        },
+        voiceover: readyVoiceover,
+      }),
+    );
+
+    const { result } = renderController();
+
+    await waitFor(() => expect(result.current.recipe).toBeDefined());
+    expect(result.current.recipe?.captions).toEqual(editedCaptions);
+    expect(result.current.dirty).toBe(false);
   });
 
   it("requests a render only after persisting the draft", async () => {
@@ -174,8 +371,12 @@ describe("video editor controller", () => {
     );
     await waitFor(() => expect(result.current.render).toEqual(completedRender));
 
-    act(() => result.current.setPanel("captions"));
-    expect(result.current.panel).toBe("captions");
+    act(() => {
+      result.current.setPanel("narration");
+      result.current.setNarrationView("captions");
+    });
+    expect(result.current.panel).toBe("narration");
+    expect(result.current.narrationView).toBe("captions");
     await act(() => result.current.publishChanges());
 
     expect(publishVideoRender).toHaveBeenCalledWith(

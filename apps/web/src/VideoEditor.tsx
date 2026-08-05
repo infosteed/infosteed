@@ -1,22 +1,23 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { videoEditedDurationMs } from "@infosteed/shared";
 import {
-  videoEditedDurationMs,
-  videoSourceToOutputMs,
-  type Recording,
-  type RecordingVideo,
-} from "@infosteed/shared";
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { recordingVideoAssetUrl, recordingVideoRenderUrl } from "./api";
 import { RecordingGenerationStatus } from "./components/RecordingGenerationStatus";
 import {
   VideoEditorError,
   VideoEditorHeader,
 } from "./features/video/VideoEditorChrome";
-import { VideoCaptionsPanel } from "./features/video/VideoCaptionsPanel";
 import { VideoChaptersPanel } from "./features/video/VideoChaptersPanel";
 import { VideoHistoryPanel } from "./features/video/VideoHistoryPanel";
 import { VideoInspectorTabs } from "./features/video/VideoInspectorTabs";
+import { VideoNarrationPanel } from "./features/video/VideoNarrationPanel";
 import { VideoRenderControls } from "./features/video/VideoRenderControls";
-import { VideoVoiceoverPanel } from "./features/video/VideoVoiceoverPanel";
 import {
   useVideoEditorController,
   type VideoEditorControllerOptions,
@@ -30,82 +31,110 @@ import {
 
 type Props = VideoEditorControllerOptions;
 
+const INSPECTOR_WIDTH_KEY = "infosteed.videoEditor.inspectorWidth";
+const MIN_INSPECTOR_WIDTH = 420;
+const MAX_INSPECTOR_WIDTH = 820;
+const MIN_PREVIEW_WIDTH = 720;
+
+export function clampVideoInspectorWidth(
+  width: number,
+  viewportWidth: number,
+): number {
+  const available = Math.max(
+    MIN_INSPECTOR_WIDTH,
+    viewportWidth - MIN_PREVIEW_WIDTH - 8,
+  );
+  return Math.round(
+    Math.max(
+      MIN_INSPECTOR_WIDTH,
+      Math.min(MAX_INSPECTOR_WIDTH, available, width),
+    ),
+  );
+}
+
+function responsiveInspectorWidth(viewportWidth: number): number {
+  return clampVideoInspectorWidth(viewportWidth * 0.36, viewportWidth);
+}
+
 export function VideoEditor(props: Props) {
   const { recording, video } = props;
   const controller = useVideoEditorController(props);
+  const [inspectorWidth, setInspectorWidth] = useState<number | undefined>(
+    () => {
+      if (typeof window === "undefined") return undefined;
+      const stored = Number(localStorage.getItem(INSPECTOR_WIDTH_KEY));
+      return Number.isFinite(stored) && stored > 0
+        ? clampVideoInspectorWidth(stored, window.innerWidth)
+        : undefined;
+    },
+  );
+  const resizeStart = useRef<{
+    pointerId: number;
+    clientX: number;
+    width: number;
+  }>();
   const {
     state,
     recipe,
-    setRecipe,
-    revision,
-    setRevision,
-    dirty,
-    setDirty,
-    savePaused,
-    setSavePaused,
-    saving,
     error,
-    setError,
-    panel,
-    setPanel,
     render,
-    setRender,
-    mp4Export,
     candidatePreview,
-    setCandidatePreview,
     playheadMs,
-    setPlayheadMs,
-    previewTimeMs,
     cutStartMs,
     setCutStartMs,
     cutEndMs,
     setCutEndMs,
     past,
-    setPast,
     future,
-    setFuture,
-    voices,
-    voice,
-    setVoice,
-    voiceoverSpeed,
-    setVoiceoverSpeed,
-    narrationCues,
-    setNarrationCues,
-    voiceover,
-    scriptStyle,
-    setScriptStyle,
-    rewritingScript,
     screenVideo,
     cameraVideo,
     microphoneAudio,
-    saveGeneration,
-    load,
     change,
-    persist,
     hasScreen,
     hasCamera,
     hasMicrophone,
     bubbleWidthRatio,
     bubbleHeightRatio,
     currentCaption,
-    syncSecondary,
+    seekToSourceMs,
     sourceTimeUpdate,
     playbackStarted,
     playbackPaused,
-    requestRender,
-    requestMp4Export,
-    requestVoiceover,
-    rewriteScript,
-    previewVoiceoverCue,
-    retryLocalDraft,
-    saveNamedVersion,
-    restoreVersion,
-    cancelActiveRender,
-    publishChanges,
-    resetAllEdits,
     undo,
     redo,
   } = controller;
+
+  useEffect(() => {
+    const clampStoredWidth = () =>
+      setInspectorWidth((current) =>
+        current === undefined
+          ? undefined
+          : clampVideoInspectorWidth(current, window.innerWidth),
+      );
+    window.addEventListener("resize", clampStoredWidth);
+    return () => window.removeEventListener("resize", clampStoredWidth);
+  }, []);
+
+  function currentInspectorWidth() {
+    return inspectorWidth ?? responsiveInspectorWidth(window.innerWidth);
+  }
+
+  function persistInspectorWidth(width: number) {
+    const next = clampVideoInspectorWidth(width, window.innerWidth);
+    setInspectorWidth(next);
+    localStorage.setItem(INSPECTOR_WIDTH_KEY, String(next));
+  }
+
+  function resizeInspector(event: ReactPointerEvent<HTMLDivElement>) {
+    const start = resizeStart.current;
+    if (!start || start.pointerId !== event.pointerId) return;
+    setInspectorWidth(
+      clampVideoInspectorWidth(
+        start.width - (event.clientX - start.clientX),
+        window.innerWidth,
+      ),
+    );
+  }
 
   if (!state || !recipe)
     return (
@@ -132,7 +161,16 @@ export function VideoEditor(props: Props) {
 
       <VideoEditorError controller={controller} />
 
-      <section className="video-editor-grid">
+      <section
+        className="video-editor-grid"
+        style={
+          {
+            "--video-inspector-width": inspectorWidth
+              ? `${inspectorWidth}px`
+              : undefined,
+          } as CSSProperties
+        }
+      >
         <div className="video-editor-preview-column">
           <div
             className="video-edit-stage"
@@ -224,14 +262,7 @@ export function VideoEditor(props: Props) {
               max={recipe.sourceDurationMs}
               value={playheadMs}
               onChange={(event) => {
-                const next = Number(event.target.value);
-                setPlayheadMs(next);
-                const mediaMs = candidatePreview
-                  ? (videoSourceToOutputMs(recipe, next) ?? 0)
-                  : next;
-                if (screenVideo.current)
-                  screenVideo.current.currentTime = mediaMs / 1000;
-                syncSecondary(next / 1000);
+                seekToSourceMs(Number(event.target.value));
               }}
             />
             <div className="timeline-ranges">
@@ -435,12 +466,57 @@ export function VideoEditor(props: Props) {
           </div>
         </div>
 
+        <div
+          aria-label={t("Resize inspector")}
+          aria-orientation="vertical"
+          aria-valuemax={clampVideoInspectorWidth(
+            MAX_INSPECTOR_WIDTH,
+            typeof window === "undefined" ? 1920 : window.innerWidth,
+          )}
+          aria-valuemin={MIN_INSPECTOR_WIDTH}
+          aria-valuenow={Math.round(
+            typeof window === "undefined" ? 680 : currentInspectorWidth(),
+          )}
+          className="video-editor-resizer"
+          onDoubleClick={() => {
+            setInspectorWidth(undefined);
+            localStorage.removeItem(INSPECTOR_WIDTH_KEY);
+          }}
+          onKeyDown={(event) => {
+            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+            event.preventDefault();
+            const direction = event.key === "ArrowLeft" ? 1 : -1;
+            persistInspectorWidth(
+              currentInspectorWidth() + direction * (event.shiftKey ? 48 : 16),
+            );
+          }}
+          onPointerCancel={(event) => {
+            resizeStart.current = undefined;
+            event.currentTarget.releasePointerCapture(event.pointerId);
+          }}
+          onPointerDown={(event) => {
+            resizeStart.current = {
+              pointerId: event.pointerId,
+              clientX: event.clientX,
+              width: currentInspectorWidth(),
+            };
+            event.currentTarget.setPointerCapture(event.pointerId);
+          }}
+          onPointerMove={resizeInspector}
+          onPointerUp={(event) => {
+            if (resizeStart.current?.pointerId === event.pointerId)
+              persistInspectorWidth(currentInspectorWidth());
+            resizeStart.current = undefined;
+            event.currentTarget.releasePointerCapture(event.pointerId);
+          }}
+          role="separator"
+          tabIndex={0}
+        />
         <aside className="video-editor-sidebar">
           <VideoInspectorTabs controller={controller} />
           <div className="video-editor-sidebar-scroll">
             <VideoChaptersPanel controller={controller} />
-            <VideoCaptionsPanel controller={controller} />
-            <VideoVoiceoverPanel controller={controller} />
+            <VideoNarrationPanel controller={controller} />
             <VideoHistoryPanel controller={controller} />
           </div>
           <VideoRenderControls recording={recording} controller={controller} />

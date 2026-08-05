@@ -23,20 +23,12 @@ export function VideoInspectorTabs({
         {t("Chapters")}
       </button>
       <button
-        aria-selected={panel === "captions"}
-        className={panel === "captions" ? "active" : ""}
-        onClick={() => setPanel("captions")}
+        aria-selected={panel === "narration"}
+        className={panel === "narration" ? "active" : ""}
+        onClick={() => setPanel("narration")}
         role="tab"
       >
-        {t("Captions")}
-      </button>
-      <button
-        aria-selected={panel === "voiceover"}
-        className={panel === "voiceover" ? "active" : ""}
-        onClick={() => setPanel("voiceover")}
-        role="tab"
-      >
-        {t("AI voiceover")}
+        {t("Narration")}
       </button>
       <button
         aria-selected={panel === "history"}

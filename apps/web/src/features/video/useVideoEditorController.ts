@@ -37,7 +37,10 @@ import {
 import { errorMessage } from "../../errors";
 import { currentOutputLocale, t } from "../../i18n";
 import { openRecording } from "../../navigation";
-import { materializeVideoCaptions } from "../../video-editor/model";
+import {
+  materializeVideoCaptions,
+  voiceoverCaptionCues,
+} from "../../video-editor/model";
 
 export interface VideoEditorControllerOptions {
   recording: Recording;
@@ -61,9 +64,15 @@ export function useVideoEditorController({
   const [savePaused, setSavePaused] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
-  const [panel, setPanel] = useState<
-    "chapters" | "captions" | "voiceover" | "history"
-  >("chapters");
+  const [panel, setPanel] = useState<"chapters" | "narration" | "history">(
+    "chapters",
+  );
+  const [narrationView, setNarrationView] = useState<"captions" | "voiceover">(
+    "captions",
+  );
+  const [selectedChapterId, setSelectedChapterId] = useState<string>();
+  const [selectedNarrationCueId, setSelectedNarrationCueId] =
+    useState<string>();
   const [render, setRender] = useState<VideoRender>();
   const [mp4Export, setMp4Export] = useState<VideoMp4Export>();
   const [candidatePreview, setCandidatePreview] = useState(false);
@@ -171,6 +180,9 @@ export function useVideoEditorController({
     setPast((items) => [...items.slice(-49), recipe]);
     setFuture([]);
     setRecipe(next);
+    setRender((current) =>
+      current?.status === "ready" ? { ...current, stale: true } : current,
+    );
     setDirty(true);
     saveGeneration.current += 1;
   }
@@ -293,6 +305,10 @@ export function useVideoEditorController({
         generationId: voiceover.id,
         assetId: voiceover.assetId,
       },
+      captions: {
+        mode: "manual",
+        cues: voiceoverCaptionCues(voiceover, recipe.sourceDurationMs),
+      },
     });
   }, [voiceover?.status, voiceover?.assetId, voiceover?.id]);
 
@@ -367,6 +383,17 @@ export function useVideoEditorController({
       Math.abs(microphoneAudio.current.currentTime - sourceSeconds) > 0.25
     )
       microphoneAudio.current.currentTime = sourceSeconds;
+  }
+
+  function seekToSourceMs(sourceMs: number) {
+    if (!recipe) return;
+    const next = Math.max(0, Math.min(recipe.sourceDurationMs, sourceMs));
+    setPlayheadMs(next);
+    const mediaMs = candidatePreview
+      ? (videoSourceToOutputMs(recipe, next) ?? 0)
+      : next;
+    if (screenVideo.current) screenVideo.current.currentTime = mediaMs / 1000;
+    syncSecondary(next / 1000);
   }
 
   function sourceTimeUpdate() {
@@ -581,6 +608,12 @@ export function useVideoEditorController({
     setError,
     panel,
     setPanel,
+    narrationView,
+    setNarrationView,
+    selectedChapterId,
+    setSelectedChapterId,
+    selectedNarrationCueId,
+    setSelectedNarrationCueId,
     render,
     setRender,
     mp4Export,
@@ -627,6 +660,7 @@ export function useVideoEditorController({
     sourceCaptions,
     currentCaption,
     syncSecondary,
+    seekToSourceMs,
     sourceTimeUpdate,
     playbackStarted,
     playbackPaused,

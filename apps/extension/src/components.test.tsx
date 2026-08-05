@@ -49,6 +49,7 @@ describe("extension presentation", () => {
       enabled: true,
       twoFactorRequired: false,
       twoFactorEnabled: false,
+      themePreference: "system",
     });
     vi.mocked(getVideoCapability).mockResolvedValue({
       enabled: true,

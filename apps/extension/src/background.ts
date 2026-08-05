@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import type {
   CaptureMode,
+  OutputLocale,
   RecordingEventInput,
   VideoCaptureSettings,
 } from "@infosteed/shared";
@@ -27,6 +28,7 @@ interface RecorderState {
   recordingId?: string;
   captureSessionId?: string;
   captureMode?: CaptureMode;
+  outputLocale?: OutputLocale;
   targetTabId?: number;
   tabTrail?: number[];
   pendingFollowTabId?: number;
@@ -51,6 +53,7 @@ async function getState(): Promise<RecorderState> {
     "recordingId",
     "captureSessionId",
     "captureMode",
+    "recordingOutputLocale",
     "recordingTargetTabId",
     "recordingTabTrail",
     "recordingPendingFollowTabId",
@@ -61,6 +64,7 @@ async function getState(): Promise<RecorderState> {
     recordingId: stored.recordingId,
     captureSessionId: stored.captureSessionId,
     captureMode: stored.captureMode,
+    outputLocale: stored.recordingOutputLocale,
     targetTabId: stored.recordingTargetTabId,
     tabTrail: Array.isArray(stored.recordingTabTrail)
       ? stored.recordingTabTrail.filter((tabId): tabId is number =>
@@ -84,6 +88,7 @@ async function setState(state: RecorderState): Promise<void> {
     recordingId: state.recordingId,
     captureSessionId: state.captureSessionId,
     captureMode: state.captureMode,
+    recordingOutputLocale: state.outputLocale,
     recordingTargetTabId: state.targetTabId,
     recordingTabTrail: state.tabTrail,
     recordingPendingFollowTabId: state.pendingFollowTabId,
@@ -93,6 +98,7 @@ async function setState(state: RecorderState): Promise<void> {
     !state.recordingId && "recordingId",
     !state.captureSessionId && "captureSessionId",
     !state.captureMode && "captureMode",
+    !state.outputLocale && "recordingOutputLocale",
     state.targetTabId === undefined && "recordingTargetTabId",
     !state.tabTrail?.length && "recordingTabTrail",
     state.pendingFollowTabId === undefined && "recordingPendingFollowTabId",
@@ -367,9 +373,13 @@ async function stopCurrentRecording(recovered = false) {
       await finalizeCaptureSession(
         current.recordingId,
         current.captureSessionId,
+        current.outputLocale ?? "en",
       );
     } else {
-      await finalizeRecording(current.recordingId);
+      await finalizeRecording(
+        current.recordingId,
+        current.outputLocale ?? "en",
+      );
     }
     const settings = await getSettings();
     const view = current.captureMode === "guide" ? "" : "&view=video";
@@ -514,6 +524,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       await setState({ ...current, status: "finalizing" });
       try {
         await finalizeVideo(current.recordingId, {
+          outputLocale: current.outputLocale ?? "en",
           durationMs: Math.max(0, Number(storedOffset.lastVideoOffsetMs) || 0),
           recovered: true,
           assets: video.assets
@@ -545,6 +556,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     if (message.type === "start-recording") {
       const captureMode = (message.captureMode ?? "guide") as CaptureMode;
+      const outputLocale = (message.outputLocale ?? "en") as OutputLocale;
       const stored = await chrome.storage.local.get("setupTargetTabId");
       const targetTabId = Number(stored.setupTargetTabId);
       const tab = Number.isInteger(targetTabId)
@@ -570,6 +582,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             streamId,
             settings: message.videoSettings as VideoCaptureSettings,
             connection,
+            outputLocale,
           });
         } catch (error) {
           if (await chrome.offscreen.hasDocument())
@@ -583,6 +596,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         status: "recording",
         recordingId: recording.id,
         captureMode,
+        outputLocale,
         targetTabId: tab.id,
         tabTrail: [tab.id],
       });
@@ -596,11 +610,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (sender.tab?.id !== undefined)
         await ensureContentRecorder(sender.tab.id);
       const session = await createCaptureSession(message.recordingId);
+      const outputLocale = (message.outputLocale ?? "en") as OutputLocale;
       await setState({
         status: "recording",
         recordingId: session.recordingId,
         captureSessionId: session.captureSessionId,
         captureMode: "guide",
+        outputLocale,
         targetTabId: sender.tab?.id,
         tabTrail: sender.tab?.id === undefined ? undefined : [sender.tab.id],
       });

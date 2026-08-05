@@ -5,6 +5,10 @@ time. A missing message safely falls back to the English source phrase. The UI
 selects the closest available language from the user's browser settings, and a
 user can override it from the language selector.
 
+English is currently the only catalog bundled with InfoSteed. Additional
+languages become available automatically when their validated catalogs are
+added at build time.
+
 ## Add a language
 
 1. Run `corepack pnpm i18n:extract` to refresh the English templates.

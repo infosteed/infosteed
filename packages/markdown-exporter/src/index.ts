@@ -442,6 +442,101 @@ function renderInlineMarkdownHtml(value: string): string {
   return escapeHtml(value).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
 }
 
+function assertSafeExportImageFilename(filename: string): void {
+  if (
+    filename.length === 0 ||
+    filename.includes("/") ||
+    filename.includes("\\") ||
+    filename.includes("..")
+  ) {
+    throw new Error(`Invalid Wiziwig export image filename: ${filename}`);
+  }
+}
+
+function buildWiziwigFragment(recording: Recording): {
+  html: string;
+  imageFilenames: string[];
+} {
+  const imageFilenames: string[] = [];
+  const seenImageFilenames = new Set<string>();
+  let stepNumber = 0;
+
+  const content = itemsForRecording(recording)
+    .slice()
+    .sort((a, b) => a.ordinal - b.ordinal)
+    .map((item) => {
+      if (item.kind === "header") {
+        return `<div style="margin: 28px 0 16px;"><h2 style="margin: 0 0 10px; font-size: 22px; line-height: 1.3;">${escapeHtml(item.title)}</h2>${
+          item.body && item.body !== item.title
+            ? `<p style="margin: 0; line-height: 1.55;">${renderInlineMarkdownHtml(item.body)}</p>`
+            : ""
+        }</div>`;
+      }
+
+      if (item.kind === "tip" || item.kind === "alert") {
+        const isTip = item.kind === "tip";
+        const label = isTip ? "Tip" : "Alert";
+        const background = isTip ? "#eff8ff" : "#fffaeb";
+        const border = isTip ? "#2e90fa" : "#f79009";
+        return `<div style="margin: 18px 0 26px; padding: 14px 16px; border-left: 4px solid ${border}; border-radius: 6px; background: ${background};"><strong>${label}</strong><p style="margin: 6px 0 0; line-height: 1.55;">${renderInlineMarkdownHtml(item.body)}</p></div>`;
+      }
+
+      stepNumber += 1;
+      let image = "";
+      if (item.imageFilename) {
+        assertSafeExportImageFilename(item.imageFilename);
+        if (!seenImageFilenames.has(item.imageFilename)) {
+          seenImageFilenames.add(item.imageFilename);
+          imageFilenames.push(item.imageFilename);
+        }
+        image = `<img src="images/${escapeHtml(item.imageFilename)}" alt="${escapeHtml(item.altText ?? item.title)}" style="display: block; max-width: 100%; height: auto; margin-top: 12px; border: 1px solid #d0d5dd; border-radius: 6px;" />`;
+      }
+
+      return `<div style="display: table; width: 100%; margin: 0 0 30px;"><div style="display: table-cell; width: 52px; vertical-align: top;"><span style="display: inline-block; width: 36px; height: 36px; border-radius: 50%; background: #dbeafe; color: #1d4ed8; font-weight: 700; line-height: 36px; text-align: center;">${stepNumber}</span></div><div style="display: table-cell; vertical-align: top;"><p style="margin: 4px 0 0; line-height: 1.55;">${renderInlineMarkdownHtml(item.body)}</p>${image}</div></div>`;
+    })
+    .join("\n");
+
+  const purpose = recording.purpose
+    ? `<p style="margin: 0 0 30px; color: #475467; font-size: 17px; line-height: 1.55;">${renderInlineMarkdownHtml(recording.purpose)}</p>`
+    : "";
+
+  return {
+    html: `<div data-infosteed-guide="wiziwig" style="max-width: 920px; color: #111827; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 15px; line-height: 1.55;">
+  <h1 style="margin: 0 0 28px; font-size: 30px; line-height: 1.2;">${escapeHtml(recording.title)}</h1>
+  ${purpose}
+  ${content}
+</div>`,
+    imageFilenames,
+  };
+}
+
+export async function buildWiziwigZip(
+  recording: Recording,
+  images: ExportImage[],
+): Promise<Buffer> {
+  const zip = new JSZip();
+  const imageFolder = zip.folder("images");
+  if (!imageFolder) throw new Error("Could not create images folder");
+
+  const fragment = buildWiziwigFragment(recording);
+  const availableImages = new Map(
+    images.map((image) => [image.filename, image] as const),
+  );
+
+  zip.file("guide.html", fragment.html);
+  for (const filename of fragment.imageFilenames) {
+    const image = availableImages.get(filename);
+    if (!image) {
+      throw new Error(
+        `Referenced Wiziwig export image is missing: images/${filename}`,
+      );
+    }
+    imageFolder.file(filename, image.content);
+  }
+
+  return zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+}
+
 export function buildEmbeddedHtml(
   recording: Recording,
   images: ExportImage[],

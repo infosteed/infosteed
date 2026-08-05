@@ -4,7 +4,7 @@ import { z } from "zod";
 export const PRODUCT_METADATA = Object.freeze({
   displayName: "InfoSteed",
   slug: "infosteed",
-  releaseVersion: "0.1.0-beta.2",
+  releaseVersion: "0.1.0-beta.4",
   protocolVersion: 1,
   minimumExtensionVersion: "0.1.0",
 });
@@ -54,6 +54,17 @@ export const recordingStateSchema = z.enum([
   "finalized",
 ]);
 export const captureModeSchema = z.enum(["guide", "video", "both"]);
+export const outputLocaleSchema = z.enum(["en", "ga", "fr", "de"]);
+export const outputLocaleRequestSchema = z
+  .object({ outputLocale: outputLocaleSchema.default("en") })
+  .default({});
+
+export const OUTPUT_LOCALE_NAMES = {
+  en: "English",
+  ga: "Irish (Gaeilge)",
+  fr: "French (Français)",
+  de: "German (Deutsch)",
+} as const satisfies Record<z.infer<typeof outputLocaleSchema>, string>;
 
 export const boundingBoxSchema = z.object({
   x: z.number().finite(),
@@ -358,6 +369,7 @@ export const createVoiceoverRequestSchema = z.object({
 });
 
 export const rewriteNarrationScriptRequestSchema = z.object({
+  outputLocale: outputLocaleSchema.default("en"),
   cues: z.array(voiceoverCueInputSchema).min(1).max(500),
   style: z.enum(["concise", "natural", "instructional"]).default("natural"),
 });
@@ -439,6 +451,7 @@ export const initializeVideoRequestSchema = z.object({
 });
 
 export const finalizeVideoRequestSchema = z.object({
+  outputLocale: outputLocaleSchema.default("en"),
   durationMs: z.number().int().nonnegative().max(3_600_000),
   recovered: z.boolean().default(false),
   assets: z
@@ -808,6 +821,7 @@ export const recordingProjectSchema = z.union([
 
 export const userRoleSchema = z.enum(["admin", "user"]);
 export const projectRoleSchema = z.enum(["owner", "editor", "viewer"]);
+export const themePreferenceSchema = z.enum(["light", "dark", "system"]);
 
 export const setupAdminRequestSchema = z.object({
   username: usernameTextSchema,
@@ -836,6 +850,10 @@ export const twoFactorLoginRequestSchema = z.object({
 export const updateOwnPasswordRequestSchema = z.object({
   currentPassword: z.string().min(1).max(256),
   newPassword: z.string().min(10).max(256),
+});
+
+export const updateOwnPreferencesRequestSchema = z.object({
+  themePreference: themePreferenceSchema,
 });
 
 export const twoFactorEnrollmentStartRequestSchema = z.object({
@@ -945,6 +963,7 @@ export const currentUserSchema = z.object({
   enabled: z.boolean(),
   twoFactorEnabled: z.boolean().default(false),
   twoFactorRequired: z.boolean().default(false),
+  themePreference: themePreferenceSchema.default("system"),
 });
 
 export const userDirectoryEntrySchema = z.object({
@@ -1000,6 +1019,7 @@ export type ScreenshotEditOperations = z.infer<
 export type RecordingEventInput = z.input<typeof recordingEventSchema>;
 export type RecordingEvent = z.output<typeof recordingEventSchema>;
 export type CaptureMode = z.infer<typeof captureModeSchema>;
+export type OutputLocale = z.infer<typeof outputLocaleSchema>;
 export type CreateRecordingRequest = z.infer<
   typeof createRecordingRequestSchema
 >;
@@ -1023,6 +1043,7 @@ export type UpdateGuideItemRequest = z.infer<
 export type RecordingProject = z.infer<typeof recordingProjectSchema>;
 export type UserRole = z.infer<typeof userRoleSchema>;
 export type ProjectRole = z.infer<typeof projectRoleSchema>;
+export type ThemePreference = z.infer<typeof themePreferenceSchema>;
 export type CurrentUser = z.infer<typeof currentUserSchema>;
 export type UserDirectoryEntry = z.infer<typeof userDirectoryEntrySchema>;
 export type Project = z.infer<typeof projectSchema>;

@@ -9,9 +9,5 @@ export function MediaWorkspace({
   children: ReactNode;
   className?: string;
 }) {
-  return (
-    <main className={cn("media-workspace studio-dark", className)}>
-      {children}
-    </main>
-  );
+  return <main className={cn("media-workspace", className)}>{children}</main>;
 }

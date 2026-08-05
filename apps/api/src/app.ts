@@ -13,6 +13,7 @@ import {
 } from "@infosteed/image-processor";
 import {
   buildEmbeddedHtml,
+  buildWiziwigZip,
   buildWorkflowDocx,
   buildWorkflowZip,
 } from "@infosteed/markdown-exporter";
@@ -34,6 +35,7 @@ import {
   screenshotEditOperationsSchema,
   setupAdminRequestSchema,
   updateOwnPasswordRequestSchema,
+  updateOwnPreferencesRequestSchema,
   updateRecordingRequestSchema,
   updateGuideItemRequestSchema,
   updateGuideStepRequestSchema,
@@ -46,6 +48,7 @@ import {
   createVideoRenderRequestSchema,
   createVoiceoverRequestSchema,
   rewriteNarrationScriptRequestSchema,
+  outputLocaleRequestSchema,
   videoAssetKindSchema,
   videoEditedDurationMs,
   videoRecipeCaptions,
@@ -119,6 +122,7 @@ import {
   recordingAccessRole,
   setupFirstAdmin,
   updateOwnPassword,
+  updateOwnThemePreference,
   verifyCsrfToken,
   verifyPassword,
   writeAuditEvent,
@@ -849,6 +853,18 @@ export function buildApp(
 
   app.get("/auth/me", async (request) => ({ user: currentUser(request) }));
 
+  app.patch("/auth/me/preferences", async (request) => {
+    const parsed = updateOwnPreferencesRequestSchema.safeParse(request.body);
+    if (!parsed.success) throw httpError(400, "Invalid theme preference");
+    const user = await updateOwnThemePreference(
+      pool,
+      currentUser(request).id,
+      parsed.data.themePreference,
+    );
+    if (!user) throw httpError(404, "User not found");
+    return { user };
+  });
+
   app.get("/auth/csrf", async (request) => ({
     csrfToken: await issueCsrfToken(pool, currentSessionId(request)),
   }));
@@ -1248,10 +1264,19 @@ export function buildApp(
           client,
           request.params.id,
           transcriptionQueued,
+          input.outputLocale,
         );
         if (recording.captureMode === "both" && !transcriptionQueued) {
           const latest = await getRecording(client, request.params.id);
-          if (latest) await generateGuideSteps(client, latest, provider);
+          if (latest)
+            await generateGuideSteps(
+              client,
+              latest,
+              provider,
+              false,
+              [],
+              input.outputLocale,
+            );
         }
       });
       if (recording.captureMode === "both" && !transcriptionQueued)
@@ -1335,7 +1360,10 @@ export function buildApp(
       await requireRecordingWrite(request, request.params.id);
       if (!transcriptionProvider)
         throw httpError(503, "Transcription is not configured");
-      if (!(await retryTranscription(pool, request.params.id))) {
+      const { outputLocale } = outputLocaleRequestSchema.parse(
+        request.body ?? {},
+      );
+      if (!(await retryTranscription(pool, request.params.id, outputLocale))) {
         throw httpError(409, "Transcription is already pending or processing");
       }
       transcriptionWorker.wake();
@@ -2020,6 +2048,9 @@ export function buildApp(
     "/recordings/:id/capture-sessions/:sessionId/finalize",
     async (request) => {
       await requireRecordingWrite(request, request.params.id);
+      const { outputLocale } = outputLocaleRequestSchema.parse(
+        request.body ?? {},
+      );
       const session = await findCaptureSession(
         pool,
         request.params.id,
@@ -2046,6 +2077,8 @@ export function buildApp(
           recording,
           request.params.sessionId,
           provider,
+          [],
+          outputLocale,
         );
         return getRecording(client, request.params.id);
       });
@@ -2111,6 +2144,9 @@ export function buildApp(
     "/recordings/:id/finalize",
     async (request) => {
       await requireRecordingWrite(request, request.params.id);
+      const { outputLocale } = outputLocaleRequestSchema.parse(
+        request.body ?? {},
+      );
       const current = await ensureGuideActive(request.params.id);
       if (current.captureMode !== "guide")
         throw httpError(
@@ -2131,6 +2167,7 @@ export function buildApp(
           provider,
           false,
           transcript?.cues ?? [],
+          outputLocale,
         );
         return getRecording(client, request.params.id);
       });
@@ -2143,6 +2180,9 @@ export function buildApp(
     "/recordings/:id/generate-guide",
     async (request) => {
       await requireRecordingWrite(request, request.params.id);
+      const { outputLocale } = outputLocaleRequestSchema.parse(
+        request.body ?? {},
+      );
       const updated = await withTransaction(pool, async (client) => {
         const recording = await getRecording(client, request.params.id);
         if (!recording) throw httpError(404, "Recording not found");
@@ -2156,6 +2196,7 @@ export function buildApp(
           provider,
           false,
           transcript?.cues ?? [],
+          outputLocale,
         );
         return getRecording(client, request.params.id);
       });
@@ -2229,6 +2270,9 @@ export function buildApp(
     "/recordings/:id/generate-overview",
     async (request) => {
       await requireRecordingWrite(request, request.params.id);
+      const { outputLocale } = outputLocaleRequestSchema.parse(
+        request.body ?? {},
+      );
       const recording = await getRecording(pool, request.params.id);
       if (!recording) throw httpError(404, "Recording not found");
       const items = (
@@ -2245,6 +2289,7 @@ export function buildApp(
         body: item.kind === "step" ? item.body : item.body,
       }));
       const generated = await writeGuideOverview(provider, {
+        outputLocale,
         currentTitle: recording.title,
         purpose: recording.purpose,
         audience: recording.audience,
@@ -2557,6 +2602,9 @@ export function buildApp(
     "/recordings/:id/steps/:stepId/regenerate",
     async (request) => {
       await requireRecordingWrite(request, request.params.id);
+      const { outputLocale } = outputLocaleRequestSchema.parse(
+        request.body ?? {},
+      );
       const generatedStep = await withTransaction(pool, async (client) => {
         const recording = await getRecording(client, request.params.id);
         if (!recording) throw httpError(404, "Recording not found");
@@ -2577,6 +2625,7 @@ export function buildApp(
           ? await prepareAiScreenshotDataUrl(screenshot.annotated_image)
           : undefined;
         const generated = await writeStep(provider, {
+          outputLocale,
           workflowPurpose: recording.purpose,
           audience: recording.audience,
           current: event,
@@ -2767,6 +2816,25 @@ export function buildApp(
           `attachment; filename="${PRODUCT_IDENTIFIERS.exportPrefix}-${recording.id}.html"`,
         )
         .send(html);
+    },
+  );
+
+  app.get<{ Params: { id: string } }>(
+    "/recordings/:id/export/wiziwig",
+    async (request, reply) => {
+      await requireRecordingRead(request, request.params.id);
+      const { recording, images } = await loadRecordingAndImages(
+        request.params.id,
+      );
+      const zip = await buildWiziwigZip(recording, images);
+
+      return reply
+        .header("content-type", "application/zip")
+        .header(
+          "content-disposition",
+          `attachment; filename="${PRODUCT_IDENTIFIERS.exportPrefix}-${recording.id}-wiziwig.zip"`,
+        )
+        .send(zip);
     },
   );
 

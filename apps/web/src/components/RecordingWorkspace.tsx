@@ -31,7 +31,7 @@ import { orderedItems } from "../guide/model";
 export { orderedItems } from "../guide/model";
 export type { DropPosition } from "../guide/model";
 import { guideSourceLabel } from "../guide/source";
-import { plural, t } from "../i18n";
+import { currentOutputLocale, plural, t } from "../i18n";
 import { currentRecordingId } from "../navigation";
 import {
   ImageEditor,
@@ -156,6 +156,7 @@ export function startExistingCapture(recordingId: string): Promise<void> {
         type: "start-capture-existing",
         recordingId,
         requestId,
+        outputLocale: currentOutputLocale(),
       },
       window.location.origin,
     );

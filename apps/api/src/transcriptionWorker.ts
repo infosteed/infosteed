@@ -155,6 +155,7 @@ export class TranscriptionWorker {
         for (let index = 0; index < recording.events.length; index += 1) {
           const current = recording.events[index];
           const generated = await writeChapter(this.guideProvider, {
+            outputLocale: job.outputLocale,
             recordingTitle: recording.title,
             workflowPurpose: recording.purpose,
             audience: recording.audience,
@@ -180,6 +181,7 @@ export class TranscriptionWorker {
               this.guideProvider,
               false,
               transcriptCues,
+              job.outputLocale,
             );
         });
         if (job.createdByUserId) {
@@ -221,7 +223,14 @@ export class TranscriptionWorker {
           await withTransaction(this.pool, async (client) => {
             const latest = await getRecording(client, job.recordingId);
             if (latest)
-              await generateGuideSteps(client, latest, this.guideProvider);
+              await generateGuideSteps(
+                client,
+                latest,
+                this.guideProvider,
+                false,
+                [],
+                job.outputLocale,
+              );
           });
         }
       } catch (guideError) {

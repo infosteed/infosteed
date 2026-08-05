@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { z } from "zod";
-import type { VoiceoverCueInput } from "@infosteed/shared";
+import {
+  OUTPUT_LOCALE_NAMES,
+  type OutputLocale,
+  type VoiceoverCueInput,
+} from "@infosteed/shared";
 import type { ApiConfig } from "./config.js";
 
 const outputSchema = z.object({
@@ -27,6 +31,7 @@ function extractJson(value: string): unknown {
 export async function rewriteNarrationScript(
   config: ApiConfig,
   input: {
+    outputLocale: OutputLocale;
     cues: VoiceoverCueInput[];
     style: "concise" | "natural" | "instructional";
   },
@@ -39,6 +44,7 @@ export async function rewriteNarrationScript(
   const prompt = [
     "/no_think",
     "Rewrite caption cues into a polished spoken narration script.",
+    `Write all narration in ${OUTPUT_LOCALE_NAMES[input.outputLocale]}. Preserve literal product names and application control labels in their original language.`,
     `Style: ${input.style}. Keep each cue concise enough for its available time.`,
     "Preserve every cue id and cue count. Do not change timestamps. Do not add markdown.",
     'Return only JSON shaped as {"cues":[{"id":"...","text":"..."}]}.',

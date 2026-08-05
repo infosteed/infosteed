@@ -2,11 +2,14 @@
 import { describe, expect, it } from "vitest";
 import {
   createRecordingRequestSchema,
+  currentUserSchema,
   finalizeVideoRequestSchema,
   guideItemSchema,
   initializeVideoRequestSchema,
+  outputLocaleRequestSchema,
   recordingProjectSchema,
   uploadScreenshotRequestSchema,
+  updateOwnPreferencesRequestSchema,
   recordingEventSchema,
   videoEditRecipeSchema,
   videoEditedDurationMs,
@@ -18,6 +21,35 @@ import {
 } from "./index";
 
 describe("shared schemas", () => {
+  it("validates AI output locales with an English compatibility default", () => {
+    expect(outputLocaleRequestSchema.parse(undefined)).toEqual({
+      outputLocale: "en",
+    });
+    expect(outputLocaleRequestSchema.parse({ outputLocale: "ga" })).toEqual({
+      outputLocale: "ga",
+    });
+    expect(() =>
+      outputLocaleRequestSchema.parse({ outputLocale: "es" }),
+    ).toThrow();
+  });
+
+  it("defaults account appearance to system and validates updates", () => {
+    const user = currentUserSchema.parse({
+      id: "00000000-0000-4000-8000-000000000001",
+      username: "owner",
+      displayName: "Recording Owner",
+      role: "admin",
+      enabled: true,
+    });
+    expect(user.themePreference).toBe("system");
+    expect(
+      updateOwnPreferencesRequestSchema.parse({ themePreference: "dark" }),
+    ).toEqual({ themePreference: "dark" });
+    expect(() =>
+      updateOwnPreferencesRequestSchema.parse({ themePreference: "midnight" }),
+    ).toThrow();
+  });
+
   it("validates sanitized event payloads", () => {
     const parsed = recordingEventSchema.parse({
       actionType: "click",

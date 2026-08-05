@@ -18,6 +18,8 @@ InfoSteed is a self-hosted browser recorder for teams that need to keep workflow
 - Transcribe narration asynchronously with a local or hosted OpenAI-compatible Whisper endpoint, add captions, and use nearby speech to improve synchronized chapter and guide titles.
 - Edit video non-destructively with source-clock cuts, independent chapters and captions, webcam layout, audio levels, durable preview renders, and explicit replacement publishing.
 - Build editable narration from captions (or rewrite it with a configured local language model), synthesize it cue-by-cue with a local OpenAI-compatible TTS service, and mix it into rendered videos.
+- Protect accounts with optional TOTP two-factor authentication, one-time recovery codes, and administrator-enforced enrollment.
+- Localize the web application and extension through validated JSON catalogs with plural and right-to-left support.
 
 See [Sanity import setup](docs/sanity/README.md) for the one-time Studio schema installation and import commands.
 
@@ -37,6 +39,8 @@ pnpm dev:extension
 Load `apps/extension/dist` as an unpacked extension in Chromium after running the extension build or dev task.
 
 ## Self-hosted deployment
+
+InfoSteed has no supported public release yet. The signed `v0.1.0-beta.3` candidate has been superseded and must remain unpublished while `v0.1.0-beta.4` is prepared.
 
 Use the supported local and production instructions in [docs/deployment.md](docs/deployment.md). Production uses Caddy-managed public or internal HTTPS, versioned GHCR images by default, an equivalent source-build fallback, internal-only application data services, and a mandatory 32-byte first-admin setup token. Ollama, Whisper, and Kokoro can each be managed locally, connected externally, or disabled; see [AI services](docs/ai-services.md). Back up before every upgrade using [docs/backup-and-upgrade.md](docs/backup-and-upgrade.md).
 
@@ -205,8 +209,9 @@ curl -s http://127.0.0.1:11434/v1/chat/completions \
 
 The web app and extension use contributor-friendly JSON catalogs, automatic
 browser-language matching, English fallback, plural rules, and right-to-left
-document direction. See [Translating InfoSteed](docs/translating.md) to add a
-language and validate its placeholders and coverage.
+document direction. English is currently the only bundled catalog. See
+[Translating InfoSteed](docs/translating.md) to add a language and validate its
+placeholders and coverage.
 
 ## License
 

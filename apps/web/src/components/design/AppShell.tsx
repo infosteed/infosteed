@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Archive,
   BookOpen,
   FolderKanban,
   LogOut,
+  Monitor,
+  Moon,
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
   Share2,
   ShieldCheck,
+  Sun,
 } from "lucide-react";
 import type { BrandingSettings, CurrentUser } from "@infosteed/shared";
 import { Button } from "@/components/ui/button";
@@ -24,6 +27,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -31,6 +37,9 @@ import { BrandMark, productLogoUrl } from "../BrandMark";
 import { UserAvatar } from "./UserAvatar";
 import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
+import { updateMyPreferences } from "@/api";
+import { toast } from "@/components/ui/sonner";
+import { isThemePreference, useTheme } from "@/theme";
 
 export type AppShellNavKey =
   "library" | "projects" | "shared" | "trash" | "admin" | "recording";
@@ -89,8 +98,26 @@ export function AppShell({
   children: ReactNode;
   className?: string;
 }) {
+  const { preference, setPreference } = useTheme();
+  const [savingTheme, setSavingTheme] = useState(false);
   const brandName = branding?.displayName || "InfoSteed";
   const brandIcon = branding?.iconDataUrl || productLogoUrl;
+
+  async function changeTheme(next: string) {
+    if (!isThemePreference(next) || savingTheme || next === preference) return;
+    const previous = preference;
+    setSavingTheme(true);
+    setPreference(next);
+    try {
+      const result = await updateMyPreferences(next);
+      setPreference(result.user.themePreference);
+    } catch {
+      setPreference(previous);
+      toast.error(t("Could not save appearance preference."));
+    } finally {
+      setSavingTheme(false);
+    }
+  }
 
   return (
     <SidebarProvider>
@@ -185,6 +212,27 @@ export function AppShell({
                     {t("Security")}
                   </DropdownMenuItem>
                 )}
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="px-2.5 py-1.5 text-xs font-semibold text-muted-foreground">
+                  {t("Appearance")}
+                </DropdownMenuLabel>
+                <DropdownMenuRadioGroup
+                  value={preference}
+                  onValueChange={(value) => void changeTheme(value)}
+                >
+                  <DropdownMenuRadioItem value="light" disabled={savingTheme}>
+                    <Sun />
+                    {t("Light")}
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="dark" disabled={savingTheme}>
+                    <Moon />
+                    {t("Dark")}
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="system" disabled={savingTheme}>
+                    <Monitor />
+                    {t("System")}
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
                 <DropdownMenuSeparator />
                 {onLogout && (
                   <DropdownMenuItem onSelect={onLogout}>

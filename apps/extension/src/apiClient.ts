@@ -3,6 +3,7 @@ import type {
   CaptureMode,
   CurrentUser,
   InitializeVideoRequest,
+  OutputLocale,
   RecordingEventInput,
   RecordingVideo,
   VideoCaptureSettings,
@@ -283,8 +284,14 @@ export async function uploadScreenshot(
   });
 }
 
-export async function finalizeRecording(recordingId: string) {
-  return request(`/recordings/${recordingId}/finalize`, { method: "POST" });
+export async function finalizeRecording(
+  recordingId: string,
+  outputLocale: OutputLocale,
+) {
+  return request(`/recordings/${recordingId}/finalize`, {
+    method: "POST",
+    body: JSON.stringify({ outputLocale }),
+  });
 }
 
 export async function createCaptureSession(recordingId: string) {
@@ -298,10 +305,11 @@ export async function createCaptureSession(recordingId: string) {
 export async function finalizeCaptureSession(
   recordingId: string,
   captureSessionId: string,
+  outputLocale: OutputLocale,
 ) {
   return request(
     `/recordings/${recordingId}/capture-sessions/${captureSessionId}/finalize`,
-    { method: "POST" },
+    { method: "POST", body: JSON.stringify({ outputLocale }) },
   );
 }
 
@@ -358,6 +366,7 @@ export async function uploadVideoPart(
 export async function finalizeVideo(
   recordingId: string,
   input: {
+    outputLocale: OutputLocale;
     durationMs: number;
     recovered?: boolean;
     assets: Array<{ assetId: string; durationMs?: number }>;

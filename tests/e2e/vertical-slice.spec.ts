@@ -159,6 +159,22 @@ test("creates and exports an offline guide over HTTP", async ({ request }) => {
   expect(zip.file("workflow-guide/recording.json")).toBeTruthy();
   expect(zip.file("workflow-guide/images/step-001-login.webp")).toBeTruthy();
 
+  const wiziwigExport = await request.get(
+    `${apiUrl}/recordings/${id}/export/wiziwig`,
+  );
+  expect(wiziwigExport.ok()).toBe(true);
+  expect(wiziwigExport.headers()["content-type"]).toContain("application/zip");
+  expect(wiziwigExport.headers()["content-disposition"]).toContain(
+    `infosteed-guide-${id}-wiziwig.zip`,
+  );
+  const wiziwigZip = await JSZip.loadAsync(
+    Buffer.from(await wiziwigExport.body()),
+  );
+  const wiziwigHtml = await wiziwigZip.file("guide.html")?.async("string");
+  expect(wiziwigHtml).toContain('src="images/step-001-login.webp"');
+  expect(wiziwigHtml).not.toContain("data:image/");
+  expect(wiziwigZip.file("images/step-001-login.webp")).toBeTruthy();
+
   const sanityExport = await request.get(
     `${apiUrl}/recordings/${id}/export/sanity`,
   );

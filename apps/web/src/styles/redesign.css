@@ -4,6 +4,10 @@ html {
   background: hsl(var(--background));
 }
 
+html.dark {
+  color-scheme: dark;
+}
+
 body {
   color: hsl(var(--foreground));
   background:
@@ -986,66 +990,25 @@ a:focus-visible {
   font-size: 12px;
 }
 
-.video-editor-shell {
-  background: hsl(var(--studio-background));
-  color: hsl(var(--studio-foreground));
-}
-
-.video-editor-header {
-  background: hsl(var(--studio-surface));
-  border-color: hsl(var(--studio-border));
-  color: hsl(var(--studio-foreground));
-}
-
-.video-editor-header p,
-.video-editor-live-note,
-.studio-dark .save-state {
-  color: hsl(var(--studio-muted-foreground));
-}
-
 .video-editor-grid {
   display: flex;
 }
 
-.video-editor-preview-column {
-  background: hsl(var(--studio-background));
-}
-
 .video-edit-stage {
-  border: 1px solid hsl(var(--studio-border));
   border-radius: 14px;
   background: #05070b;
 }
 
-.video-timeline,
-.video-edit-media-controls fieldset,
-.video-editor-sidebar,
-.render-controls {
-  border-color: hsl(var(--studio-border));
-  background: hsl(var(--studio-surface));
-  color: hsl(var(--studio-foreground));
-}
-
-.video-editor-sidebar {
-  height: 100%;
-  border-left: 1px solid hsl(var(--studio-border));
-}
-
-.video-panel-tabs {
-  border-color: hsl(var(--studio-border));
-  background: hsl(var(--studio-muted));
-}
-
 .video-panel-tabs button.active {
   background: hsl(var(--primary));
-  color: white;
+  color: var(--solid-foreground);
 }
 
 .render-preview-button,
 .publish-button {
   border-color: hsl(var(--primary));
   background: hsl(var(--primary));
-  color: white;
+  color: var(--solid-foreground);
 }
 
 .admin-page {
@@ -1309,6 +1272,12 @@ a:focus-visible {
   display: grid;
   width: 100%;
   gap: 12px;
+}
+
+.library-load-more {
+  display: flex;
+  justify-content: center;
+  padding-top: 24px;
 }
 
 .guide-card {

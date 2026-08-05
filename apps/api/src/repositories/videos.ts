@@ -2,6 +2,7 @@
 import { randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "../db.js";
 import type {
+  OutputLocale,
   InitializeVideoRequest,
   RecordingTranscript,
   RecordingVideo,
@@ -268,19 +269,21 @@ export interface TranscriptionJob {
   recordingId: string;
   createdByUserId: string | null;
   sourceAsset: VideoAssetRow;
+  outputLocale: OutputLocale;
 }
 
 export async function queueVideoTranscription(
   db: Db,
   recordingId: string,
   enabled: boolean,
+  outputLocale: OutputLocale,
 ): Promise<void> {
   await db.query(
-    `update recording_videos set transcription_status = $2,
+    `update recording_videos set transcription_status = $2, ai_output_locale = $3,
        transcription_error_message = null, transcription_started_at = null,
        transcription_completed_at = null, updated_at = now()
      where recording_id = $1`,
-    [recordingId, enabled ? "pending" : "disabled"],
+    [recordingId, enabled ? "pending" : "disabled", outputLocale],
   );
 }
 
@@ -297,7 +300,10 @@ export async function claimNextTranscription(
   db: Db,
 ): Promise<TranscriptionJob | null> {
   const claimed = await db.query<
-    VideoRow & { created_by_user_id: string | null }
+    VideoRow & {
+      created_by_user_id: string | null;
+      ai_output_locale: OutputLocale;
+    }
   >(
     `with candidate as (
        select id from recording_videos
@@ -334,6 +340,7 @@ export async function claimNextTranscription(
     recordingId: video.recording_id,
     createdByUserId: video.created_by_user_id,
     sourceAsset,
+    outputLocale: video.ai_output_locale,
   };
 }
 
@@ -396,13 +403,14 @@ export async function failTranscription(
 export async function retryTranscription(
   db: Db,
   recordingId: string,
+  outputLocale: OutputLocale,
 ): Promise<boolean> {
   const result = await db.query(
-    `update recording_videos set transcription_status = 'pending',
+    `update recording_videos set transcription_status = 'pending', ai_output_locale = $2,
        transcription_error_message = null, transcription_started_at = null,
        transcription_completed_at = null, updated_at = now()
      where recording_id = $1 and transcription_status in ('disabled', 'failed', 'ready')`,
-    [recordingId],
+    [recordingId, outputLocale],
   );
   return (result.rowCount ?? 0) > 0;
 }

@@ -12,8 +12,10 @@ import { AdminPanel } from "./components/AdminPanel";
 import { useRecordingController } from "./features/recording/useRecordingController";
 import { currentRecordingId, currentView } from "./navigation";
 import { RecordingScreen } from "./screens/RecordingScreen";
+import { useTheme } from "./theme";
 
 export function App() {
+  const { setPreference } = useTheme();
   const recordingId = currentRecordingId();
   const requestedView = currentView();
   const [setupRequired, setSetupRequired] = useState<boolean | undefined>();
@@ -47,6 +49,10 @@ export function App() {
   useEffect(() => {
     void refreshAuth();
   }, []);
+
+  useEffect(() => {
+    if (user) setPreference(user.themePreference);
+  }, [setPreference, user]);
 
   if (requestedView === "legal") return <LegalView />;
 

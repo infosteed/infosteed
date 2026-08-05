@@ -79,6 +79,10 @@ exports[`API route contract > preserves every registered method and path 1`] = `
     "url": "/auth/me/password",
   },
   {
+    "method": "PATCH",
+    "url": "/auth/me/preferences",
+  },
+  {
     "method": "GET",
     "url": "/capabilities",
   },
@@ -213,6 +217,14 @@ exports[`API route contract > preserves every registered method and path 1`] = `
   {
     "method": "HEAD",
     "url": "/recordings/:id/export/sanity",
+  },
+  {
+    "method": "GET",
+    "url": "/recordings/:id/export/wiziwig",
+  },
+  {
+    "method": "HEAD",
+    "url": "/recordings/:id/export/wiziwig",
   },
   {
     "method": "GET",

@@ -4,6 +4,7 @@ import {
   createI18n,
   type TranslationCatalog,
 } from "@infosteed/i18n";
+import { outputLocaleSchema, type OutputLocale } from "@infosteed/shared";
 
 const localeModules = import.meta.glob("./locales/*.json", {
   eager: true,
@@ -19,3 +20,6 @@ applyDocumentLocale(i18n);
 
 export const t = i18n.t;
 export const plural = i18n.plural;
+export function currentOutputLocale(): OutputLocale {
+  return outputLocaleSchema.parse(i18n.locale);
+}

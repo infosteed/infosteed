@@ -5,7 +5,7 @@ import type { CaptureMode, VideoCaptureSettings } from "@infosteed/shared";
 import { getVideoCapability } from "./apiClient";
 import { BrandMark } from "./BrandMark";
 import { errorMessage } from "./errors";
-import { t } from "./i18n";
+import { i18n, t } from "./i18n";
 import "./setup.css";
 
 document.title = t("Start InfoSteed recording");
@@ -139,6 +139,7 @@ export function Setup() {
       const result = await chrome.runtime.sendMessage({
         type: "start-recording",
         captureMode,
+        outputLocale: i18n.locale,
         videoSettings: settings,
       });
       if (!result?.ok)

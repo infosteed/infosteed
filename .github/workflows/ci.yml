@@ -21,6 +21,7 @@ jobs:
       - run: corepack pnpm install --frozen-lockfile
       - run: corepack pnpm format:check
       - run: corepack pnpm spdx:check
+      - run: corepack pnpm release-metadata:check
       - run: corepack pnpm notices:check
       - run: corepack pnpm typecheck
       - run: corepack pnpm test
@@ -59,17 +60,17 @@ jobs:
       - run: docker compose --env-file docker.env.example --profile transcription --profile voiceover config --quiet
       - run: >-
           CADDY_IMAGE=caddy:2.10.2@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          WEB_IMAGE=example/web:0.1.0-beta.2@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          API_IMAGE=example/api:0.1.0-beta.2@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          RENDER_IMAGE=example/render:0.1.0-beta.2@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          WEB_IMAGE=example/web:0.1.0-beta.4@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          API_IMAGE=example/api:0.1.0-beta.4@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          RENDER_IMAGE=example/render:0.1.0-beta.4@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           POSTGRES_IMAGE=postgres:16-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           MINIO_IMAGE=minio/minio:latest@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           MINIO_MC_IMAGE=minio/mc:latest@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          TRANSCRIPTION_IMAGE=example/transcription:0.1.0-beta.2@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          TRANSCRIPTION_IMAGE=example/transcription:0.1.0-beta.4@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           KOKORO_IMAGE=example/kokoro:v0.2.4@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           OLLAMA_IMAGE=example/ollama:0.32.3@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           APP_DOMAIN=guides.example.test ACME_EMAIL=admin@example.test
-          APP_SOURCE_URL=https://github.com/example/project RELEASE_VERSION=0.1.0-beta.2 RELEASE_COMMIT=abc
+          APP_SOURCE_URL=https://github.com/example/project RELEASE_VERSION=0.1.0-beta.4 RELEASE_COMMIT=abc
           EXTENSION_ORIGINS=chrome-extension://abcdefghijklmnop
           SETUP_TOKEN=01234567890123456789012345678901
           POSTGRES_PASSWORD=test-password MINIO_ROOT_USER=root MINIO_ROOT_PASSWORD=test-root-password
@@ -79,7 +80,7 @@ jobs:
       - run: >-
           IMAGE_SOURCE=build LOCAL_IMAGE_TAG=sha-abc
           APP_DOMAIN=guides.example.test ACME_EMAIL=admin@example.test
-          APP_SOURCE_URL=https://github.com/infosteed/infosteed RELEASE_VERSION=0.1.0-beta.2 RELEASE_COMMIT=abc
+          APP_SOURCE_URL=https://github.com/infosteed/infosteed RELEASE_VERSION=0.1.0-beta.4 RELEASE_COMMIT=abc
           EXTENSION_ORIGINS=chrome-extension://abcdefghijklmnopabcdefghijklmnop
           SETUP_TOKEN=01234567890123456789012345678901
           POSTGRES_PASSWORD=test-password MINIO_ROOT_USER=root MINIO_ROOT_PASSWORD=test-root-password
@@ -88,7 +89,7 @@ jobs:
           --profile transcription-gpu --profile voiceover-cpu config --quiet
       - name: Validate standalone AI service Compose
         run: >-
-          AI_BIND_ADDRESS=192.0.2.20 RELEASE_VERSION=0.1.0-beta.2 TRANSCRIPTION_API_KEY=test-token
+          AI_BIND_ADDRESS=192.0.2.20 RELEASE_VERSION=0.1.0-beta.4 TRANSCRIPTION_API_KEY=test-token
           docker compose -f deploy/compose.ai-services.yml
           --profile ollama --profile transcription --profile voiceover config --quiet
       - name: Validate Caddy configurations
@@ -104,7 +105,7 @@ jobs:
           APP_DOMAIN: guides.example.test
           ACME_EMAIL: admin@example.test
           APP_SOURCE_URL: https://github.com/infosteed/infosteed
-          RELEASE_VERSION: 0.1.0-beta.2
+          RELEASE_VERSION: 0.1.0-beta.4
           RELEASE_COMMIT: abc
           EXTENSION_ORIGINS: chrome-extension://abcdefghijklmnopabcdefghijklmnop
           SETUP_TOKEN: 01234567890123456789012345678901
@@ -122,7 +123,7 @@ jobs:
           APP_DOMAIN: guides.example.test
           ACME_EMAIL: admin@example.test
           APP_SOURCE_URL: https://github.com/infosteed/infosteed
-          RELEASE_VERSION: 0.1.0-beta.2
+          RELEASE_VERSION: 0.1.0-beta.4
           RELEASE_COMMIT: abc
           EXTENSION_ORIGINS: chrome-extension://abcdefghijklmnopabcdefghijklmnop
           SETUP_TOKEN: 01234567890123456789012345678901

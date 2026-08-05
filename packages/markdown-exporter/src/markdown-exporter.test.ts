@@ -6,6 +6,7 @@ import { extract } from "tar-stream";
 import { describe, expect, it } from "vitest";
 import {
   buildEmbeddedHtml,
+  buildWiziwigZip,
   buildWorkflowDocx,
   buildWorkflowZip,
   escapeMarkdown,
@@ -336,6 +337,91 @@ describe("markdown exporter", () => {
     );
     expect(html).toContain('class="callout tip"');
     expect(html).toContain('class="callout alert"');
+  });
+
+  it("builds a Wiziwig fragment ZIP with relative referenced images", async () => {
+    const zipBuffer = await buildWiziwigZip(
+      {
+        ...recording,
+        title: "Update <customers>",
+        purpose: "Help **support agents** safely.",
+        items: recording.items.map((item) =>
+          item.kind === "step"
+            ? { ...item, altText: 'Customers <navigation> "image"' }
+            : item,
+        ),
+      },
+      [
+        {
+          filename: "step-001-open-customers.webp",
+          content: Buffer.from("referenced-image"),
+          contentType: "image/webp",
+        },
+        {
+          filename: "unused.webp",
+          content: Buffer.from("unused-image"),
+          contentType: "image/webp",
+        },
+      ],
+    );
+    const zip = await JSZip.loadAsync(zipBuffer);
+    const html = await zip.file("guide.html")!.async("string");
+
+    expect(html).toContain('data-infosteed-guide="wiziwig"');
+    expect(html).toContain("Update &lt;customers&gt;");
+    expect(html).toContain(
+      'alt="Customers &lt;navigation&gt; &quot;image&quot;"',
+    );
+    expect(html).toContain("Help <strong>support agents</strong> safely.");
+    expect(html).toContain("Before you start");
+    expect(html).toContain("<strong>Tip</strong>");
+    expect(html).toContain("<strong>Alert</strong>");
+    expect(html).toContain(">1</span>");
+    expect(html).toContain("Click <strong>Customers</strong>.");
+    expect(html).toContain('src="images/step-001-open-customers.webp"');
+    expect(html).toContain('style="');
+    expect(html).not.toMatch(/<(?:!doctype|html|head|style|script)\b/i);
+    expect(html).not.toMatch(
+      /https?:\/\/|s3:\/\/|blob:|data:|chrome-extension:/i,
+    );
+    expect(
+      await zip
+        .file("images/step-001-open-customers.webp")!
+        .async("nodebuffer"),
+    ).toEqual(Buffer.from("referenced-image"));
+    expect(zip.file("images/unused.webp")).toBeNull();
+  });
+
+  it("supports image-free Wiziwig fragments", async () => {
+    const imageFree = {
+      ...recording,
+      items: recording.items.map((item) =>
+        item.kind === "step" ? { ...item, imageFilename: null } : item,
+      ),
+    };
+    const zip = await JSZip.loadAsync(await buildWiziwigZip(imageFree, []));
+    const html = await zip.file("guide.html")!.async("string");
+
+    expect(html).toContain("Click <strong>Customers</strong>.");
+    expect(html).not.toContain("<img");
+  });
+
+  it("rejects missing and unsafe Wiziwig export images", async () => {
+    await expect(buildWiziwigZip(recording, [])).rejects.toThrow(
+      "Referenced Wiziwig export image is missing",
+    );
+
+    const unsafe = {
+      ...recording,
+      items: recording.items.map((item) =>
+        item.kind === "step"
+          ? { ...item, imageFilename: "../outside.webp" }
+          : item,
+      ),
+    };
+    await expect(buildWiziwigZip(unsafe, [])).rejects.toThrow(
+      "Invalid Wiziwig export image filename",
+    );
   });
 
   it("embeds supplied branding in HTML and PDF source documents", () => {

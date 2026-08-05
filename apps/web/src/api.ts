@@ -7,6 +7,7 @@ import type {
   GuideItem,
   GuideItemKind,
   GuideStep,
+  OutputLocale,
   Project,
   ProjectMember,
   Recording,
@@ -24,6 +25,7 @@ import type {
   RecordingListItem,
   RecordingProject,
   ScreenshotEditOperations,
+  ThemePreference,
   UserDirectoryEntry,
 } from "@infosteed/shared";
 import type { PublicSystemInfo } from "@infosteed/shared";
@@ -213,15 +215,24 @@ export function me() {
   return request<{ user: CurrentUser }>("/auth/me");
 }
 
+export function updateMyPreferences(themePreference: ThemePreference) {
+  return request<{ user: CurrentUser }>("/auth/me/preferences", {
+    method: "PATCH",
+    body: JSON.stringify({ themePreference }),
+  });
+}
+
 export function listRecordings(query: {
   search?: string;
   projectId?: string;
   scope?: "all" | "owned" | "shared" | "trash";
   sort?: "recent" | "title";
+  limit?: number;
+  offset?: number;
 }) {
   const params = new URLSearchParams();
   Object.entries(query).forEach(([key, value]) => {
-    if (value) params.set(key, value);
+    if (value !== undefined && value !== "") params.set(key, String(value));
   });
   return request<{ items: RecordingListItem[]; total: number }>(
     `/recordings?${params}`,
@@ -418,9 +429,11 @@ export function getRecordingTranscript(
 
 export function retryRecordingTranscript(
   recordingId: string,
+  outputLocale: OutputLocale,
 ): Promise<RecordingTranscript> {
   return request(`/recordings/${recordingId}/video/transcript/retry`, {
     method: "POST",
+    body: JSON.stringify({ outputLocale }),
   });
 }
 
@@ -583,10 +596,11 @@ export function rewriteVoiceoverScript(
   recordingId: string,
   cues: VoiceoverCueInput[],
   style: "concise" | "natural" | "instructional",
+  outputLocale: OutputLocale,
 ): Promise<{ cues: VoiceoverCueInput[] }> {
   return request(`/recordings/${recordingId}/video/voiceover/script`, {
     method: "POST",
-    body: JSON.stringify({ cues, style }),
+    body: JSON.stringify({ cues, style, outputLocale }),
   });
 }
 
@@ -639,8 +653,12 @@ export function updateRecording(
 
 export function generateOverview(
   id: string,
+  outputLocale: OutputLocale,
 ): Promise<Recording & { overviewSource?: "ai" | "deterministic" }> {
-  return request(`/recordings/${id}/generate-overview`, { method: "POST" });
+  return request(`/recordings/${id}/generate-overview`, {
+    method: "POST",
+    body: JSON.stringify({ outputLocale }),
+  });
 }
 
 export function updateStep(
@@ -758,10 +776,14 @@ export function reorderItems(recordingId: string, itemIds: string[]) {
   });
 }
 
-export function regenerateStep(recordingId: string, stepId: string) {
+export function regenerateStep(
+  recordingId: string,
+  stepId: string,
+  outputLocale: OutputLocale,
+) {
   return request<GuideStep>(
     `/recordings/${recordingId}/steps/${stepId}/regenerate`,
-    { method: "POST" },
+    { method: "POST", body: JSON.stringify({ outputLocale }) },
   );
 }
 
@@ -807,6 +829,10 @@ export function exportUrl(recordingId: string): string {
 
 export function htmlExportUrl(recordingId: string): string {
   return `${API_BASE}/recordings/${recordingId}/export/html`;
+}
+
+export function wiziwigExportUrl(recordingId: string): string {
+  return `${API_BASE}/recordings/${recordingId}/export/wiziwig`;
 }
 
 export function sanityExportUrl(recordingId: string): string {

@@ -21,6 +21,7 @@ import type {
   ProjectMember,
   ProjectRole,
   RecordingListItem,
+  ThemePreference,
   UserDirectoryEntry,
   UserRole,
 } from "@infosteed/shared";
@@ -41,6 +42,7 @@ interface UserRow {
   enabled: boolean;
   two_factor_required: boolean;
   two_factor_enabled?: boolean;
+  theme_preference: ThemePreference;
 }
 
 interface ProjectRow {
@@ -105,6 +107,7 @@ function mapUser(row: UserRow): CurrentUser {
     enabled: row.enabled,
     twoFactorEnabled: Boolean(row.two_factor_enabled),
     twoFactorRequired: row.two_factor_required,
+    themePreference: row.theme_preference ?? "system",
   };
 }
 
@@ -287,6 +290,29 @@ export async function updateOwnPassword(
     "update users set password_hash = $2, updated_at = now() where id = $1",
     [userId, await hashPassword(password)],
   );
+}
+
+export async function updateOwnThemePreference(
+  db: Db,
+  userId: string,
+  themePreference: ThemePreference,
+): Promise<CurrentUser | null> {
+  const result = await db.query<UserRow>(
+    `
+      with updated as (
+        update users
+        set theme_preference = $2, updated_at = now()
+        where id = $1
+        returning *
+      )
+      select updated.*, exists(
+        select 1 from user_totp_credentials c where c.user_id = updated.id
+      ) as two_factor_enabled
+      from updated
+    `,
+    [userId, themePreference],
+  );
+  return result.rows[0] ? mapUser(result.rows[0]) : null;
 }
 
 export async function findUserByUsername(

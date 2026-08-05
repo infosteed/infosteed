@@ -46,6 +46,7 @@ jobs:
           package-manager-cache: false
       - run: corepack enable
       - run: corepack pnpm install --frozen-lockfile
+      - run: corepack pnpm release-metadata:check -- --release-tag "$GITHUB_REF_NAME"
       - run: corepack pnpm check
       - run: corepack pnpm notices:check
       - run: corepack pnpm extension:package

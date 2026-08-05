@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import type {
+  OutputLocale,
   RecordingVideo,
   VideoAssetKind,
   VideoCaptureSettings,
@@ -31,6 +32,7 @@ interface StartMessage {
   streamId: string;
   settings: VideoCaptureSettings;
   connection: ExtensionSettings;
+  outputLocale: OutputLocale;
 }
 
 interface SwitchTabMessage {
@@ -127,6 +129,7 @@ class OffscreenRecorder {
   private drawTimer?: number;
   private durationTimer?: number;
   private recordingId = "";
+  private outputLocale: OutputLocale = "en";
   private stopping = false;
   private backlog = { bytes: 0, pauseRequested: false };
 
@@ -229,6 +232,7 @@ class OffscreenRecorder {
       throw new Error(t("A video recording is already active"));
     configureRuntimeSettings(message.connection);
     this.recordingId = message.recordingId;
+    this.outputLocale = message.outputLocale;
     this.settings = message.settings;
     const tab = await this.tabStream(message.streamId, message.settings);
     this.currentTabStream = tab;
@@ -506,6 +510,7 @@ class OffscreenRecorder {
     await Promise.all(stopped);
     await Promise.all(this.uploaders.map((uploader) => uploader.finish()));
     const result = await finalizeVideo(this.recordingId, {
+      outputLocale: this.outputLocale,
       durationMs,
       recovered,
       assets: this.uploaders.map((uploader) => ({

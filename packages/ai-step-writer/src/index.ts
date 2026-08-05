@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { z } from "zod";
-import type { RecordingEvent } from "@infosteed/shared";
+import {
+  OUTPUT_LOCALE_NAMES,
+  type OutputLocale,
+  type RecordingEvent,
+} from "@infosteed/shared";
 
 export const generatedStepSchema = z.object({
   title: z.string().trim().min(1).max(120),
@@ -28,6 +32,7 @@ export type GeneratedOverview = z.infer<typeof generatedOverviewSchema>;
 export type GeneratedChapter = z.infer<typeof generatedChapterSchema>;
 
 export interface StepWritingContext {
+  outputLocale: OutputLocale;
   workflowPurpose?: string | null;
   audience?: string | null;
   current: RecordingEvent;
@@ -40,6 +45,7 @@ export interface StepWritingContext {
 }
 
 export interface ChapterWritingContext {
+  outputLocale: OutputLocale;
   recordingTitle: string;
   workflowPurpose?: string | null;
   audience?: string | null;
@@ -57,6 +63,7 @@ export interface AiStepWriterProvider {
 }
 
 export interface GuideOverviewContext {
+  outputLocale: OutputLocale;
   currentTitle: string;
   purpose?: string | null;
   audience?: string | null;
@@ -78,18 +85,205 @@ function bold(value: string): string {
   return `**${value.replace(/\*/g, "\\*")}**`;
 }
 
-function targetName(event: RecordingEvent): string {
+export function targetLanguageInstruction(locale: OutputLocale): string {
+  return `Write all human-readable output in ${OUTPUT_LOCALE_NAMES[locale]}. Preserve literal product names, application labels, and control text from the source context in their original language.`;
+}
+
+type DeterministicCopy = {
+  map: string;
+  highlightedField: string;
+  highlightedRole: (role: string) => string;
+  highlightedArea: string;
+  mapPointTitle: string;
+  mapPointInstruction: (region: string) => string;
+  mapPointAlt: (region: string) => string;
+  enterTitle: (label: string) => string;
+  enterInstruction: (label: string) => string;
+  fieldAlt: (label: string) => string;
+  selectTitle: (label: string) => string;
+  selectInstruction: (value: string, label: string) => string;
+  listAlt: (label: string) => string;
+  requiredOption: string;
+  list: string;
+  chooseTitle: (target: string) => string;
+  chooseInstruction: (target: string) => string;
+  optionAlt: (target: string) => string;
+  openTitle: (title: string) => string;
+  openInstruction: (title: string) => string;
+  submitTitle: (target: string) => string;
+  submitInstruction: (target: string) => string;
+  submitAlt: (target: string) => string;
+  clickTitle: (target: string) => string;
+  clickInstruction: (target: string) => string;
+  clickAlt: (target: string, page: string) => string;
+  workflowGuide: string;
+  overview: (steps: number | string, sections: string) => string;
+  sectionJoin: (sections: string) => string;
+  stepByStep: string;
+};
+
+const deterministicCopy: Record<OutputLocale, DeterministicCopy> = {
+  en: {
+    map: "the map",
+    highlightedField: "the highlighted field",
+    highlightedRole: (role) => `the highlighted ${role}`,
+    highlightedArea: "the highlighted area",
+    mapPointTitle: "Click the highlighted map point",
+    mapPointInstruction: (region) =>
+      `Click the highlighted point in the ${bold(`${region} of the map`)}.`,
+    mapPointAlt: (region) => `Highlighted point in the ${region} of the map`,
+    enterTitle: (label) => `Enter ${label}`,
+    enterInstruction: (label) =>
+      `Enter the required value in the ${bold(label)} field.`,
+    fieldAlt: (label) => `${label} field`,
+    selectTitle: (label) => `Select ${label}`,
+    selectInstruction: (value, label) =>
+      `Select ${bold(value)} from the ${bold(label)} list.`,
+    listAlt: (label) => `${label} list`,
+    requiredOption: "the required option",
+    list: "the list",
+    chooseTitle: (target) => `Choose ${target}`,
+    chooseInstruction: (target) => `Choose ${bold(target)}.`,
+    optionAlt: (target) => `${target} option`,
+    openTitle: (title) => `Open ${title}`,
+    openInstruction: (title) => `Open ${bold(title)}.`,
+    submitTitle: (target) => `Submit ${target}`,
+    submitInstruction: (target) => `Submit the form using ${bold(target)}.`,
+    submitAlt: (target) => `${target} submit control`,
+    clickTitle: (target) => `Click ${target}`,
+    clickInstruction: (target) => `Click ${bold(target)}.`,
+    clickAlt: (target, page) => `${target} on ${page}`,
+    workflowGuide: "Workflow guide",
+    overview: (steps, sections) =>
+      `Follow this ${steps} guide${sections} to complete the recorded workflow.`,
+    sectionJoin: (sections) => ` across ${sections}`,
+    stepByStep: "step-by-step",
+  },
+  ga: {
+    map: "an léarscáil",
+    highlightedField: "an réimse aibhsithe",
+    highlightedRole: (role) => `an ${role} aibhsithe`,
+    highlightedArea: "an limistéar aibhsithe",
+    mapPointTitle: "Cliceáil pointe aibhsithe na léarscáile",
+    mapPointInstruction: (region) =>
+      `Cliceáil an pointe aibhsithe i ${bold(`${region} den léarscáil`)}.`,
+    mapPointAlt: (region) => `Pointe aibhsithe i ${region} den léarscáil`,
+    enterTitle: (label) => `Cuir ${label} isteach`,
+    enterInstruction: (label) =>
+      `Cuir an luach riachtanach isteach sa réimse ${bold(label)}.`,
+    fieldAlt: (label) => `Réimse ${label}`,
+    selectTitle: (label) => `Roghnaigh ${label}`,
+    selectInstruction: (value, label) =>
+      `Roghnaigh ${bold(value)} ón liosta ${bold(label)}.`,
+    listAlt: (label) => `Liosta ${label}`,
+    requiredOption: "an rogha riachtanach",
+    list: "an liosta",
+    chooseTitle: (target) => `Roghnaigh ${target}`,
+    chooseInstruction: (target) => `Roghnaigh ${bold(target)}.`,
+    optionAlt: (target) => `Rogha ${target}`,
+    openTitle: (title) => `Oscail ${title}`,
+    openInstruction: (title) => `Oscail ${bold(title)}.`,
+    submitTitle: (target) => `Cuir ${target} isteach`,
+    submitInstruction: (target) => `Cuir an fhoirm isteach le ${bold(target)}.`,
+    submitAlt: (target) => `Rialtán seolta ${target}`,
+    clickTitle: (target) => `Cliceáil ${target}`,
+    clickInstruction: (target) => `Cliceáil ${bold(target)}.`,
+    clickAlt: (target, page) => `${target} ar ${page}`,
+    workflowGuide: "Treoir sreafa oibre",
+    overview: (steps, sections) =>
+      `Lean an treoir ${steps} seo${sections} chun an sreabhadh oibre taifeadta a chur i gcrích.`,
+    sectionJoin: (sections) => ` trí ${sections}`,
+    stepByStep: "céim ar chéim",
+  },
+  fr: {
+    map: "la carte",
+    highlightedField: "le champ mis en évidence",
+    highlightedRole: (role) => `l’élément ${role} mis en évidence`,
+    highlightedArea: "la zone mise en évidence",
+    mapPointTitle: "Cliquer sur le point indiqué sur la carte",
+    mapPointInstruction: (region) =>
+      `Cliquez sur le point indiqué dans ${bold(`${region} de la carte`)}.`,
+    mapPointAlt: (region) => `Point indiqué dans ${region} de la carte`,
+    enterTitle: (label) => `Saisir ${label}`,
+    enterInstruction: (label) =>
+      `Saisissez la valeur requise dans le champ ${bold(label)}.`,
+    fieldAlt: (label) => `Champ ${label}`,
+    selectTitle: (label) => `Sélectionner ${label}`,
+    selectInstruction: (value, label) =>
+      `Sélectionnez ${bold(value)} dans la liste ${bold(label)}.`,
+    listAlt: (label) => `Liste ${label}`,
+    requiredOption: "l’option requise",
+    list: "la liste",
+    chooseTitle: (target) => `Choisir ${target}`,
+    chooseInstruction: (target) => `Choisissez ${bold(target)}.`,
+    optionAlt: (target) => `Option ${target}`,
+    openTitle: (title) => `Ouvrir ${title}`,
+    openInstruction: (title) => `Ouvrez ${bold(title)}.`,
+    submitTitle: (target) => `Envoyer avec ${target}`,
+    submitInstruction: (target) =>
+      `Envoyez le formulaire à l’aide de ${bold(target)}.`,
+    submitAlt: (target) => `Commande d’envoi ${target}`,
+    clickTitle: (target) => `Cliquer sur ${target}`,
+    clickInstruction: (target) => `Cliquez sur ${bold(target)}.`,
+    clickAlt: (target, page) => `${target} sur ${page}`,
+    workflowGuide: "Guide du flux de travail",
+    overview: (steps, sections) =>
+      `Suivez ce guide ${steps}${sections} pour terminer le flux de travail enregistré.`,
+    sectionJoin: (sections) => ` couvrant ${sections}`,
+    stepByStep: "étape par étape",
+  },
+  de: {
+    map: "die Karte",
+    highlightedField: "das hervorgehobene Feld",
+    highlightedRole: (role) => `das hervorgehobene ${role}-Element`,
+    highlightedArea: "den hervorgehobenen Bereich",
+    mapPointTitle: "Hervorgehobenen Kartenpunkt anklicken",
+    mapPointInstruction: (region) =>
+      `Klicken Sie auf den hervorgehobenen Punkt in ${bold(`${region} der Karte`)}.`,
+    mapPointAlt: (region) => `Hervorgehobener Punkt in ${region} der Karte`,
+    enterTitle: (label) => `${label} eingeben`,
+    enterInstruction: (label) =>
+      `Geben Sie den erforderlichen Wert in das Feld ${bold(label)} ein.`,
+    fieldAlt: (label) => `Feld ${label}`,
+    selectTitle: (label) => `${label} auswählen`,
+    selectInstruction: (value, label) =>
+      `Wählen Sie ${bold(value)} aus der Liste ${bold(label)} aus.`,
+    listAlt: (label) => `Liste ${label}`,
+    requiredOption: "die erforderliche Option",
+    list: "die Liste",
+    chooseTitle: (target) => `${target} auswählen`,
+    chooseInstruction: (target) => `Wählen Sie ${bold(target)} aus.`,
+    optionAlt: (target) => `Option ${target}`,
+    openTitle: (title) => `${title} öffnen`,
+    openInstruction: (title) => `Öffnen Sie ${bold(title)}.`,
+    submitTitle: (target) => `${target} absenden`,
+    submitInstruction: (target) =>
+      `Senden Sie das Formular mit ${bold(target)} ab.`,
+    submitAlt: (target) => `Steuerelement zum Absenden: ${target}`,
+    clickTitle: (target) => `${target} anklicken`,
+    clickInstruction: (target) => `Klicken Sie auf ${bold(target)}.`,
+    clickAlt: (target, page) => `${target} auf ${page}`,
+    workflowGuide: "Arbeitsablauf-Anleitung",
+    overview: (steps, sections) =>
+      `Folgen Sie dieser ${steps}-Anleitung${sections}, um den aufgezeichneten Arbeitsablauf abzuschließen.`,
+    sectionJoin: (sections) => ` für ${sections}`,
+    stepByStep: "Schritt-für-Schritt",
+  },
+};
+
+function targetName(event: RecordingEvent, locale: OutputLocale): string {
+  const copy = deterministicCopy[locale];
   const raw = event.elementName || event.labelText;
   if (raw) return raw;
-  if (event.elementRole === "canvas") return "the map";
-  if (event.elementRole === "field") return "the highlighted field";
+  if (event.elementRole === "canvas") return copy.map;
+  if (event.elementRole === "field") return copy.highlightedField;
   if (
     event.elementRole &&
     !/^(div|span|i|svg|path|element)$/i.test(event.elementRole)
   ) {
-    return `the highlighted ${event.elementRole}`;
+    return copy.highlightedRole(event.elementRole);
   }
-  return "the highlighted area";
+  return copy.highlightedArea;
 }
 
 function canvasRegion(event: RecordingEvent): string | undefined {
@@ -158,17 +352,21 @@ function parseGeneratedChapter(value: string): GeneratedChapter {
 export function deterministicOverview(
   context: GuideOverviewContext,
 ): GeneratedOverview {
+  const copy = deterministicCopy[context.outputLocale];
   const stepCount = context.items.filter((item) => item.kind === "step").length;
   const sections = context.items
     .filter((item) => item.kind === "header")
     .map((item) => item.title);
   const title =
-    context.currentTitle.replace(/^Record\s+/i, "").trim() || "Workflow guide";
+    context.currentTitle.replace(/^Record\s+/i, "").trim() ||
+    copy.workflowGuide;
   const sectionText =
-    sections.length > 0 ? ` across ${sections.slice(0, 3).join(", ")}` : "";
+    sections.length > 0
+      ? copy.sectionJoin(sections.slice(0, 3).join(", "))
+      : "";
   return {
     title,
-    overview: `Follow this ${stepCount || "step-by-step"} guide${sectionText} to complete the recorded workflow.`,
+    overview: copy.overview(stepCount || copy.stepByStep, sectionText),
   };
 }
 
@@ -193,26 +391,30 @@ export async function writeGuideOverview(
   }
 }
 
-export function deterministicInstruction(event: RecordingEvent): GeneratedStep {
-  const target = targetName(event);
+export function deterministicInstruction(
+  event: RecordingEvent,
+  outputLocale: OutputLocale = "en",
+): GeneratedStep {
+  const copy = deterministicCopy[outputLocale];
+  const target = targetName(event, outputLocale);
 
   if (event.actionType === "click" && event.elementRole === "canvas") {
     const region = canvasRegion(event);
     if (region) {
       return {
-        title: "Click the highlighted map point",
-        instruction: `Click the highlighted point in the ${bold(`${region} of the map`)}.`,
-        altText: `Highlighted point in the ${region} of the map`,
+        title: copy.mapPointTitle,
+        instruction: copy.mapPointInstruction(region),
+        altText: copy.mapPointAlt(region),
       };
     }
   }
 
   if (event.actionType === "input") {
-    const label = event.labelText || event.elementName || "the field";
+    const label = event.labelText || event.elementName || copy.highlightedField;
     return {
-      title: `Enter ${label}`,
-      instruction: `Enter the required value in the ${bold(label)} field.`,
-      altText: `${label} field`,
+      title: copy.enterTitle(label),
+      instruction: copy.enterInstruction(label),
+      altText: copy.fieldAlt(label),
     };
   }
 
@@ -220,43 +422,43 @@ export function deterministicInstruction(event: RecordingEvent): GeneratedStep {
     const safeValue =
       typeof event.metadata.selectedValue === "string"
         ? event.metadata.selectedValue
-        : "the required option";
-    const label = event.labelText || event.elementName || "the list";
+        : copy.requiredOption;
+    const label = event.labelText || event.elementName || copy.list;
     return {
-      title: `Select ${label}`,
-      instruction: `Select ${bold(safeValue)} from the ${bold(label)} list.`,
-      altText: `${label} list`,
+      title: copy.selectTitle(label),
+      instruction: copy.selectInstruction(safeValue, label),
+      altText: copy.listAlt(label),
     };
   }
 
   if (event.actionType === "checkbox" || event.actionType === "radio") {
     return {
-      title: `Choose ${target}`,
-      instruction: `Choose ${bold(target)}.`,
-      altText: `${target} option`,
+      title: copy.chooseTitle(target),
+      instruction: copy.chooseInstruction(target),
+      altText: copy.optionAlt(target),
     };
   }
 
   if (event.actionType === "navigation") {
     return {
-      title: `Open ${event.pageTitle}`,
-      instruction: `Open ${bold(event.pageTitle)}.`,
+      title: copy.openTitle(event.pageTitle),
+      instruction: copy.openInstruction(event.pageTitle),
       altText: event.pageTitle,
     };
   }
 
   if (event.actionType === "submit") {
     return {
-      title: `Submit ${target}`,
-      instruction: `Submit the form using ${bold(target)}.`,
-      altText: `${target} submit control`,
+      title: copy.submitTitle(target),
+      instruction: copy.submitInstruction(target),
+      altText: copy.submitAlt(target),
     };
   }
 
   return {
-    title: `Click ${target}`,
-    instruction: `Click ${bold(target)}.`,
-    altText: `${target} on ${event.pageTitle}`,
+    title: copy.clickTitle(target),
+    instruction: copy.clickInstruction(target),
+    altText: copy.clickAlt(target, event.pageTitle),
   };
 }
 
@@ -266,7 +468,7 @@ export async function writeStep(
 ): Promise<GeneratedStep & { source: "ai" | "deterministic" }> {
   if (!provider) {
     return {
-      ...deterministicInstruction(context.current),
+      ...deterministicInstruction(context.current, context.outputLocale),
       source: "deterministic",
     };
   }
@@ -282,7 +484,7 @@ export async function writeStep(
       error instanceof Error ? error.message : error,
     );
     return {
-      ...deterministicInstruction(context.current),
+      ...deterministicInstruction(context.current, context.outputLocale),
       source: "deterministic",
     };
   }
@@ -293,7 +495,8 @@ export async function writeChapter(
   context: ChapterWritingContext,
 ): Promise<GeneratedChapter & { source: "ai" | "deterministic" }> {
   const fallback = {
-    title: deterministicInstruction(context.current).title,
+    title: deterministicInstruction(context.current, context.outputLocale)
+      .title,
     source: "deterministic" as const,
   };
   if (!provider?.generateChapter) return fallback;
@@ -371,6 +574,7 @@ export class OpenAiCompatibleStepWriter implements AiStepWriterProvider {
   async generateOverview(
     context: GuideOverviewContext,
   ): Promise<GeneratedOverview> {
+    const language = targetLanguageInstruction(context.outputLocale);
     const jsonContract =
       'Return exactly one compact JSON object: {"title":"...","overview":"..."}. No markdown outside JSON.';
 
@@ -399,6 +603,8 @@ export class OpenAiCompatibleStepWriter implements AiStepWriterProvider {
             role: "system",
             content:
               "/no_think\nWrite Scribe-style guide titles and short overview blurbs. Use normal product language. Do not invent company names. " +
+              language +
+              " " +
               jsonContract +
               "\n/no_think",
           },
@@ -445,6 +651,8 @@ export class OpenAiCompatibleStepWriter implements AiStepWriterProvider {
     const userText =
       "/no_think\n" +
       JSON.stringify(stepContext) +
+      "\n" +
+      targetLanguageInstruction(context.outputLocale) +
       "\nWrite what the user should do, not raw accessibility text. Prefer visible product words, nearby headings, and the screenshot. Ignore page furniture like item counts, pagination, and sort controls unless those were the clicked target.\n" +
       jsonContract +
       "\n/no_think";
@@ -548,7 +756,7 @@ export class OpenAiCompatibleStepWriter implements AiStepWriterProvider {
         messages: [
           {
             role: "system",
-            content: `Write concise action-oriented video chapter titles. ${jsonContract}`,
+            content: `Write concise action-oriented video chapter titles. ${targetLanguageInstruction(context.outputLocale)} ${jsonContract}`,
           },
           {
             role: "user",
@@ -585,6 +793,8 @@ export class OllamaNativeStepWriter implements AiStepWriterProvider {
         prompt:
           "/no_think\nReturn ONLY JSON with keys title and overview for this whole browser workflow. " +
           "The overview must be 1-2 concise sentences.\n" +
+          targetLanguageInstruction(context.outputLocale) +
+          "\n" +
           JSON.stringify(context) +
           "\n/no_think",
         stream: false,
@@ -611,6 +821,8 @@ export class OllamaNativeStepWriter implements AiStepWriterProvider {
     const prompt =
       "Return ONLY JSON with keys title, instruction, altText for this browser workflow step.\n" +
       "Do not include prose outside JSON.\n" +
+      targetLanguageInstruction(context.outputLocale) +
+      "\n" +
       JSON.stringify({
         workflowPurpose: context.workflowPurpose,
         audience: context.audience,
@@ -665,6 +877,8 @@ export class OllamaNativeStepWriter implements AiStepWriterProvider {
         prompt:
           "Return ONLY JSON with one key, title, containing a concise action-oriented video chapter name. " +
           "Use nearby narration but do not invent an outcome.\n" +
+          targetLanguageInstruction(context.outputLocale) +
+          "\n" +
           JSON.stringify(context),
         stream: false,
         format: "json",

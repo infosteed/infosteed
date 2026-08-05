@@ -9,7 +9,11 @@ import {
   type AiStepWriterProvider,
 } from "@infosteed/ai-step-writer";
 import { prepareAiScreenshotDataUrl } from "@infosteed/image-processor";
-import type { Recording, TranscriptSegment } from "@infosteed/shared";
+import type {
+  OutputLocale,
+  Recording,
+  TranscriptSegment,
+} from "@infosteed/shared";
 import { transcriptAround } from "./transcriptContext.js";
 
 export async function generateGuideSteps(
@@ -18,6 +22,7 @@ export async function generateGuideSteps(
   provider?: AiStepWriterProvider,
   overwriteUserEdited = false,
   transcriptSegments: TranscriptSegment[] = [],
+  outputLocale: OutputLocale = "en",
 ) {
   const screenshots = await screenshotsByEvent(client, recording.id);
   const steps = [];
@@ -29,6 +34,7 @@ export async function generateGuideSteps(
       ? await prepareAiScreenshotDataUrl(screenshot.annotated_image)
       : undefined;
     const generated = await writeStep(provider, {
+      outputLocale,
       workflowPurpose: recording.purpose,
       audience: recording.audience,
       current,
@@ -62,6 +68,7 @@ export async function generateGuideStepsForCaptureSession(
   captureSessionId: string,
   provider?: AiStepWriterProvider,
   transcriptSegments: TranscriptSegment[] = [],
+  outputLocale: OutputLocale = "en",
 ) {
   const screenshots = await screenshotsByEvent(client, recording.id);
   const sessionEvents = recording.events.filter(
@@ -82,6 +89,7 @@ export async function generateGuideStepsForCaptureSession(
       ? await prepareAiScreenshotDataUrl(screenshot.annotated_image)
       : undefined;
     const generated = await writeStep(provider, {
+      outputLocale,
       workflowPurpose: recording.purpose,
       audience: recording.audience,
       current,

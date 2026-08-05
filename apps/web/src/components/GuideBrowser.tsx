@@ -295,6 +295,10 @@ export function GuideBrowser({
 }) {
   const {
     guides,
+    total,
+    hasMore,
+    isLoadingMore,
+    loadMore,
     projects,
     search,
     setSearch,
@@ -383,7 +387,7 @@ export function GuideBrowser({
               {plural(
                 "{count} accessible recording",
                 "{count} accessible recordings",
-                guides.length,
+                total,
               )}
             </>
           }
@@ -667,6 +671,18 @@ export function GuideBrowser({
             </article>
           ))}
         </div>
+        {hasMore && (
+          <div className="library-load-more">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isLoadingMore}
+              onClick={() => void loadMore()}
+            >
+              {isLoadingMore ? t("Loading...") : t("Load more")}
+            </Button>
+          </div>
+        )}
       </section>
       {deleteCandidate && (
         <ConfirmDialog

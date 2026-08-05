@@ -2,6 +2,8 @@
 
 InfoSteed installs the core application first. LLM, transcription, and voiceover services are configured afterward and can each be managed by InfoSteed, supplied by another host, or disabled.
 
+There is no supported public release yet. The commands below prepare the unpublished `v0.1.0-beta.4` candidate after its signed tag exists; do not publish or deploy the superseded `v0.1.0-beta.3` artifacts as a supported release.
+
 ## Choose a topology
 
 | Layout            | Application host                                          | AI configuration                             |
@@ -29,7 +31,7 @@ Do not run the development `docker-compose.yml` on an exposed host. It contains 
 ```bash
 git clone https://github.com/infosteed/infosteed.git
 cd infosteed
-git checkout v0.1.0-beta.2
+git checkout v0.1.0-beta.4
 ```
 
 For a publicly resolvable host, use public ACME certificates:
@@ -63,7 +65,9 @@ For internal TLS, the installer exports the public root certificate to `deploy/i
 
 Production installs also generate `TWO_FACTOR_ENCRYPTION_KEY` in `deploy/production.env` while leaving `TWO_FACTOR_ENABLED=false` by default. Back up this key with the deployment environment; enrolled accounts cannot be verified if it is lost or replaced.
 
-Set `TWO_FACTOR_ENABLED=true` to allow new TOTP enrollment and new admin-enforced account requirements. Disabling it later stops new enrollment, but already enrolled accounts still require their authenticator or a recovery code. For sole-admin recovery, run `scripts/reset-two-factor.sh` on the host and enter the exact username when prompted.
+Set `TWO_FACTOR_ENABLED=true` to allow new TOTP enrollment and new admin-enforced account requirements. Disabling it later stops new enrollment, but already enrolled accounts still require their authenticator or a recovery code.
+
+For sole-admin recovery, run `scripts/reset-two-factor.sh` on the host and enter the exact username twice. The command removes the account's TOTP credential, recovery codes, and pending continuations, revokes every session, writes an audit event, and preserves whether the account is required to use 2FA. If the requirement is preserved, keep or set `TWO_FACTOR_ENABLED=true` before the next sign-in so the user can enroll a replacement authenticator. A required account cannot sign in to re-enroll while deployment-wide enrollment is disabled.
 
 ## Configure AI services
 

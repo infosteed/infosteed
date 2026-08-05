@@ -35,3 +35,27 @@ describe("extension product icons", () => {
     });
   });
 });
+
+describe("extension manifest locales", () => {
+  it("bundles every supported manifest translation", () => {
+    for (const locale of ["en", "ga", "fr", "de"]) {
+      const messages = JSON.parse(
+        readFileSync(
+          new URL(
+            `../public/_locales/${locale}/messages.json`,
+            import.meta.url,
+          ),
+          "utf8",
+        ),
+      ) as Record<string, { message: string }>;
+      expect(Object.keys(messages).sort()).toEqual([
+        "extensionActionTitle",
+        "extensionDescription",
+        "extensionName",
+      ]);
+      expect(
+        Object.values(messages).every(({ message }) => message.length > 0),
+      ).toBe(true);
+    }
+  });
+});

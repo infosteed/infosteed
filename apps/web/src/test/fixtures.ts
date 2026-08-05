@@ -31,6 +31,7 @@ export function currentUser(overrides: Partial<CurrentUser> = {}): CurrentUser {
     enabled: true,
     twoFactorEnabled: false,
     twoFactorRequired: false,
+    themePreference: "system",
     ...overrides,
   };
 }

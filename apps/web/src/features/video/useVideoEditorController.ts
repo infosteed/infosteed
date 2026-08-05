@@ -35,7 +35,7 @@ import {
   voiceoverCueUrl,
 } from "../../api";
 import { errorMessage } from "../../errors";
-import { t } from "../../i18n";
+import { currentOutputLocale, t } from "../../i18n";
 import { openRecording } from "../../navigation";
 import { materializeVideoCaptions } from "../../video-editor/model";
 
@@ -460,6 +460,7 @@ export function useVideoEditorController({
         recording.id,
         narrationCues,
         scriptStyle,
+        currentOutputLocale(),
       );
       setNarrationCues(result.cues);
       setError(undefined);

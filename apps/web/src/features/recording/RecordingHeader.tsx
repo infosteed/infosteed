@@ -5,6 +5,7 @@ import {
   pdfExportUrl,
   projectExportUrl,
   sanityExportUrl,
+  wiziwigExportUrl,
   wordExportUrl,
 } from "../../api";
 import {
@@ -216,6 +217,7 @@ export function RecordingHeader({
                 <span className="header-more-label">{t("Export")}</span>
                 <a href={projectExportUrl(recording.id)}>{t("Project")}</a>
                 <a href={htmlExportUrl(recording.id)}>HTML</a>
+                <a href={wiziwigExportUrl(recording.id)}>Wiziwig</a>
                 <a href={wordExportUrl(recording.id)}>Word</a>
                 <a href={pdfExportUrl(recording.id)}>PDF</a>
                 <a href={sanityExportUrl(recording.id)}>Sanity</a>

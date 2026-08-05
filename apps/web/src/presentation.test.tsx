@@ -15,6 +15,7 @@ import { guideSourceLabel } from "./guide/source";
 import { recordingUrl, resolveRecordingView } from "./navigation";
 import { RecordingGenerationStatus } from "./components/RecordingGenerationStatus";
 import { recordingListItem } from "./test/fixtures";
+import { ThemeProvider } from "./theme";
 import {
   createProject,
   getBranding,
@@ -23,6 +24,7 @@ import {
   listRecordings,
   me,
   setupStatus,
+  updateMyPreferences,
 } from "./api";
 
 vi.mock("./api", () => ({
@@ -36,6 +38,7 @@ vi.mock("./api", () => ({
   importProject: vi.fn(),
   deleteRecording: vi.fn(),
   restoreRecording: vi.fn(),
+  updateMyPreferences: vi.fn(),
 }));
 
 const currentUser = {
@@ -46,7 +49,16 @@ const currentUser = {
   enabled: true,
   twoFactorEnabled: false,
   twoFactorRequired: false,
+  themePreference: "system" as const,
 };
+
+function renderApp() {
+  return render(
+    <ThemeProvider>
+      <App />
+    </ThemeProvider>,
+  );
+}
 
 describe("web presentation", () => {
   beforeEach(() => {
@@ -65,15 +77,22 @@ describe("web presentation", () => {
     });
     vi.mocked(listRecordings).mockResolvedValue({ items: [], total: 0 });
     vi.mocked(listProjects).mockResolvedValue({ projects: [] });
+    vi.mocked(updateMyPreferences).mockImplementation(async (preference) => ({
+      user: { ...currentUser, themePreference: preference },
+    }));
+    localStorage.clear();
+    document.documentElement.classList.remove("dark");
   });
 
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
+    localStorage.clear();
+    document.documentElement.classList.remove("dark");
   });
 
   it("uses the recording library vocabulary", async () => {
-    render(<App />);
+    renderApp();
 
     expect(
       await screen.findByRole("navigation", { name: "Primary navigation" }),
@@ -88,9 +107,23 @@ describe("web presentation", () => {
     expect(screen.getByPlaceholderText("Search recordings")).toBeTruthy();
   });
 
+  it("uses the authenticated account appearance over the browser cache", async () => {
+    localStorage.setItem("infosteed.web.theme", "dark");
+    vi.mocked(me).mockResolvedValue({
+      user: { ...currentUser, themePreference: "light" },
+    });
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Recordings" });
+    await waitFor(() =>
+      expect(document.documentElement.classList.contains("dark")).toBe(false),
+    );
+    expect(localStorage.getItem("infosteed.web.theme")).toBe("light");
+  });
+
   it("searches the recording library", async () => {
     const input = userEvent.setup();
-    render(<App />);
+    renderApp();
     const search = await screen.findByPlaceholderText("Search recordings");
 
     await input.type(search, "onboarding");
@@ -102,9 +135,33 @@ describe("web presentation", () => {
     );
   });
 
+  it("loads more recordings and shows the server total", async () => {
+    const input = userEvent.setup();
+    vi.mocked(listRecordings)
+      .mockResolvedValueOnce({
+        items: [
+          recordingListItem({ id: "recording-1", title: "First recording" }),
+        ],
+        total: 2,
+      })
+      .mockResolvedValueOnce({
+        items: [
+          recordingListItem({ id: "recording-2", title: "Second recording" }),
+        ],
+        total: 2,
+      });
+    renderApp();
+
+    expect(await screen.findByText("2 accessible recordings")).toBeTruthy();
+    await input.click(screen.getByRole("button", { name: "Load more" }));
+
+    expect(await screen.findByText("Second recording")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
+  });
+
   it("uses query-backed library navigation states", async () => {
     window.history.replaceState({}, "", "/?library=shared&scope=shared");
-    render(<App />);
+    renderApp();
 
     expect(await screen.findByRole("heading", { name: "Shared" })).toBeTruthy();
     await waitFor(() =>
@@ -128,7 +185,7 @@ describe("web presentation", () => {
       ],
       total: 1,
     });
-    render(<App />);
+    renderApp();
 
     await screen.findByText("Publish payroll steps");
     expect(
@@ -147,12 +204,12 @@ describe("web presentation", () => {
     expect(screen.getByRole("menuitem", { name: "View guide" })).toBeTruthy();
     expect(
       screen.getByRole("menuitem", { name: /Delete/ }).className,
-    ).toContain("text-red-700");
+    ).toContain("text-destructive");
   });
 
   it("shows account security in compact status cards", async () => {
     const input = userEvent.setup();
-    render(<App />);
+    renderApp();
 
     await input.click(
       await screen.findByRole("button", {
@@ -172,7 +229,7 @@ describe("web presentation", () => {
 
   it("keeps library and account actions in one place each", async () => {
     const input = userEvent.setup();
-    render(<App />);
+    renderApp();
 
     expect(await screen.findByRole("link", { name: "Trash" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Administration" })).toBeNull();
@@ -190,6 +247,46 @@ describe("web presentation", () => {
     expect(within(menu).queryByRole("menuitem", { name: "Trash" })).toBeNull();
   });
 
+  it("saves an account theme preference from the account menu", async () => {
+    const input = userEvent.setup();
+    renderApp();
+
+    await input.click(
+      await screen.findByRole("button", {
+        name: "Account menu for Recording Owner",
+      }),
+    );
+    await input.click(
+      await screen.findByRole("menuitemradio", { name: "Dark" }),
+    );
+
+    await waitFor(() =>
+      expect(updateMyPreferences).toHaveBeenCalledWith("dark"),
+    );
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+    expect(localStorage.getItem("infosteed.web.theme")).toBe("dark");
+  });
+
+  it("restores the previous theme when account synchronization fails", async () => {
+    const input = userEvent.setup();
+    vi.mocked(updateMyPreferences).mockRejectedValueOnce(new Error("offline"));
+    renderApp();
+
+    await input.click(
+      await screen.findByRole("button", {
+        name: "Account menu for Recording Owner",
+      }),
+    );
+    await input.click(
+      await screen.findByRole("menuitemradio", { name: "Dark" }),
+    );
+
+    await waitFor(() =>
+      expect(document.documentElement.classList.contains("dark")).toBe(false),
+    );
+    expect(localStorage.getItem("infosteed.web.theme")).toBe("system");
+  });
+
   it("creates a project from the primary dialog", async () => {
     const input = userEvent.setup();
     vi.mocked(createProject).mockResolvedValue({
@@ -202,7 +299,7 @@ describe("web presentation", () => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
-    render(<App />);
+    renderApp();
 
     await input.click(
       await screen.findByRole("button", { name: "New project" }),
@@ -220,7 +317,7 @@ describe("web presentation", () => {
 
   it("shows first-run setup when no administrator exists", async () => {
     vi.mocked(setupStatus).mockResolvedValue({ required: true });
-    render(<App />);
+    renderApp();
 
     expect(
       await screen.findByRole("heading", { name: "Create the first admin" }),
@@ -234,7 +331,7 @@ describe("web presentation", () => {
       displayName: "Acme Support",
       iconDataUrl: customIcon,
     });
-    render(<App />);
+    renderApp();
 
     expect(await screen.findByText("Acme Support")).toBeTruthy();
     expect(

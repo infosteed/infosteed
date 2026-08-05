@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // @vitest-environment jsdom
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { libraryApiMocks } from "../../test/apiMocks";
 import { recordingListItem } from "../../test/fixtures";
 import { useLibraryController } from "./useLibraryController";
@@ -26,8 +26,103 @@ describe("library controller", () => {
         projectId: "",
         scope: "shared",
         sort: "title",
+        limit: 48,
+        offset: 0,
       }),
     );
+  });
+
+  it("appends the next page and tracks the server total", async () => {
+    const api = libraryApiMocks();
+    const first = recordingListItem({ id: "recording-1", title: "First" });
+    const second = recordingListItem({ id: "recording-2", title: "Second" });
+    vi.mocked(api.listRecordings)
+      .mockResolvedValueOnce({ items: [first], total: 2 })
+      .mockResolvedValueOnce({ items: [second], total: 2 });
+    const { result } = renderHook(() => useLibraryController(api));
+
+    await waitFor(() => expect(result.current.guides).toEqual([first]));
+    expect(result.current.total).toBe(2);
+    expect(result.current.hasMore).toBe(true);
+
+    await act(() => result.current.loadMore());
+
+    expect(api.listRecordings).toHaveBeenLastCalledWith({
+      search: "",
+      projectId: "",
+      scope: "all",
+      sort: "recent",
+      limit: 48,
+      offset: 1,
+    });
+    expect(result.current.guides).toEqual([first, second]);
+    expect(result.current.hasMore).toBe(false);
+  });
+
+  it("prevents duplicate load-more requests and allows retry after failure", async () => {
+    const api = libraryApiMocks();
+    const first = recordingListItem({ id: "recording-1" });
+    const second = recordingListItem({ id: "recording-2" });
+    let rejectPage!: (reason: Error) => void;
+    const failedPage = new Promise<{ items: (typeof first)[]; total: number }>(
+      (_resolve, reject) => {
+        rejectPage = reject;
+      },
+    );
+    vi.mocked(api.listRecordings)
+      .mockResolvedValueOnce({ items: [first], total: 2 })
+      .mockReturnValueOnce(failedPage)
+      .mockResolvedValueOnce({ items: [second], total: 2 });
+    const { result } = renderHook(() => useLibraryController(api));
+    await waitFor(() => expect(result.current.hasMore).toBe(true));
+
+    act(() => {
+      void result.current.loadMore();
+      void result.current.loadMore();
+    });
+    expect(api.listRecordings).toHaveBeenCalledTimes(2);
+    expect(result.current.isLoadingMore).toBe(true);
+
+    await act(async () => rejectPage(new Error("Could not load more")));
+    expect(result.current.guides).toEqual([first]);
+    expect(result.current.error).toBe("Could not load more");
+
+    await act(() => result.current.loadMore());
+    expect(result.current.guides).toEqual([first, second]);
+    expect(result.current.error).toBeUndefined();
+  });
+
+  it("ignores an old load-more response after filters change", async () => {
+    const api = libraryApiMocks();
+    const first = recordingListItem({ id: "recording-1", title: "First" });
+    const stale = recordingListItem({ id: "recording-2", title: "Stale" });
+    const filtered = recordingListItem({
+      id: "recording-3",
+      title: "Filtered",
+    });
+    let resolveStalePage!: (value: {
+      items: (typeof stale)[];
+      total: number;
+    }) => void;
+    const stalePage = new Promise<{ items: (typeof stale)[]; total: number }>(
+      (resolve) => {
+        resolveStalePage = resolve;
+      },
+    );
+    vi.mocked(api.listRecordings)
+      .mockResolvedValueOnce({ items: [first], total: 2 })
+      .mockReturnValueOnce(stalePage)
+      .mockResolvedValueOnce({ items: [filtered], total: 1 });
+    const { result } = renderHook(() => useLibraryController(api));
+    await waitFor(() => expect(result.current.guides).toEqual([first]));
+
+    act(() => void result.current.loadMore());
+    act(() => result.current.setSearch("filtered"));
+    await waitFor(() => expect(result.current.guides).toEqual([filtered]));
+
+    await act(async () => resolveStalePage({ items: [stale], total: 2 }));
+    expect(result.current.guides).toEqual([filtered]);
+    expect(result.current.total).toBe(1);
   });
 
   it("creates projects and clears the draft name", async () => {

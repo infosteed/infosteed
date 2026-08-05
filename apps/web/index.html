@@ -10,6 +10,28 @@
       href="../../packages/shared/assets/infosteed-horse-logo.svg"
     />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <script>
+      (() => {
+        let preference = "system";
+        try {
+          const stored = localStorage.getItem("infosteed.web.theme");
+          if (stored === "light" || stored === "dark" || stored === "system")
+            preference = stored;
+        } catch {}
+        const systemDark =
+          typeof matchMedia === "function" &&
+          matchMedia("(prefers-color-scheme: dark)").matches;
+        const theme =
+          preference === "system"
+            ? systemDark
+              ? "dark"
+              : "light"
+            : preference;
+        document.documentElement.classList.toggle("dark", theme === "dark");
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+      })();
+    </script>
     <title>InfoSteed Editor</title>
   </head>
   <body>

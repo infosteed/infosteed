@@ -27,7 +27,7 @@ import {
   updateRecording,
 } from "../../api";
 import { errorMessage } from "../../errors";
-import { t } from "../../i18n";
+import { currentOutputLocale, t } from "../../i18n";
 
 async function fileToBase64(file: File): Promise<string> {
   const dataUrl = await new Promise<string>((resolve, reject) => {
@@ -127,7 +127,10 @@ export function useVideoGuidePlayerController({
     setBusy(true);
     setError(undefined);
     try {
-      const next = await retryRecordingTranscript(recording.id);
+      const next = await retryRecordingTranscript(
+        recording.id,
+        currentOutputLocale(),
+      );
       setTranscript(next);
       onVideoChanged(await getRecordingVideo(recording.id));
     } catch (actionError) {
@@ -273,7 +276,7 @@ export function useGuideItemEditorController({
   }
 
   async function regenerate() {
-    await regenerateStep(recordingId, item.id);
+    await regenerateStep(recordingId, item.id, currentOutputLocale());
     onSaved();
   }
 
@@ -359,7 +362,10 @@ export function useGuideOverviewController({
   async function generate() {
     setGenerating(true);
     try {
-      const updated = await generateOverview(recording.id);
+      const updated = await generateOverview(
+        recording.id,
+        currentOutputLocale(),
+      );
       const nextDraft = {
         title: updated.title,
         purpose: updated.purpose ?? "",

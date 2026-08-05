@@ -52,6 +52,7 @@ window.addEventListener(
       type?: string;
       recordingId?: string;
       requestId?: string;
+      outputLocale?: string;
     };
     if (
       data?.source !== PRODUCT_IDENTIFIERS.webMessageSource ||
@@ -71,6 +72,7 @@ window.addEventListener(
         const result = await chrome.runtime.sendMessage({
           type: "start-recording-existing",
           recordingId: data.recordingId,
+          outputLocale: data.outputLocale,
         });
         window.postMessage(
           {

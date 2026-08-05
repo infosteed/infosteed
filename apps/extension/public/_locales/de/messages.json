@@ -1,0 +1,11 @@
+{
+  "extensionName": {
+    "message": "InfoSteed-Recorder"
+  },
+  "extensionDescription": {
+    "message": "Selbstgehosteter Browser-Recorder zum Erstellen bearbeitbarer Anleitungen und Videos."
+  },
+  "extensionActionTitle": {
+    "message": "InfoSteed"
+  }
+}

@@ -2,7 +2,9 @@
 
 ## Supported versions
 
-Security fixes are provided for the latest published beta only. Pre-release builds may contain breaking changes. If you administer an InfoSteed deployment, subscribe to GitHub release notifications and take a verified backup before upgrading.
+InfoSteed does not currently have a supported public release. The signed `v0.1.0-beta.3` candidate has been superseded, and `v0.1.0-beta.4` is being prepared. Candidate and untagged builds may contain breaking changes and receive no formal security-support commitment.
+
+After the first public beta, security fixes will be provided for the latest published beta only. If you administer an InfoSteed deployment, subscribe to GitHub release notifications and take a verified backup before upgrading.
 
 ## Reporting a vulnerability
 

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { createHash } from "node:crypto";
+import JSZip from "jszip";
 import { afterEach, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "./app";
@@ -39,15 +40,21 @@ function testPool(role: "admin" | "user" = "user", csrfToken?: string): Pool {
     password_hash: "unused",
     role,
     enabled: true,
+    two_factor_required: false,
+    theme_preference: "system",
     created_at: new Date(),
     updated_at: new Date(),
   };
   return {
-    async query(sql: string) {
+    async query(sql: string, values?: unknown[]) {
       if (sql.includes("count(*) as count from users"))
         return { rows: [{ count: "1" }] };
       if (sql.includes("delete from sessions")) return { rows: [] };
       if (sql.includes("join users u")) return { rows: [user] };
+      if (sql.includes("set theme_preference = $2"))
+        return {
+          rows: [{ ...user, theme_preference: values?.[1] }],
+        };
       if (sql.includes("select csrf_token_hash from sessions")) {
         return {
           rows: [
@@ -111,6 +118,7 @@ function testPool(role: "admin" | "user" = "user", csrfToken?: string): Pool {
         sql.includes("select * from guide_items")
       )
         return { rows: [] };
+      if (sql.includes("from screenshots")) return { rows: [] };
       if (sql.trim() === "select 1") return { rows: [{ "?column?": 1 }] };
       throw new Error(`Unexpected test query: ${sql}`);
     },
@@ -149,6 +157,35 @@ describe("API request boundaries", () => {
     openApps.push(app);
     const response = await app.inject({ method: "GET", url: "/users" });
     expect(response.statusCode).toBe(401);
+  });
+
+  it("protects the Wiziwig export without a session", async () => {
+    const app = appFor();
+    openApps.push(app);
+    const response = await app.inject({
+      method: "GET",
+      url: "/recordings/00000000-0000-4000-8000-000000000010/export/wiziwig",
+    });
+
+    expect(response.statusCode).toBe(401);
+  });
+
+  it("serves the Wiziwig export as a named ZIP attachment", async () => {
+    const app = appFor("admin");
+    openApps.push(app);
+    const response = await app.inject({
+      method: "GET",
+      url: "/recordings/00000000-0000-4000-8000-000000000010/export/wiziwig",
+      headers: { cookie: "infosteed_session=session" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["content-type"]).toBe("application/zip");
+    expect(response.headers["content-disposition"]).toBe(
+      'attachment; filename="infosteed-guide-00000000-0000-4000-8000-000000000010-wiziwig.zip"',
+    );
+    const zip = await JSZip.loadAsync(response.rawPayload);
+    expect(zip.file("guide.html")).toBeTruthy();
   });
 
   it("protects MP4 export status and download routes", async () => {
@@ -239,6 +276,41 @@ describe("API request boundaries", () => {
       },
       payload: { iconDataUrl: "not-an-image" },
     });
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("updates the current user's theme preference", async () => {
+    const token = "test-csrf-token";
+    const app = appFor("user", token);
+    openApps.push(app);
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/auth/me/preferences",
+      headers: {
+        cookie: "infosteed_session=session",
+        "x-csrf-token": token,
+      },
+      payload: { themePreference: "dark" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().user.themePreference).toBe("dark");
+  });
+
+  it("rejects invalid theme preferences", async () => {
+    const token = "test-csrf-token";
+    const app = appFor("user", token);
+    openApps.push(app);
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/auth/me/preferences",
+      headers: {
+        cookie: "infosteed_session=session",
+        "x-csrf-token": token,
+      },
+      payload: { themePreference: "midnight" },
+    });
+
     expect(response.statusCode).toBe(400);
   });
 });

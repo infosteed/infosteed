@@ -1,6 +1,8 @@
 # Support Policy
 
-The supported beta deployment is the production Docker Compose bundle on Linux amd64, using its pinned container versions. The latest beta receives security and data-loss fixes. Older betas are supported only long enough to perform the documented backup and forward upgrade.
+InfoSteed does not currently have a supported public beta. The signed `v0.1.0-beta.3` candidate has been superseded, and `v0.1.0-beta.4` is being prepared. Private candidate evaluation is best-effort and is not a production support commitment.
+
+After the first public beta, the supported deployment will be the production Docker Compose bundle on Linux amd64 using its pinned container versions. The latest published beta will receive security and data-loss fixes; older published betas will be supported only long enough to perform the documented backup and forward upgrade.
 
 Community support is provided through public GitHub issues after publication. Include the application version, release commit, sanitized Compose configuration, relevant structured logs, and reproduction steps. Never attach recordings, speech text, media URLs, tokens, passwords, private hostnames, or database dumps.
 

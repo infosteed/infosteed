@@ -37,7 +37,7 @@ describe("local caption-to-script rewriting", () => {
         AI_ENDPOINT: "http://127.0.0.1:11434",
         AI_MODEL: "qwen2.5:7b",
       }),
-      { cues: source, style: "instructional" },
+      { outputLocale: "ga", cues: source, style: "instructional" },
       fetcher as typeof fetch,
     );
     expect(result).toEqual([
@@ -45,6 +45,7 @@ describe("local caption-to-script rewriting", () => {
     ]);
     expect(requestedUrl).toBe("http://127.0.0.1:11434/api/chat");
     expect(JSON.parse(requestedBody)).toMatchObject({ think: false });
+    expect(requestedBody).toContain("Irish (Gaeilge)");
   });
 
   it("rejects a model response that drops cues", async () => {
@@ -62,6 +63,7 @@ describe("local caption-to-script rewriting", () => {
           AI_MODEL: "local",
         }),
         {
+          outputLocale: "en",
           cues: [
             {
               id: "cue-1",
@@ -98,6 +100,7 @@ describe("local caption-to-script rewriting", () => {
           AI_SCRIPT_TIMEOUT_MS: "5",
         }),
         {
+          outputLocale: "en",
           cues: [
             {
               id: "cue-1",

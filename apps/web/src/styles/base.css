@@ -11,8 +11,8 @@ body {
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
-  color: #111827;
-  background: #f4f6f8;
+  color: var(--neutral-900);
+  background: hsl(var(--background));
 }
 
 main {
@@ -23,7 +23,7 @@ main {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: #475467;
+  color: var(--neutral-600);
 }
 
 .language-select.compact > span {
@@ -48,14 +48,14 @@ header {
   justify-content: space-between;
   gap: 24px;
   padding: 18px 24px;
-  border-bottom: 1px solid #d0d5dd;
-  background: #fff;
+  border-bottom: 1px solid var(--neutral-300);
+  background: hsl(var(--surface));
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
 }
 
 header p {
   margin: 0;
-  color: #667085;
+  color: var(--neutral-500);
   font-size: 12px;
   text-transform: uppercase;
 }
@@ -97,10 +97,10 @@ h2 {
 a,
 button {
   min-height: 34px;
-  border: 1px solid #98a2b3;
+  border: 1px solid var(--neutral-400);
   border-radius: 6px;
-  background: #fff;
-  color: #111827;
+  background: hsl(var(--surface));
+  color: var(--neutral-900);
   font: inherit;
   text-decoration: none;
   padding: 6px 10px;
@@ -108,9 +108,9 @@ button {
 }
 
 a {
-  background: #235ee7;
-  border-color: #235ee7;
-  color: #fff;
+  background: var(--legacy-action);
+  border-color: var(--legacy-action);
+  color: var(--solid-foreground);
 }
 
 .header-actions {
@@ -128,11 +128,11 @@ a {
 .header-more-menu summary {
   min-height: 34px;
   box-sizing: border-box;
-  border: 1px solid #98a2b3;
+  border: 1px solid var(--neutral-400);
   border-radius: 6px;
   padding: 7px 30px 6px 10px;
-  background: #fff;
-  color: #111827;
+  background: hsl(var(--surface));
+  color: var(--neutral-900);
   cursor: pointer;
   list-style: none;
 }
@@ -169,10 +169,10 @@ a {
   gap: 3px;
   overflow-y: auto;
   box-sizing: border-box;
-  border: 1px solid #d0d5dd;
+  border: 1px solid var(--neutral-300);
   border-radius: 9px;
   padding: 7px;
-  background: #fff;
+  background: hsl(var(--surface));
   box-shadow: 0 12px 28px rgb(16 24 40 / 18%);
 }
 
@@ -184,20 +184,20 @@ a {
   border-radius: 5px;
   padding: 7px 9px;
   background: transparent;
-  color: #111827;
+  color: var(--neutral-900);
   text-align: left;
 }
 
 .header-more-panel button:hover,
 .header-more-panel a:hover {
-  background: #f2f4f7;
+  background: var(--neutral-100);
 }
 
 .header-more-label {
   margin-top: 5px;
-  border-top: 1px solid #e4e7ec;
+  border-top: 1px solid var(--neutral-200);
   padding: 9px 9px 3px;
-  color: #667085;
+  color: var(--neutral-500);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -206,10 +206,10 @@ a {
 
 .header-more-panel .header-more-danger {
   margin-top: 5px;
-  border-top: 1px solid #e4e7ec;
+  border-top: 1px solid var(--neutral-200);
   border-radius: 0 0 5px 5px;
   padding-top: 10px;
-  color: #b42318;
+  color: var(--danger-foreground);
 }
 
 .hidden-file {
@@ -223,7 +223,7 @@ a {
 }
 
 .admin-page {
-  background: #eef2f6;
+  background: hsl(var(--background));
 }
 
 .auth-page {
@@ -238,15 +238,15 @@ a {
   gap: 12px;
   width: min(420px, 100%);
   padding: 22px;
-  border: 1px solid #d0d5dd;
+  border: 1px solid var(--neutral-300);
   border-radius: 8px;
-  background: #fff;
+  background: hsl(var(--surface));
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
 }
 
 .auth-card p {
   margin: 0;
-  color: #667085;
+  color: var(--neutral-500);
   font-size: 12px;
   text-transform: uppercase;
 }
@@ -287,7 +287,7 @@ a {
 .admin-card label {
   display: grid;
   gap: 6px;
-  color: #344054;
+  color: var(--neutral-700);
   font-size: 12px;
   font-weight: 700;
 }
@@ -296,11 +296,11 @@ a {
   display: inline-flex;
   align-items: center;
   min-height: 34px;
-  border: 1px solid #d0d5dd;
+  border: 1px solid var(--neutral-300);
   border-radius: 999px;
   padding: 4px 12px;
-  background: #f9fafb;
-  color: #344054;
+  background: var(--neutral-50);
+  color: var(--neutral-700);
 }
 
 .browser-shell {
@@ -324,7 +324,7 @@ a {
 
 .browser-head p {
   margin: 4px 0 0;
-  color: #667085;
+  color: var(--neutral-500);
 }
 
 .browser-controls {
@@ -366,11 +366,11 @@ a {
   grid-template-columns: 54px 1fr auto;
   gap: 14px;
   min-height: 156px;
-  border: 1px solid #d0d5dd;
+  border: 1px solid var(--neutral-300);
   border-radius: 8px;
   padding: 18px;
-  background: #fff;
-  color: #111827;
+  background: hsl(var(--surface));
+  color: var(--neutral-900);
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
 }
 
@@ -379,7 +379,7 @@ a {
 }
 
 .guide-card.deleted {
-  background: #f9fafb;
+  background: var(--neutral-50);
 }
 
 .guide-open {
@@ -388,16 +388,16 @@ a {
   border-radius: 0;
   padding: 0;
   background: transparent;
-  color: #111827;
+  color: var(--neutral-900);
 }
 
 .guide-open:hover h3 {
-  color: #175cd3;
+  color: var(--info-foreground);
 }
 
 .guide-card p {
   margin: 0;
-  color: #667085;
+  color: var(--neutral-500);
 }
 
 .guide-card h3 {
@@ -416,7 +416,7 @@ a {
 .guide-card small {
   display: block;
   margin-top: 10px;
-  color: #667085;
+  color: var(--neutral-500);
 }
 
 .guide-card-actions {
@@ -427,14 +427,14 @@ a {
 }
 
 .danger-action {
-  border-color: #fecdca;
-  background: #fff;
-  color: #b42318;
+  border-color: var(--danger-border);
+  background: hsl(var(--surface));
+  color: var(--danger-foreground);
 }
 
 .danger-action:hover {
-  border-color: #f97066;
-  background: #fef3f2;
+  border-color: var(--danger-accent);
+  background: var(--danger-surface);
 }
 
 .guide-thumb {
@@ -444,8 +444,8 @@ a {
   height: 44px;
   overflow: hidden;
   border-radius: 50%;
-  background: #eff8ff;
-  color: #175cd3;
+  background: var(--info-surface);
+  color: var(--info-foreground);
   font-weight: 700;
 }
 

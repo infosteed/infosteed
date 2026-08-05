@@ -10,9 +10,11 @@ The design keeps the core path local and deterministic. AI generation is optiona
 apps/
   extension/           Chromium MV3 recorder and popup controls
   api/                 Fastify API, migration runner, pg repositories
-  web/                 React guide editor and Markdown preview
+  video-render-worker/ Durable FFmpeg video rendering and MP4 export worker
+  web/                 React library, guide, recording, admin, and video workspaces
 packages/
   shared/              Zod schemas and shared DTOs
+  i18n/                Shared locale matching, interpolation, plural, and direction runtime
   recorder-core/       Event normalization, element naming, privacy helpers
   ai-step-writer/      Provider interface, AI schema validation, fallback writer
   markdown-exporter/   Markdown and ZIP export validation/generation
@@ -29,19 +31,28 @@ The schema uses direct SQL through `pg`, explicit parameters, foreign keys, inde
 
 ```text
 schema_migrations(version primary key, applied_at)
-recordings(id, title, purpose, audience, capture_mode, state, created_at, updated_at, finalized_at)
-recording_events(id, recording_id, ordinal, action_type, page_title, sanitized_url, video_offset_ms, element metadata, bounding_box jsonb, metadata jsonb, created_at)
-screenshots(id, recording_id, event_id, filename, content_type, byte_size, original_image, annotated_image, target_box jsonb, created_at)
-guide_steps(id, recording_id, event_id, ordinal, title, instruction, image_filename, alt_text, source, user_edited, created_at, updated_at)
-recording_videos(id, recording_id, status, duration_ms, capture_settings, publish/recovery metadata, transcription status)
-recording_video_assets(id, video_id, kind, codec, storage_key, multipart metadata, status)
-recording_video_parts(asset_id, part_number, etag, byte_size, timing metadata)
-recording_video_transcripts(video_id, provider-neutral text, language, duration, segments jsonb, words jsonb)
-recording_video_chapter_titles(video_id, event_id, generated title, source)
-recording_voiceover_generations(id, video_id, status, provider/model/voice/speed, hashes, asset reference, retry metadata)
-recording_voiceover_generation_cues(generation_id, cue id/timing/text/hash, cached clip reference, duration, overlong/error state)
-recording_voiceover_clips(id, content_hash, provider/model/voice/speed/text, storage key, probed duration)
+
+Identity and access:
+  users, sessions, projects, project_members, app_settings
+  user_totp_credentials, user_recovery_codes, two_factor_continuations
+  auth_login_attempts, audit_events
+
+Guides and capture:
+  recordings, recording_events, capture_sessions, screenshots
+  guide_steps, guide_items, guide_versions
+
+Video, transcription, and export:
+  recording_videos, recording_video_assets, recording_video_parts
+  recording_video_transcripts, recording_video_chapter_titles
+  recording_video_edit_drafts, recording_video_edit_versions
+  recording_video_renders, recording_video_render_workers, recording_video_exports
+
+Voiceover:
+  recording_voiceover_clips, recording_voiceover_generations
+  recording_voiceover_generation_cues
 ```
+
+TOTP secrets are encrypted with AES-256-GCM under the deployment's `TWO_FACTOR_ENCRYPTION_KEY`, with the user ID authenticated as associated data. Recovery codes and continuation tokens are stored only as hashes. Continuations expire after five minutes, stop after five failed attempts, and are removed when an account's 2FA state is reset. Accepted TOTP counters are recorded to prevent code replay.
 
 ## Extension Permission List
 
@@ -75,10 +86,13 @@ App-created child tabs are tracked as a parent/child trail. Guide Only follows a
 - Webpage text is treated as untrusted. The AI provider receives only bounded, sanitized step context, never full DOM dumps.
 - Exports are validated so Markdown image references cannot point to remote URLs, extension URLs, blob URLs, or data URLs.
 - The backend uses parameterized SQL only and transactions for multi-step writes.
+- TOTP secrets are encrypted at rest; recovery codes and login continuations are one-way hashed, bounded, and invalidated after use or reset.
 
 ## Guide export invariants
 
-Every ZIP export contains `workflow-guide/guide.md`, `workflow-guide/recording.json`, and the referenced WebP files beneath `workflow-guide/images/`. Markdown image references are relative to `./images/`; remote, S3, blob, data, and extension URLs are rejected.
+The workflow ZIP export contains `workflow-guide/guide.md`, `workflow-guide/recording.json`, and the referenced WebP files beneath `workflow-guide/images/`. Markdown image references are relative to `./images/`; remote, S3, blob, data, and extension URLs are rejected.
+
+The Wiziwig ZIP export contains a pasteable `guide.html` body fragment and only its referenced WebP files beneath a sibling `images/` directory. The fragment carries portable inline styles, omits document wrappers and scripts, and uses only `images/`-relative screenshot URLs.
 
 Sanity exports use a separate gzip-compressed tar archive containing `data.ndjson` and only the local WebP images
 referenced by the guide. The NDJSON document uses Portable Text plus structured workflow-step and callout blocks; the

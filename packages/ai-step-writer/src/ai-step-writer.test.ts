@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import {
   deterministicInstruction,
+  deterministicOverview,
   generatedStepSchema,
   OllamaNativeStepWriter,
   OpenAiCompatibleStepWriter,
@@ -25,6 +26,30 @@ describe("AI step writer", () => {
     expect(deterministicInstruction(clickEvent).instruction).toBe(
       "Click **Login**.",
     );
+  });
+
+  it("localizes deterministic generated content", () => {
+    expect(deterministicInstruction(clickEvent, "ga").instruction).toBe(
+      "Cliceáil **Login**.",
+    );
+    expect(deterministicInstruction(clickEvent, "fr").instruction).toBe(
+      "Cliquez sur **Login**.",
+    );
+    expect(deterministicInstruction(clickEvent, "de").instruction).toBe(
+      "Klicken Sie auf **Login**.",
+    );
+    expect(
+      deterministicOverview({
+        outputLocale: "fr",
+        currentTitle: "",
+        items: [{ kind: "step", title: "Login", body: "Login" }],
+        events: [],
+      }),
+    ).toEqual({
+      title: "Guide du flux de travail",
+      overview:
+        "Suivez ce guide 1 pour terminer le flux de travail enregistré.",
+    });
   });
 
   it("uses human fallback names for generic captured targets", () => {
@@ -78,7 +103,7 @@ describe("AI step writer", () => {
           });
         },
       },
-      { current: clickEvent },
+      { current: clickEvent, outputLocale: "en" },
     );
 
     expect(generated.source).toBe("deterministic");
@@ -96,7 +121,7 @@ describe("AI step writer", () => {
           };
         },
       },
-      { current: clickEvent },
+      { current: clickEvent, outputLocale: "en" },
     );
 
     expect(generated.source).toBe("ai");
@@ -117,6 +142,7 @@ describe("AI step writer", () => {
         },
       },
       {
+        outputLocale: "en",
         recordingTitle: "Account setup",
         current: clickEvent,
         transcriptAfter: "Now sign in to the workspace",
@@ -130,6 +156,7 @@ describe("AI step writer", () => {
     expect(
       (
         await writeChapter(undefined, {
+          outputLocale: "en",
           recordingTitle: "Account setup",
           current: clickEvent,
         })
@@ -142,6 +169,7 @@ describe("AI step writer", () => {
     let calls = 0;
     globalThis.fetch = (async (_url, init) => {
       calls += 1;
+      expect(String(init?.body)).toContain("Irish (Gaeilge)");
       const body = JSON.parse(String(init?.body));
       const hasImage = Array.isArray(body.messages[1].content);
       return new Response(
@@ -183,6 +211,7 @@ describe("AI step writer", () => {
         timeoutMs: 1000,
       });
       const generated = await provider.generateStep({
+        outputLocale: "ga",
         current: clickEvent,
         screenshotDataUrl: "data:image/png;base64,abc",
       });
@@ -196,8 +225,10 @@ describe("AI step writer", () => {
 
   it("uses native Ollama thinking when vision response is empty", async () => {
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = (async () =>
-      new Response(
+    let requestedBody = "";
+    globalThis.fetch = (async (_url, init) => {
+      requestedBody = String(init?.body ?? "");
+      return new Response(
         JSON.stringify({
           response: "",
           thinking: JSON.stringify({
@@ -208,7 +239,8 @@ describe("AI step writer", () => {
           done_reason: "stop",
         }),
         { status: 200, headers: { "content-type": "application/json" } },
-      )) as typeof fetch;
+      );
+    }) as typeof fetch;
 
     try {
       const provider = new OllamaNativeStepWriter({
@@ -217,11 +249,13 @@ describe("AI step writer", () => {
         timeoutMs: 1000,
       });
       const generated = await provider.generateStep({
+        outputLocale: "de",
         current: clickEvent,
         screenshotDataUrl: "data:image/png;base64,abc",
       });
 
       expect(generated.title).toBe("Sligo Business Data");
+      expect(requestedBody).toContain("German (Deutsch)");
     } finally {
       globalThis.fetch = originalFetch;
     }

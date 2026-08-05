@@ -1,0 +1,11 @@
+{
+  "extensionName": {
+    "message": "Enregistreur InfoSteed"
+  },
+  "extensionDescription": {
+    "message": "Enregistreur de navigateur auto-hébergé pour créer des guides et des vidéos modifiables."
+  },
+  "extensionActionTitle": {
+    "message": "InfoSteed"
+  }
+}

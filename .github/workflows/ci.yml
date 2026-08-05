@@ -115,7 +115,7 @@ jobs:
           S3_ACCESS_KEY_ID: test-app
           S3_SECRET_ACCESS_KEY: test-app-password
         run: |
-          docker compose -f deploy/compose.production.yml up -d --wait --wait-timeout 120 postgres minio minio-init
+          docker compose -f deploy/compose.production.yml up -d --wait --wait-timeout 120 postgres minio
           docker compose -f deploy/compose.production.yml run --rm minio-init
           docker compose -f deploy/compose.production.yml exec -T postgres pg_isready -U app -d app
       - if: always()

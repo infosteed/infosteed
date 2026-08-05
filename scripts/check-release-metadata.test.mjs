@@ -18,7 +18,7 @@ function fixture() {
     path.join(os.tmpdir(), "infosteed-release-metadata-"),
   );
   roots.push(root);
-  const version = "0.1.0-beta.7";
+  const version = "0.1.0-beta.8";
   const files = {
     "package.json": JSON.stringify({ version }),
     "apps/api/package.json": JSON.stringify({ version }),
@@ -45,7 +45,7 @@ function fixture() {
       "git checkout v0.1.0-beta.2",
     ].join("\n"),
     "README.md": `## Self-hosted deployment\n\nv0.1.0-beta.3 was superseded; v${version} is being prepared.\n`,
-    "docs/release-readiness.md": `InfoSteed is preparing \`v${version}\`.\n\n## What remains before publishing beta.7\n`,
+    "docs/release-readiness.md": `InfoSteed is preparing \`v${version}\`.\n\n## What remains before publishing beta.8\n`,
     "SECURITY.md": `v${version}`,
     "SUPPORT.md": `v${version}`,
     "docs/release-process.md":

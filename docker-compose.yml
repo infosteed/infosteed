@@ -60,7 +60,7 @@ services:
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:8080}
       EXTENSION_ORIGINS: ${EXTENSION_ORIGINS:-}
       APP_SOURCE_URL: ${APP_SOURCE_URL:-}
-      RELEASE_VERSION: ${RELEASE_VERSION:-0.1.0-beta.7}
+      RELEASE_VERSION: ${RELEASE_VERSION:-0.1.0-beta.8}
       RELEASE_COMMIT: ${RELEASE_COMMIT:-development}
       SETUP_TOKEN: ${SETUP_TOKEN:-local-development-setup-token-0001}
       TWO_FACTOR_ENABLED: ${TWO_FACTOR_ENABLED:-false}

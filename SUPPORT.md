@@ -1,6 +1,6 @@
 # Support Policy
 
-`v0.1.0-beta.6` is InfoSteed's current public prerelease, and `v0.1.0-beta.7` is being prepared. Beta support and private candidate evaluation are best-effort and are not a production support commitment.
+No InfoSteed release has been published. `v0.1.0-beta.8` is being prepared as a release candidate. Private candidate evaluation is best-effort and is not a production support commitment.
 
 After the first public beta, the supported deployment will be the production Docker Compose bundle on Linux amd64 using its pinned container versions. The latest published beta will receive security and data-loss fixes; older published betas will be supported only long enough to perform the documented backup and forward upgrade.
 

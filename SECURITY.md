@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-`v0.1.0-beta.6` is InfoSteed's current public prerelease, and `v0.1.0-beta.7` is being prepared. Beta and untagged builds may contain breaking changes and receive no formal security-support commitment.
+No InfoSteed release has been published. `v0.1.0-beta.8` is being prepared as a release candidate. Tagged candidates and untagged builds may contain breaking changes and receive no formal security-support commitment.
 
 After the first public beta, security fixes will be provided for the latest published beta only. If you administer an InfoSteed deployment, subscribe to GitHub release notifications and take a verified backup before upgrading.
 

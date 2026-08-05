@@ -12,7 +12,7 @@ platform.
 [![Self-hosted](https://img.shields.io/badge/deployment-self--hosted-2563eb)](docs/deployment.md)
 [![Chromium](https://img.shields.io/badge/browser-Chromium-4285f4)](apps/extension)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-0f766e)](LICENSE)
-[![Status: public beta](https://img.shields.io/badge/status-public_beta-d97706)](docs/release-readiness.md)
+[![Status: release candidate](https://img.shields.io/badge/status-release_candidate-d97706)](docs/release-readiness.md)
 
 [Why InfoSteed?](#why-infosteed) · [What you can create](#what-you-can-create) · [Explore the project](#explore-the-project)
 </div>
@@ -82,15 +82,15 @@ not trapped in a single viewing experience.
 
 ## Self-hosted deployment
 
-`v0.1.0-beta.6` is the current public prerelease, and `v0.1.0-beta.7` is in
-development. Deployments keep recordings, screenshots, transcripts, and media
+No InfoSteed release has been published. `v0.1.0-beta.8` is the current
+release candidate; earlier beta tags are unpublished candidates. Deployments keep recordings, screenshots, transcripts, and media
 on infrastructure you control. Follow the [deployment guide](docs/deployment.md)
 and review [release readiness](docs/release-readiness.md) before production use.
 
 ## Explore the project
 
-InfoSteed is available as a public beta but should not yet be treated as a
-supported production release. See the [release readiness page](docs/release-readiness.md)
+InfoSteed is currently available only as tagged release candidates and should
+not yet be treated as a supported production release. See the [release readiness page](docs/release-readiness.md)
 for the current status.
 
 - [See how InfoSteed is deployed](docs/deployment.md)

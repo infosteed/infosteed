@@ -2,7 +2,7 @@
 
 InfoSteed installs the core application first. LLM, transcription, and voiceover services are configured afterward and can each be managed by InfoSteed, supplied by another host, or disabled.
 
-`v0.1.0-beta.6` is the current public prerelease. The commands below prepare the unpublished `v0.1.0-beta.7` candidate after its signed tag exists; do not deploy an untagged checkout as a supported release.
+`v0.1.0-beta.6` is the current public prerelease. The commands below prepare the unpublished `v0.1.0-beta.8` candidate after its signed tag exists; do not deploy an untagged checkout as a supported release.
 
 ## Choose a topology
 
@@ -42,7 +42,7 @@ Do not rely on `ss` alone. Kubernetes ServiceLB and similar components can redir
 ```bash
 git clone https://github.com/infosteed/infosteed.git
 cd infosteed
-git checkout v0.1.0-beta.7
+git checkout v0.1.0-beta.8
 ```
 
 For a publicly resolvable host, use public ACME certificates:

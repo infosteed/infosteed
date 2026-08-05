@@ -1,12 +1,12 @@
 # Official release status
 
-`v0.1.0-beta.6` is InfoSteed's current public Linux amd64 prerelease. InfoSteed is preparing `v0.1.0-beta.7` as its next candidate. Do not treat an untagged checkout or superseded candidate as supported.
+No InfoSteed release has been published. InfoSteed is preparing `v0.1.0-beta.8` as its next release candidate. Earlier beta tags are unpublished candidates; do not treat them or an untagged checkout as supported.
 
 The repository already includes the application, dual GHCR/source-build production Compose configuration, extension packaging, backup tools, automated checks, and tag-triggered release workflow.
 
 The release sequence is documented in [`release-process.md`](release-process.md): successful CI and CodeQL on the candidate commit, a manual Container security rehearsal on that same commit, a signed immutable tag, verification of the generated draft and published image digests, a private soak, and publication of the existing draft.
 
-## What remains before publishing beta.7
+## What remains before publishing beta.8
 
 The project owner still needs to confirm and publish the following project details:
 
@@ -37,6 +37,6 @@ An official candidate will not be published until the release owner has:
 - tested both GHCR and source-build installation paths from the candidate artifacts;
 - completed a one-week private installation soak.
 
-The resulting evidence will identify the beta.7 candidate commit and immutable image digests. Beta.7 must be tested as an in-place upgrade from beta.1, beta.2, beta.3, beta.4, beta.5, and beta.6. The beta.1 path must include removal of its temporary Compose and internal-TLS workarounds.
+The resulting evidence will identify the beta.8 candidate commit and immutable image digests. Beta.8 must be tested as an in-place upgrade from beta.1, beta.2, beta.3, beta.4, beta.5, beta.6, and beta.7. The beta.1 path must include removal of its temporary Compose and internal-TLS workarounds.
 
 Do not move or recreate the beta.3 tag, overwrite its images, or publish its stale draft deployment bundle. Any existing beta.3 draft must remain unpublished or be marked superseded by the release owner outside this repository.

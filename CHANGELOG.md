@@ -4,6 +4,18 @@ All notable changes are documented here. The project uses Semantic Versioning on
 
 ## [Unreleased]
 
+## [0.1.0-beta.8] - 2026-08-05
+
+### Changed
+
+- Redesigned the video editor with a wider, resizable inspector and compact chapter, narration, and history workflows.
+- Grouped captions and AI voiceover into a unified narration workspace with staged script generation and synchronization feedback.
+- Replaced the oversized render controls with a compact preview and publishing bar.
+
+### Fixed
+
+- Kept captions synchronized with generated and regenerated voiceover text and measured speech timing.
+
 ## [0.1.0-beta.7] - 2026-08-05
 
 ### Changed

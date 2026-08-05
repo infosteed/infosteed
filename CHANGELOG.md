@@ -4,12 +4,20 @@ All notable changes are documented here. The project uses Semantic Versioning on
 
 ## [Unreleased]
 
-## [0.1.0-beta.4] - Unreleased
+## [0.1.0-beta.4] - 2026-08-05
+
+### Added
+
+- Added light, dark, and system-following themes, with each signed-in user's preference persisted across sessions.
+- Added Irish, French, and German catalogs for the web application and Chromium extension, including localized deterministic and AI-generated guide text, transcript-informed chapter titles, and narration.
+- Added a Wiziwig-compatible HTML ZIP export containing a pasteable, inline-styled guide fragment and its referenced images.
 
 ### Changed
 
-- Stabilized the redesigned application shell, recording workspace, guide editor, and video editor across desktop and responsive layouts.
-- Corrected release, deployment, security, privacy, and architecture documentation and added automated release-metadata validation.
+- Stabilized the redesigned application shell, library, administration, recording workspace, guide editor, and video editor across desktop and responsive layouts.
+- Improved recording routes and combined video-and-guide presentation, and added responsive guide-outline navigation with clearer reordering and editing controls.
+- Added database migrations for persisted theme preferences and recording AI-output locales.
+- Corrected release, deployment, security, privacy, translation, and architecture documentation and added automated release-metadata validation to CI and tagged releases.
 
 ## [0.1.0-beta.3] - 2026-08-04
 

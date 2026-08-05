@@ -132,7 +132,7 @@ jobs:
             org.opencontainers.image.version=${{ needs.verify.outputs.version }}
             org.opencontainers.image.licenses=AGPL-3.0-only
       - id: build
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}

@@ -1,0 +1,26 @@
+name: Set up Node and pnpm
+description: Install the pinned Node and pnpm toolchain with a cached pnpm store.
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v5
+      with:
+        node-version: 24
+        package-manager-cache: false
+    - name: Enable Corepack
+      shell: bash
+      run: corepack enable
+    - name: Locate pnpm store
+      id: pnpm-store
+      shell: bash
+      run: echo "path=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+    - uses: actions/cache@v4
+      with:
+        path: ${{ steps.pnpm-store.outputs.path }}
+        key: ${{ runner.os }}-node-24-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-node-24-pnpm-
+    - name: Install dependencies
+      shell: bash
+      run: corepack pnpm install --frozen-lockfile

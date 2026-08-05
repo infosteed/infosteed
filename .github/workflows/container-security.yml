@@ -1,0 +1,90 @@
+name: Container security
+
+on:
+  schedule:
+    - cron: "41 3 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: container-security
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  dependencies:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-pnpm
+      - run: corepack pnpm audit --prod --audit-level high
+      - run: corepack pnpm extension:package -- --allow-unsigned-development
+      - uses: anchore/sbom-action@v0
+        with:
+          path: apps/extension/dist
+          format: cyclonedx-json
+          output-file: /tmp/extension.cdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+  secret-scan:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - name: Scan git history for secrets
+        run: >-
+          docker run --rm
+          --volume "$PWD:/repo"
+          --workdir /repo
+          ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+          git --redact --no-banner /repo
+
+  containers:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: api
+            dockerfile: apps/api/Dockerfile
+            context: .
+          - name: web
+            dockerfile: apps/web/Dockerfile
+            context: .
+          - name: video-render-worker
+            dockerfile: apps/video-render-worker/Dockerfile
+            context: .
+          - name: transcription
+            dockerfile: whisper/Dockerfile
+            context: whisper
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64
+          push: false
+          tags: local/${{ matrix.name }}:security
+          load: true
+          cache-from: type=gha,scope=container-${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=container-${{ matrix.name }}
+      - uses: anchore/sbom-action@v0
+        with:
+          image: local/${{ matrix.name }}:security
+          format: cyclonedx-json
+          output-file: /tmp/${{ matrix.name }}.cdx.json
+          upload-artifact: false
+          upload-release-assets: false
+      - uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: local/${{ matrix.name }}:security
+          format: sarif
+          output: /tmp/${{ matrix.name }}-trivy.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          limit-severities-for-sarif: true
+          exit-code: "1"

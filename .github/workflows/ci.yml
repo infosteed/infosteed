@@ -5,20 +5,49 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      compose: ${{ steps.classify.outputs.compose }}
+      integration: ${{ steps.classify.outputs.integration }}
+      python: ${{ steps.classify.outputs.python }}
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - id: classify
+        name: Classify changed paths
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        shell: bash
+        run: |
+          .github/scripts/classify-paths.test.sh
+          base=$PR_BASE_SHA
+          if [[ -z $base ]]; then base=$BEFORE_SHA; fi
+          if [[ -z $base || $base =~ ^0+$ ]] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            if git rev-parse HEAD^ >/dev/null 2>&1; then
+              base=$(git rev-parse HEAD^)
+            else
+              base=$(git hash-object -t tree /dev/null)
+            fi
+          fi
+
+          mapfile -d '' -t paths < <(git diff --name-only -z "$base" "$GITHUB_SHA")
+          .github/scripts/classify-paths.sh "${paths[@]}" >> "$GITHUB_OUTPUT"
+
   application:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 24
-          package-manager-cache: false
-      - run: corepack enable
-      - run: corepack pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup-pnpm
       - run: corepack pnpm format:check
       - run: corepack pnpm spdx:check
       - run: corepack pnpm release-metadata:check
@@ -26,17 +55,10 @@ jobs:
       - run: corepack pnpm typecheck
       - run: corepack pnpm test
       - run: corepack pnpm build
-      - run: corepack pnpm audit --prod --audit-level high
-      - run: corepack pnpm extension:package -- --allow-unsigned-development
-      - uses: anchore/sbom-action@v0
-        with:
-          path: apps/extension/dist
-          format: cyclonedx-json
-          output-file: artifacts/extension.cdx.json
-          upload-artifact: false
-          upload-release-assets: false
 
   transcription:
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -51,6 +73,8 @@ jobs:
         working-directory: whisper
 
   compose:
+    needs: changes
+    if: needs.changes.outputs.compose == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -134,56 +158,13 @@ jobs:
           S3_SECRET_ACCESS_KEY: test-app-password
         run: docker compose -f deploy/compose.production.yml down -v
 
-  containers:
-    runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: api
-            dockerfile: apps/api/Dockerfile
-          - name: web
-            dockerfile: apps/web/Dockerfile
-          - name: video-render-worker
-            dockerfile: apps/video-render-worker/Dockerfile
-          - name: transcription
-            dockerfile: whisper/Dockerfile
-            context: whisper
-    steps:
-      - uses: actions/checkout@v5
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
-        with:
-          context: ${{ matrix.context || '.' }}
-          file: ${{ matrix.dockerfile }}
-          platforms: linux/amd64
-          push: false
-          tags: local/${{ matrix.name }}:ci
-          load: true
-      - uses: anchore/sbom-action@v0
-        with:
-          image: local/${{ matrix.name }}:ci
-          format: cyclonedx-json
-          output-file: /tmp/${{ matrix.name }}.cdx.json
-          upload-artifact: false
-          upload-release-assets: false
-      - uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: local/${{ matrix.name }}:ci
-          format: sarif
-          output: /tmp/${{ matrix.name }}-trivy.sarif
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          limit-severities-for-sarif: true
-          exit-code: "1"
-
   integration:
+    needs: changes
+    if: needs.changes.outputs.integration == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with: { node-version: 24, package-manager-cache: false }
-      - run: corepack enable && corepack pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup-pnpm
       - run: docker compose --env-file docker.env.example up -d --build --wait
       - run: corepack pnpm e2e
         env:
@@ -199,10 +180,19 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
-      - name: Scan git history for secrets
-        run: >-
-          docker run --rm
-          --volume "$PWD:/repo"
-          --workdir /repo
-          ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
-          git --redact --no-banner /repo
+      - name: Scan changed commits for secrets
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          base=$PR_BASE_SHA
+          if [[ -z $base ]]; then base=$BEFORE_SHA; fi
+          args=(git --redact --no-banner)
+          if [[ -n $base && ! $base =~ ^0+$ ]] && git cat-file -e "$base^{commit}" 2>/dev/null; then
+            args+=(--log-opts="$base..$GITHUB_SHA")
+          fi
+          docker run --rm \
+            --volume "$PWD:/repo" \
+            --workdir /repo \
+            ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
+            "${args[@]}" /repo

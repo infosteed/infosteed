@@ -4,6 +4,18 @@ All notable changes are documented here. The project uses Semantic Versioning on
 
 ## [Unreleased]
 
+## [0.1.0-beta.11] - 2026-08-06
+
+### Added
+
+- Added image-only guide exports in PNG and JPG formats.
+- Added timestamp-suffixed image filenames across guide archive exports.
+
+### Fixed
+
+- Fixed Guide Only child-tab following when the new tab becomes recordable after its initial creation event.
+- Hardened export image filename generation against unsafe archive paths.
+
 ## [0.1.0-beta.10] - 2026-08-06
 
 ### Added

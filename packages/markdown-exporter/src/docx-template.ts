@@ -8,6 +8,7 @@ import type {
 import JSZip from "jszip";
 import type { GuideItem, Recording } from "@infosteed/shared";
 import type { ExportImage } from "./index.js";
+import { exportImageFilename } from "./image-filenames.js";
 
 const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 const R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
@@ -725,6 +726,7 @@ export async function buildTemplatedWorkflowDocx(
   recording: Recording,
   images: ExportImage[],
   metadata: WordTemplateMetadata,
+  imageFilenameSuffix?: string,
 ): Promise<Buffer> {
   const { zip } = await loadAndValidateTemplate(template);
   const imageMap = new Map(images.map((image) => [image.filename, image]));
@@ -865,12 +867,16 @@ export async function buildTemplatedWorkflowDocx(
       throw new Error(
         `Referenced image is missing for Word export: ${item.imageFilename}`,
       );
+    const mediaName = exportImageFilename(
+      `infosteed-step-${String(stepNumber).padStart(3, "0")}.png`,
+      imageFilenameSuffix,
+      "png",
+    );
     const relId = addRelationship(
       relationships,
       "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image",
-      `media/infosteed-step-${String(stepNumber).padStart(3, "0")}.png`,
+      `media/${mediaName}`,
     );
-    const mediaName = `infosteed-step-${String(stepNumber).padStart(3, "0")}.png`;
     zip.file(`word/media/${mediaName}`, image.content);
     content.appendChild(
       imageParagraph(

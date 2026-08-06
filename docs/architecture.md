@@ -90,10 +90,10 @@ App-created child tabs are tracked as a parent/child trail. Guide Only follows a
 
 ## Guide export invariants
 
-The workflow ZIP export contains `workflow-guide/guide.md`, `workflow-guide/recording.json`, and the referenced WebP files beneath `workflow-guide/images/`. Markdown image references are relative to `./images/`; remote, S3, blob, data, and extension URLs are rejected.
+The workflow ZIP export contains `workflow-guide/guide.md`, `workflow-guide/recording.json`, and the referenced WebP files beneath `workflow-guide/images/`. Exported image filenames include a per-export timestamp suffix, and Markdown image references point at those suffixed `./images/` paths; remote, S3, blob, data, and extension URLs are rejected.
 
-The Wiziwig ZIP export contains a pasteable `guide.html` body fragment and only its referenced WebP files beneath a sibling `images/` directory. The fragment carries portable inline styles, omits document wrappers and scripts, and uses only `images/`-relative screenshot URLs.
+The Wiziwig ZIP export contains a pasteable `guide.html` body fragment and only its referenced timestamp-suffixed JPG files beneath a sibling `images/` directory by default, with WebP available through an explicit format option. The fragment carries portable inline styles, omits document wrappers and scripts, and uses only matching `images/`-relative screenshot URLs.
 
 Sanity exports use a separate gzip-compressed tar archive containing `data.ndjson` and only the local WebP images
-referenced by the guide. The NDJSON document uses Portable Text plus structured workflow-step and callout blocks; the
+referenced by the guide, using the same timestamp-suffixed filenames in the asset references and archive entries. The NDJSON document uses Portable Text plus structured workflow-step and callout blocks; the
 Sanity CLI resolves each local `_sanityAsset` directive during dataset import.

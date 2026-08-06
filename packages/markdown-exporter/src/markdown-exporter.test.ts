@@ -6,6 +6,7 @@ import { extract } from "tar-stream";
 import { describe, expect, it } from "vitest";
 import {
   buildEmbeddedHtml,
+  buildGuideImagesZip,
   buildWiziwigZip,
   buildWorkflowDocx,
   buildWorkflowZip,
@@ -193,6 +194,95 @@ describe("markdown exporter", () => {
     ).toBeTruthy();
   });
 
+  it("suffixes workflow ZIP image files and markdown references", async () => {
+    const zipBuffer = await buildWorkflowZip(
+      recording,
+      [
+        {
+          filename: "step-001-open-customers.webp",
+          content: Buffer.from("image"),
+        },
+      ],
+      "20260806T170000000",
+    );
+    const zip = await JSZip.loadAsync(zipBuffer);
+    const markdown = await zip.file("workflow-guide/guide.md")!.async("string");
+    const exportedRecording = JSON.parse(
+      await zip.file("workflow-guide/recording.json")!.async("string"),
+    ) as Recording;
+
+    expect(markdown).toContain(
+      "./images/step-001-open-customers-20260806T170000000.webp",
+    );
+    expect(exportedRecording.steps[0].imageFilename).toBe(
+      "step-001-open-customers-20260806T170000000.webp",
+    );
+    expect(exportedRecording.items[2].imageFilename).toBe(
+      "step-001-open-customers-20260806T170000000.webp",
+    );
+    expect(
+      zip.file(
+        "workflow-guide/images/step-001-open-customers-20260806T170000000.webp",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("builds image-only ZIPs with requested extensions", async () => {
+    const zipBuffer = await buildGuideImagesZip(
+      recording,
+      [
+        {
+          filename: "step-001-open-customers.webp",
+          content: Buffer.from("original-image"),
+        },
+        { filename: "unused.webp", content: Buffer.from("unused") },
+      ],
+      "jpg",
+    );
+    const zip = await JSZip.loadAsync(zipBuffer);
+
+    expect(await zip.file("step-001-open-customers.jpg")!.async("string")).toBe(
+      "original-image",
+    );
+    expect(zip.file("step-001-open-customers.webp")).toBeNull();
+    expect(zip.file("unused.jpg")).toBeNull();
+  });
+
+  it("suffixes image-only ZIP exports", async () => {
+    const zipBuffer = await buildGuideImagesZip(
+      recording,
+      [
+        {
+          filename: "step-001-open-customers.webp",
+          content: Buffer.from("original-image"),
+        },
+      ],
+      "jpg",
+      "20260806T170000000",
+    );
+    const zip = await JSZip.loadAsync(zipBuffer);
+
+    expect(
+      zip.file("step-001-open-customers-20260806T170000000.jpg"),
+    ).toBeTruthy();
+  });
+
+  it("rejects unsafe generated export image filenames", async () => {
+    await expect(
+      buildGuideImagesZip(
+        recording,
+        [
+          {
+            filename: "step-001-open-customers.webp",
+            content: Buffer.from("original-image"),
+          },
+        ],
+        "png",
+        "../unsafe",
+      ),
+    ).rejects.toThrow("Invalid export image filename");
+  });
+
   it("converts supported markdown and nested lists to Portable Text", () => {
     const blocks = markdownToPortableText(
       "First **bold**, *italic*, `code`, and [link](https://example.com).\n\n- Parent\n  - Child\n\n1. First\n2. Second",
@@ -281,6 +371,30 @@ describe("markdown exporter", () => {
     expect(files.has("images/unused.webp")).toBe(false);
   });
 
+  it("suffixes Sanity archive image files and asset references", async () => {
+    const archiveBuffer = await buildSanityImportTarGz(
+      recording,
+      [
+        {
+          filename: "step-001-open-customers.webp",
+          content: Buffer.from("referenced"),
+        },
+      ],
+      "20260806T170000000",
+    );
+    const files = await readTarGz(archiveBuffer);
+    const document = JSON.parse(
+      files.get("data.ndjson")!.toString("utf8").trimEnd(),
+    );
+
+    expect(document.content[2].image._sanityAsset).toBe(
+      "image@file://./images/step-001-open-customers-20260806T170000000.webp",
+    );
+    expect(
+      files.get("images/step-001-open-customers-20260806T170000000.webp"),
+    ).toBeTruthy();
+  });
+
   it("validates Sanity archive image inputs", async () => {
     await expect(buildSanityImportTarGz(recording, [])).rejects.toThrow(
       "Referenced image is missing",
@@ -339,7 +453,7 @@ describe("markdown exporter", () => {
     expect(html).toContain('class="callout alert"');
   });
 
-  it("builds a Wiziwig fragment ZIP with relative referenced images", async () => {
+  it("builds a Wiziwig fragment ZIP with JPG relative referenced images by default", async () => {
     const zipBuffer = await buildWiziwigZip(
       {
         ...recording,
@@ -378,7 +492,7 @@ describe("markdown exporter", () => {
     expect(html).toContain("<strong>Alert</strong>");
     expect(html).toContain(">1</span>");
     expect(html).toContain("Click <strong>Customers</strong>.");
-    expect(html).toContain('src="images/step-001-open-customers.webp"');
+    expect(html).toContain('src="images/step-001-open-customers.jpg"');
     expect(html).toContain('style="');
     expect(html).not.toMatch(/<(?:!doctype|html|head|style|script)\b/i);
     expect(html).not.toMatch(
@@ -386,10 +500,58 @@ describe("markdown exporter", () => {
     );
     expect(
       await zip
+        .file("images/step-001-open-customers.jpg")!
+        .async("nodebuffer"),
+    ).toEqual(Buffer.from("referenced-image"));
+    expect(zip.file("images/step-001-open-customers.webp")).toBeNull();
+    expect(zip.file("images/unused.webp")).toBeNull();
+  });
+
+  it("can preserve WebP images in Wiziwig exports when requested", async () => {
+    const zipBuffer = await buildWiziwigZip(
+      recording,
+      [
+        {
+          filename: "step-001-open-customers.webp",
+          content: Buffer.from("referenced-image"),
+          contentType: "image/webp",
+        },
+      ],
+      "webp",
+    );
+    const zip = await JSZip.loadAsync(zipBuffer);
+    const html = await zip.file("guide.html")!.async("string");
+
+    expect(html).toContain('src="images/step-001-open-customers.webp"');
+    expect(
+      await zip
         .file("images/step-001-open-customers.webp")!
         .async("nodebuffer"),
     ).toEqual(Buffer.from("referenced-image"));
-    expect(zip.file("images/unused.webp")).toBeNull();
+  });
+
+  it("suffixes Wiziwig image filenames when requested", async () => {
+    const zipBuffer = await buildWiziwigZip(
+      recording,
+      [
+        {
+          filename: "step-001-open-customers.webp",
+          content: Buffer.from("referenced-image"),
+          contentType: "image/jpeg",
+        },
+      ],
+      "jpg",
+      "20260806T170000000",
+    );
+    const zip = await JSZip.loadAsync(zipBuffer);
+    const html = await zip.file("guide.html")!.async("string");
+
+    expect(html).toContain(
+      'src="images/step-001-open-customers-20260806T170000000.jpg"',
+    );
+    expect(
+      zip.file("images/step-001-open-customers-20260806T170000000.jpg"),
+    ).toBeTruthy();
   });
 
   it("supports image-free Wiziwig fragments", async () => {
@@ -420,7 +582,7 @@ describe("markdown exporter", () => {
       ),
     };
     await expect(buildWiziwigZip(unsafe, [])).rejects.toThrow(
-      "Invalid Wiziwig export image filename",
+      "Invalid export image filename",
     );
   });
 
@@ -481,6 +643,32 @@ describe("markdown exporter", () => {
     expect(stylesXml).toContain('w:styleId="Heading2"');
     expect(stylesXml).toContain('w:styleId="CalloutText"');
     expect(numberingXml).toContain('w:val="%1.%2"');
+  });
+
+  it("suffixes standard Word export image media", async () => {
+    const docxBuffer = await buildWorkflowDocx(
+      recording,
+      [
+        {
+          filename: "step-001-open-customers.webp",
+          content: Buffer.from("image"),
+          contentType: "image/png",
+        },
+      ],
+      undefined,
+      "20260806T170000000",
+    );
+    const docx = await JSZip.loadAsync(docxBuffer);
+    const relsXml = await docx
+      .file("word/_rels/document.xml.rels")!
+      .async("string");
+
+    expect(
+      docx.file("word/media/step-001-open-customers-20260806T170000000.png"),
+    ).toBeTruthy();
+    expect(relsXml).toContain(
+      "media/step-001-open-customers-20260806T170000000.png",
+    );
   });
 
   it("derives ordered sections from header guide items", () => {

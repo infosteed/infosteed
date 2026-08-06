@@ -243,6 +243,34 @@ describe("API request boundaries", () => {
     expect(zip.file("guide.html")).toBeTruthy();
   });
 
+  it("protects image-only exports without a session", async () => {
+    const app = appFor();
+    openApps.push(app);
+    const response = await app.inject({
+      method: "GET",
+      url: "/recordings/00000000-0000-4000-8000-000000000010/export/images?format=png",
+    });
+
+    expect(response.statusCode).toBe(401);
+  });
+
+  it("serves image-only exports as named ZIP attachments", async () => {
+    const app = appFor("admin");
+    openApps.push(app);
+    const response = await app.inject({
+      method: "GET",
+      url: "/recordings/00000000-0000-4000-8000-000000000010/export/images?format=jpg",
+      headers: { cookie: "infosteed_session=session" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["content-type"]).toBe("application/zip");
+    expect(response.headers["content-disposition"]).toBe(
+      'attachment; filename="infosteed-guide-00000000-0000-4000-8000-000000000010-images-jpg.zip"',
+    );
+    await expect(JSZip.loadAsync(response.rawPayload)).resolves.toBeTruthy();
+  });
+
   it("keeps standard Word export available without a configured template", async () => {
     const app = appFor("admin");
     openApps.push(app);

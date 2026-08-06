@@ -4,6 +4,7 @@ import { fromMarkdown } from "mdast-util-from-markdown";
 import { pack } from "tar-stream";
 import type { GuideItem, Recording } from "@infosteed/shared";
 import type { ExportImage } from "./index.js";
+import { exportImageFilename } from "./image-filenames.js";
 
 interface MdastNode {
   type: string;
@@ -462,15 +463,38 @@ async function gzipTar(
 export async function buildSanityImportTarGz(
   recording: Recording,
   images: ExportImage[],
+  imageFilenameSuffix?: string,
 ): Promise<Buffer> {
   const selectedImages = validatedImages(recording, images);
-  const document = buildSanityWorkflowGuideDocument(recording);
+  const document = buildSanityWorkflowGuideDocument(
+    recordingWithExportImageFilenames(recording, imageFilenameSuffix),
+  );
   const ndjson = Buffer.from(`${JSON.stringify(document)}\n`, "utf8");
   return gzipTar([
     { name: "data.ndjson", content: ndjson },
     ...selectedImages.map((image) => ({
-      name: `images/${image.filename}`,
+      name: `images/${exportImageFilename(image.filename, imageFilenameSuffix)}`,
       content: Buffer.from(image.content),
     })),
   ]);
+}
+
+function recordingWithExportImageFilenames(
+  recording: Recording,
+  imageFilenameSuffix?: string,
+): Recording {
+  if (!imageFilenameSuffix) return recording;
+  const rename = (filename: string | null) =>
+    filename ? exportImageFilename(filename, imageFilenameSuffix) : filename;
+  return {
+    ...recording,
+    steps: recording.steps.map((step) => ({
+      ...step,
+      imageFilename: rename(step.imageFilename),
+    })),
+    items: recording.items.map((item) => ({
+      ...item,
+      imageFilename: rename(item.imageFilename),
+    })),
+  };
 }

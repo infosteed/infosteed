@@ -4,7 +4,7 @@ import { z } from "zod";
 export const PRODUCT_METADATA = Object.freeze({
   displayName: "InfoSteed",
   slug: "infosteed",
-  releaseVersion: "0.1.0-beta.10",
+  releaseVersion: "0.1.0-beta.11",
   protocolVersion: 1,
   minimumExtensionVersion: "0.1.0",
 });

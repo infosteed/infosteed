@@ -178,12 +178,16 @@ test("creates and exports an offline guide over HTTP", async ({ request }) => {
   const zip = await JSZip.loadAsync(Buffer.from(await exported.body()));
   const guide = await zip.file("workflow-guide/guide.md")?.async("string");
 
-  expect(guide).toContain("./images/step-001-login.webp");
+  const workflowImagePath =
+    guide?.match(/\.\/(images\/step-001-login-[^)]+\.webp)/)?.[1] ?? "";
+  expect(workflowImagePath).toMatch(
+    /^images\/step-001-login-\d{8}T\d{9}\.webp$/,
+  );
   expect(guide).not.toMatch(
     /https?:\/\/|s3:\/\/|blob:|data:|chrome-extension:/i,
   );
   expect(zip.file("workflow-guide/recording.json")).toBeTruthy();
-  expect(zip.file("workflow-guide/images/step-001-login.webp")).toBeTruthy();
+  expect(zip.file(`workflow-guide/${workflowImagePath}`)).toBeTruthy();
 
   const wiziwigExport = await request.get(
     `${apiUrl}/recordings/${id}/export/wiziwig`,
@@ -197,9 +201,15 @@ test("creates and exports an offline guide over HTTP", async ({ request }) => {
     Buffer.from(await wiziwigExport.body()),
   );
   const wiziwigHtml = await wiziwigZip.file("guide.html")?.async("string");
-  expect(wiziwigHtml).toContain('src="images/step-001-login.webp"');
+  const wiziwigImagePath =
+    wiziwigHtml?.match(/src="(images\/step-001-login-[^"]+\.jpg)"/)?.[1] ??
+    "";
+  expect(wiziwigImagePath).toMatch(
+    /^images\/step-001-login-\d{8}T\d{9}\.jpg$/,
+  );
   expect(wiziwigHtml).not.toContain("data:image/");
-  expect(wiziwigZip.file("images/step-001-login.webp")).toBeTruthy();
+  expect(wiziwigZip.file(wiziwigImagePath)).toBeTruthy();
+  expect(wiziwigZip.file("images/step-001-login.webp")).toBeNull();
 
   const sanityExport = await request.get(
     `${apiUrl}/recordings/${id}/export/sanity`,
@@ -216,10 +226,14 @@ test("creates and exports an offline guide over HTTP", async ({ request }) => {
   );
   expect(sanityDocument._id).toBe(`infosteed-${id}`);
   expect(sanityDocument._type).toBe("workflowGuide");
-  expect(sanityDocument.content[0].image._sanityAsset).toBe(
-    "image@file://./images/step-001-login.webp",
+  const sanityImagePath = sanityDocument.content[0].image._sanityAsset.replace(
+    "image@file://./",
+    "",
   );
-  expect(sanityFiles.get("images/step-001-login.webp")).toBeTruthy();
+  expect(sanityImagePath).toMatch(
+    /^images\/step-001-login-\d{8}T\d{9}\.webp$/,
+  );
+  expect(sanityFiles.get(sanityImagePath)).toBeTruthy();
 
   const capability = await request.get(`${apiUrl}/capabilities/video`);
   expect(capability.ok()).toBe(true);

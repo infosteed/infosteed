@@ -186,6 +186,7 @@ describe("Word template exporter", () => {
         approver: "",
         changeLogDetails: "Initial InfoSteed export",
       },
+      "20260806T170000000",
     );
     const zip = await JSZip.loadAsync(output);
     const document = await zip.file("word/document.xml")!.async("string");
@@ -210,6 +211,8 @@ describe("Word template exporter", () => {
     expect(properties).toContain("1.0");
     expect(core).toContain("Customer guide");
     expect(core).toContain("Test User");
-    expect(zip.file("word/media/infosteed-step-001.png")).toBeTruthy();
+    expect(
+      zip.file("word/media/infosteed-step-001-20260806T170000000.png"),
+    ).toBeTruthy();
   });
 });

@@ -912,6 +912,13 @@ export function wiziwigExportUrl(recordingId: string): string {
   return `${API_BASE}/recordings/${recordingId}/export/wiziwig`;
 }
 
+export function imageExportUrl(
+  recordingId: string,
+  format: "png" | "jpg",
+): string {
+  return `${API_BASE}/recordings/${recordingId}/export/images?format=${format}`;
+}
+
 export function sanityExportUrl(recordingId: string): string {
   return `${API_BASE}/recordings/${recordingId}/export/sanity`;
 }

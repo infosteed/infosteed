@@ -87,6 +87,10 @@ export async function convertImageToPng(input: Buffer): Promise<Buffer> {
   return sharp(input).rotate().png({ compressionLevel: 9 }).toBuffer();
 }
 
+export async function convertImageToJpeg(input: Buffer): Promise<Buffer> {
+  return sharp(input).rotate().jpeg({ quality: 90, mozjpeg: true }).toBuffer();
+}
+
 function clampRect(rect: NormalizedRect, width: number, height: number) {
   const left = Math.max(0, Math.min(width - 1, Math.round(rect.x * width)));
   const top = Math.max(0, Math.min(height - 1, Math.round(rect.y * height)));

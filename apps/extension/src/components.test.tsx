@@ -107,12 +107,36 @@ describe("extension presentation", () => {
     expect(screen.getByRole("button", { name: "Recover video" })).toBeTruthy();
   });
 
-  it("offers pending child-tab follow for guide-only recordings", async () => {
-    const input = userEvent.setup();
+  it("does not offer manual child-tab follow for guide-only recordings", async () => {
     storageGet.mockResolvedValue({
       recorderStatus: "recording",
       recordingId: "00000000-0000-4000-8000-000000000099",
       captureMode: "guide",
+      serverOrigin: "https://recordings.example.test",
+    });
+    sendMessage.mockResolvedValue({
+      recoveryAvailable: false,
+      followPending: false,
+      pendingTabTitle: "Child app",
+    });
+
+    render(<Popup />);
+
+    expect(
+      await screen.findByText("Signed in as Recording Owner"),
+    ).toBeTruthy();
+    expect(screen.queryByText("New app tab detected")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Follow this tab" }),
+    ).toBeNull();
+  });
+
+  it("offers pending child-tab follow for video recordings", async () => {
+    const input = userEvent.setup();
+    storageGet.mockResolvedValue({
+      recorderStatus: "recording",
+      recordingId: "00000000-0000-4000-8000-000000000099",
+      captureMode: "both",
       serverOrigin: "https://recordings.example.test",
     });
     sendMessage.mockImplementation(async (message: { type: string }) => {

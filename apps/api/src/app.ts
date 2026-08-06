@@ -8,16 +8,19 @@ import { chromium } from "playwright";
 import {
   annotateScreenshot,
   applyScreenshotEdits,
+  convertImageToJpeg,
   convertImageToPng,
   prepareAiScreenshotDataUrl,
 } from "@infosteed/image-processor";
 import {
   buildEmbeddedHtml,
+  buildGuideImagesZip,
   buildTemplatedWorkflowDocx,
   buildWiziwigZip,
   buildWorkflowDocx,
   buildWorkflowZip,
 } from "@infosteed/markdown-exporter";
+import type { WiziwigImageExportFormat } from "@infosteed/markdown-exporter";
 import { buildSanityImportTarGz } from "@infosteed/markdown-exporter/sanity";
 import {
   createGuideItemRequestSchema,
@@ -272,6 +275,10 @@ export function buildApp(
     Object.assign(new Error(message), { statusCode });
   const requestUsers = new WeakMap<FastifyRequest, AuthUser>();
   const requestSessionIds = new WeakMap<FastifyRequest, string>();
+
+  function exportTimestampSuffix(date = new Date()): string {
+    return date.toISOString().replace(/Z$/, "").replace(/[^0-9A-Za-z]/g, "");
+  }
 
   app.addContentTypeParser(
     "application/octet-stream",
@@ -2810,6 +2817,57 @@ export function buildApp(
     return { recording, images };
   }
 
+  async function loadRecordingAndWiziwigImages(
+    recordingId: string,
+    format: WiziwigImageExportFormat,
+  ) {
+    const { recording, images } = await loadRecordingAndImages(recordingId);
+    if (format === "webp") return { recording, images };
+
+    return {
+      recording,
+      images: await Promise.all(
+        images.map(async (image) => ({
+          filename: image.filename,
+          content: await convertImageToJpeg(Buffer.from(image.content)),
+          contentType: "image/jpeg",
+        })),
+      ),
+    };
+  }
+
+  async function loadRecordingAndOriginalImages(
+    recordingId: string,
+    format: "png" | "jpg",
+  ) {
+    const recording = await getRecording(pool, recordingId);
+    if (!recording) throw httpError(404, "Recording not found");
+    const screenshots = await listProjectScreenshotsForRecording(
+      pool,
+      recordingId,
+    );
+    const images = await Promise.all(
+      screenshots.map(async (screenshot) => {
+        if (!screenshot.original_image) {
+          throw httpError(
+            409,
+            `Screenshot ${screenshot.filename} is missing its original image`,
+          );
+        }
+        const source = Buffer.from(screenshot.original_image);
+        return {
+          filename: screenshot.filename,
+          content:
+            format === "jpg"
+              ? await convertImageToJpeg(source)
+              : await convertImageToPng(source),
+          contentType: format === "jpg" ? "image/jpeg" : "image/png",
+        };
+      }),
+    );
+    return { recording, images };
+  }
+
   async function getExportBranding() {
     return resolveExportBranding(await getBranding(pool));
   }
@@ -2825,7 +2883,11 @@ export function buildApp(
       const { recording, images } = await loadRecordingAndImages(
         request.params.id,
       );
-      const zip = await buildWorkflowZip(recording, images);
+      const zip = await buildWorkflowZip(
+        recording,
+        images,
+        exportTimestampSuffix(),
+      );
 
       return reply
         .header("content-type", "application/zip")
@@ -2860,14 +2922,24 @@ export function buildApp(
     },
   );
 
-  app.get<{ Params: { id: string } }>(
+  app.get<{
+    Params: { id: string };
+    Querystring: { format?: WiziwigImageExportFormat };
+  }>(
     "/recordings/:id/export/wiziwig",
     async (request, reply) => {
       await requireRecordingRead(request, request.params.id);
-      const { recording, images } = await loadRecordingAndImages(
+      const format = request.query.format === "webp" ? "webp" : "jpg";
+      const { recording, images } = await loadRecordingAndWiziwigImages(
         request.params.id,
+        format,
       );
-      const zip = await buildWiziwigZip(recording, images);
+      const zip = await buildWiziwigZip(
+        recording,
+        images,
+        format,
+        exportTimestampSuffix(),
+      );
 
       return reply
         .header("content-type", "application/zip")
@@ -2879,6 +2951,32 @@ export function buildApp(
     },
   );
 
+  app.get<{
+    Params: { id: string };
+    Querystring: { format?: "png" | "jpg" };
+  }>("/recordings/:id/export/images", async (request, reply) => {
+    await requireRecordingRead(request, request.params.id);
+    const format = request.query.format === "jpg" ? "jpg" : "png";
+    const { recording, images } = await loadRecordingAndOriginalImages(
+      request.params.id,
+      format,
+    );
+    const zip = await buildGuideImagesZip(
+      recording,
+      images,
+      format,
+      exportTimestampSuffix(),
+    );
+
+    return reply
+      .header("content-type", "application/zip")
+      .header(
+        "content-disposition",
+        `attachment; filename="${PRODUCT_IDENTIFIERS.exportPrefix}-${recording.id}-images-${format}.zip"`,
+      )
+      .send(zip);
+  });
+
   app.get<{ Params: { id: string } }>(
     "/recordings/:id/export/sanity",
     async (request, reply) => {
@@ -2886,7 +2984,11 @@ export function buildApp(
       const { recording, images } = await loadRecordingAndImages(
         request.params.id,
       );
-      const archive = await buildSanityImportTarGz(recording, images);
+      const archive = await buildSanityImportTarGz(
+        recording,
+        images,
+        exportTimestampSuffix(),
+      );
 
       return reply
         .header("content-type", "application/gzip")
@@ -2954,8 +3056,14 @@ export function buildApp(
             approver: "",
             changeLogDetails: "Initial InfoSteed export",
           },
+          exportTimestampSuffix(),
         )
-      : await buildWorkflowDocx(recording, wordImages, await getDocxBranding());
+      : await buildWorkflowDocx(
+          recording,
+          wordImages,
+          await getDocxBranding(),
+          exportTimestampSuffix(),
+        );
 
     return reply
       .header(

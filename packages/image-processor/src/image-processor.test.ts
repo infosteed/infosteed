@@ -3,6 +3,8 @@ import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 import {
   applyScreenshotEdits,
+  convertImageToJpeg,
+  convertImageToPng,
   prepareAiScreenshotDataUrl,
   viewportBoxToPixels,
 } from "./index";
@@ -76,5 +78,17 @@ describe("image processor edits", () => {
     const dataUrl = await prepareAiScreenshotDataUrl(await testImage());
 
     expect(dataUrl.startsWith("data:image/png;base64,")).toBe(true);
+  });
+
+  it("converts screenshots to requested export formats", async () => {
+    const png = await sharp(
+      await convertImageToPng(await testImage()),
+    ).metadata();
+    const jpeg = await sharp(
+      await convertImageToJpeg(await testImage()),
+    ).metadata();
+
+    expect(png.format).toBe("png");
+    expect(jpeg.format).toBe("jpeg");
   });
 });

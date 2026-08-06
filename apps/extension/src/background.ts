@@ -106,8 +106,12 @@ async function setState(state: RecorderState): Promise<void> {
       "recordingPendingFollowOpenerTabId",
   ].filter(Boolean) as string[];
   if (remove.length) await chrome.storage.local.remove(remove);
+  const videoMode =
+    state.captureMode === "video" || state.captureMode === "both";
   const followPending =
-    state.status !== "idle" && state.pendingFollowTabId !== undefined;
+    videoMode &&
+    state.status !== "idle" &&
+    state.pendingFollowTabId !== undefined;
   await chrome.action.setBadgeText({ text: followPending ? "!" : "" });
   if (followPending)
     await chrome.action.setBadgeBackgroundColor({ color: "#f79009" });
@@ -283,6 +287,20 @@ async function followChildTab(
   return true;
 }
 
+function openerForHandoff(
+  tabId: number,
+  tab: chrome.tabs.Tab,
+  state: RecorderState,
+): number | undefined {
+  return (
+    tab.openerTabId ??
+    pendingChildOpeners.get(tabId) ??
+    (state.pendingFollowTabId === tabId
+      ? state.pendingFollowOpenerTabId
+      : undefined)
+  );
+}
+
 async function followPendingTab(): Promise<void> {
   const current = await getState();
   if (current.pendingFollowTabId === undefined) {
@@ -422,23 +440,24 @@ chrome.tabs.onCreated.addListener((tab) => {
 });
 
 chrome.tabs.onActivated.addListener(({ tabId }) => {
-  void chrome.tabs
-    .get(tabId)
-    .then((tab) => {
-      const openerTabId = tab.openerTabId ?? pendingChildOpeners.get(tabId);
-      if (openerTabId === undefined) return;
-      return enqueueTabHandoff(() => followChildTab(tabId, openerTabId));
-    })
-    .catch((error) =>
-      console.warn("Could not follow the activated child tab", error),
-    );
+  void enqueueTabHandoff(async () => {
+    const [tab, current] = await Promise.all([
+      chrome.tabs.get(tabId),
+      getState(),
+    ]);
+    const openerTabId = openerForHandoff(tabId, tab, current);
+    if (openerTabId === undefined) return;
+    return followChildTab(tabId, openerTabId);
+  }).catch((error) =>
+    console.warn("Could not follow the activated child tab", error),
+  );
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (!changeInfo.url && changeInfo.status !== "complete") return;
   void enqueueTabHandoff(async () => {
     const current = await getState();
-    const openerTabId = tab.openerTabId ?? pendingChildOpeners.get(tabId);
+    const openerTabId = openerForHandoff(tabId, tab, current);
     if (
       tab.active &&
       openerTabId !== undefined &&
@@ -509,7 +528,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           videoMode &&
           state.status !== "idle" &&
           !(await chrome.offscreen.hasDocument()),
-        followPending: Boolean(pendingTab),
+        followPending: videoMode && Boolean(pendingTab),
         pendingTabTitle: pendingTab?.title,
       };
     }

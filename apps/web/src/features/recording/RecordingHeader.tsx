@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import {
   exportUrl,
   htmlExportUrl,
+  imageExportUrl,
   pdfExportUrl,
   projectExportUrl,
   sanityExportUrl,
@@ -257,6 +258,12 @@ export function RecordingHeader({
                   </>
                 )}
                 <a href={pdfExportUrl(recording.id)}>PDF</a>
+                <a href={imageExportUrl(recording.id, "png")}>
+                  {t("Images PNG")}
+                </a>
+                <a href={imageExportUrl(recording.id, "jpg")}>
+                  {t("Images JPG")}
+                </a>
                 <a href={sanityExportUrl(recording.id)}>Sanity</a>
                 <a href={exportUrl(recording.id)}>ZIP</a>
                 <button

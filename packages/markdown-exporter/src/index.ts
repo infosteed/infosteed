@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import JSZip from "jszip";
 import type { GuideItem, GuideStep, Recording } from "@infosteed/shared";
+import {
+  basenameWithoutExtension,
+  exportImageFilename,
+} from "./image-filenames.js";
 
 export {
   buildTemplatedWorkflowDocx,
@@ -55,6 +59,29 @@ function itemsForRecording(
     source: step.source,
     userEdited: step.userEdited,
   }));
+}
+
+function recordingWithExportImageFilenames(
+  recording: Recording,
+  imageFilenameSuffix?: string,
+  extension?: string,
+): Recording {
+  if (!imageFilenameSuffix && !extension) return recording;
+  const rename = (filename: string | null) =>
+    filename
+      ? exportImageFilename(filename, imageFilenameSuffix, extension)
+      : filename;
+  return {
+    ...recording,
+    steps: recording.steps.map((step) => ({
+      ...step,
+      imageFilename: rename(step.imageFilename),
+    })),
+    items: recording.items.map((item) => ({
+      ...item,
+      imageFilename: rename(item.imageFilename),
+    })),
+  };
 }
 
 export interface GuideExportSection {
@@ -175,6 +202,9 @@ export interface ExportImage {
   contentType?: string;
 }
 
+export type GuideImageExportFormat = "png" | "jpg";
+export type WiziwigImageExportFormat = "webp" | "jpg";
+
 export interface ExportBranding {
   displayName?: string | null;
   iconDataUrl?: string | null;
@@ -184,6 +214,7 @@ export interface ExportBranding {
 export async function buildWorkflowZip(
   recording: Recording,
   images: ExportImage[],
+  imageFilenameSuffix?: string,
 ): Promise<Buffer> {
   const zip = new JSZip();
   const root = zip.folder("workflow-guide");
@@ -192,8 +223,16 @@ export async function buildWorkflowZip(
   const imageFolder = root.folder("images");
   if (!imageFolder) throw new Error("Could not create images folder");
 
-  const availableImages = new Set(images.map((image) => image.filename));
-  const markdown = generateGuideMarkdown(recording);
+  const exportRecording = recordingWithExportImageFilenames(
+    recording,
+    imageFilenameSuffix,
+  );
+  const availableImages = new Set(
+    images.map((image) =>
+      exportImageFilename(image.filename, imageFilenameSuffix),
+    ),
+  );
+  const markdown = generateGuideMarkdown(exportRecording);
   const errors = validateLocalImageReferences(markdown, availableImages);
   if (errors.length > 0) throw new Error(errors.join("; "));
 
@@ -202,8 +241,8 @@ export async function buildWorkflowZip(
     "recording.json",
     JSON.stringify(
       {
-        ...recording,
-        events: recording.events.map((event) => ({
+        ...exportRecording,
+        events: exportRecording.events.map((event) => ({
           ...event,
           metadata: event.metadata ?? {},
         })),
@@ -217,7 +256,45 @@ export async function buildWorkflowZip(
     if (image.filename.includes("/") || image.filename.includes("..")) {
       throw new Error(`Invalid image filename: ${image.filename}`);
     }
-    imageFolder.file(image.filename, image.content);
+    imageFolder.file(
+      exportImageFilename(image.filename, imageFilenameSuffix),
+      image.content,
+    );
+  }
+
+  return zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+}
+
+export async function buildGuideImagesZip(
+  recording: Recording,
+  images: ExportImage[],
+  format: GuideImageExportFormat,
+  imageFilenameSuffix?: string,
+): Promise<Buffer> {
+  const zip = new JSZip();
+  const imageMap = new Map(images.map((image) => [image.filename, image]));
+  const extension = format === "jpg" ? "jpg" : "png";
+  const seenImageFilenames = new Set<string>();
+
+  for (const item of itemsForRecording(recording)
+    .slice()
+    .sort((a, b) => a.ordinal - b.ordinal)) {
+    if (item.kind !== "step" || !item.imageFilename) continue;
+    assertSafeExportImageFilename(item.imageFilename);
+    if (seenImageFilenames.has(item.imageFilename)) continue;
+    seenImageFilenames.add(item.imageFilename);
+
+    const image = imageMap.get(item.imageFilename);
+    if (!image) {
+      throw new Error(
+        `Referenced guide image is missing: ${item.imageFilename}`,
+      );
+    }
+
+    zip.file(
+      exportImageFilename(item.imageFilename, imageFilenameSuffix, extension),
+      image.content,
+    );
   }
 
   return zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
@@ -358,14 +435,23 @@ function docxCallout(kind: "tip" | "alert", body: string): string {
   return `<w:tbl><w:tblPr><w:tblW w:w="9638" w:type="dxa"/><w:tblBorders><w:left w:val="single" w:sz="24" w:color="${border}"/><w:top w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders><w:tblCellMar><w:top w:w="160" w:type="dxa"/><w:left w:w="220" w:type="dxa"/><w:bottom w:w="160" w:type="dxa"/><w:right w:w="220" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tr><w:trPr><w:cantSplit/></w:trPr><w:tc><w:tcPr><w:shd w:val="clear" w:fill="${background}"/></w:tcPr><w:p><w:pPr><w:spacing w:after="80"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>${label}</w:t></w:r></w:p>${docxParagraph(body, "CalloutText")}</w:tc></w:tr></w:tbl><w:p><w:pPr><w:spacing w:after="120"/></w:pPr></w:p>`;
 }
 
-function basenameWithoutExtension(filename: string): string {
-  return filename.replace(/\.[^.]+$/, "");
+function formatImageFilename(
+  filename: string,
+  format: WiziwigImageExportFormat,
+  suffix?: string,
+): string {
+  return exportImageFilename(
+    filename,
+    suffix,
+    format === "jpg" ? "jpg" : undefined,
+  );
 }
 
 export async function buildWorkflowDocx(
   recording: Recording,
   images: ExportImage[],
   branding?: ExportBranding,
+  imageFilenameSuffix?: string,
 ): Promise<Buffer> {
   const zip = new JSZip();
   const imageMap = new Map(images.map((image) => [image.filename, image]));
@@ -439,7 +525,11 @@ export async function buildWorkflowDocx(
           `Referenced image is missing for Word export: ${item.imageFilename}`,
         );
       const relId = `rId${mediaFiles.length + 1}`;
-      const mediaFilename = `${basenameWithoutExtension(item.imageFilename)}.png`;
+      const mediaFilename = exportImageFilename(
+        item.imageFilename,
+        imageFilenameSuffix,
+        "png",
+      );
       mediaFiles.push({
         sourceFilename: item.imageFilename,
         mediaFilename,
@@ -561,15 +651,19 @@ function assertSafeExportImageFilename(filename: string): void {
     filename.includes("\\") ||
     filename.includes("..")
   ) {
-    throw new Error(`Invalid Wiziwig export image filename: ${filename}`);
+    throw new Error(`Invalid export image filename: ${filename}`);
   }
 }
 
-function buildWiziwigFragment(recording: Recording): {
+function buildWiziwigFragment(
+  recording: Recording,
+  imageFormat: WiziwigImageExportFormat,
+  imageFilenameSuffix?: string,
+): {
   html: string;
-  imageFilenames: string[];
+  images: Array<{ sourceFilename: string; outputFilename: string }>;
 } {
-  const imageFilenames: string[] = [];
+  const images: Array<{ sourceFilename: string; outputFilename: string }> = [];
   const seenImageFilenames = new Set<string>();
   let stepNumber = 0;
 
@@ -597,11 +691,19 @@ function buildWiziwigFragment(recording: Recording): {
       let image = "";
       if (item.imageFilename) {
         assertSafeExportImageFilename(item.imageFilename);
+        const outputFilename = formatImageFilename(
+          item.imageFilename,
+          imageFormat,
+          imageFilenameSuffix,
+        );
         if (!seenImageFilenames.has(item.imageFilename)) {
           seenImageFilenames.add(item.imageFilename);
-          imageFilenames.push(item.imageFilename);
+          images.push({
+            sourceFilename: item.imageFilename,
+            outputFilename,
+          });
         }
-        image = `<img src="images/${escapeHtml(item.imageFilename)}" alt="${escapeHtml(item.altText ?? item.title)}" style="display: block; max-width: 100%; height: auto; margin-top: 12px; border: 1px solid #d0d5dd; border-radius: 6px;" />`;
+        image = `<img src="images/${escapeHtml(outputFilename)}" alt="${escapeHtml(item.altText ?? item.title)}" style="display: block; max-width: 100%; height: auto; margin-top: 12px; border: 1px solid #d0d5dd; border-radius: 6px;" />`;
       }
 
       return `<div style="display: table; width: 100%; margin: 0 0 30px;"><div style="display: table-cell; width: 52px; vertical-align: top;"><span style="display: inline-block; width: 36px; height: 36px; border-radius: 50%; background: #dbeafe; color: #1d4ed8; font-weight: 700; line-height: 36px; text-align: center;">${stepNumber}</span></div><div style="display: table-cell; vertical-align: top;"><p style="margin: 4px 0 0; line-height: 1.55;">${renderInlineMarkdownHtml(item.body)}</p>${image}</div></div>`;
@@ -618,32 +720,38 @@ function buildWiziwigFragment(recording: Recording): {
   ${purpose}
   ${content}
 </div>`,
-    imageFilenames,
+    images,
   };
 }
 
 export async function buildWiziwigZip(
   recording: Recording,
   images: ExportImage[],
+  imageFormat: WiziwigImageExportFormat = "jpg",
+  imageFilenameSuffix?: string,
 ): Promise<Buffer> {
   const zip = new JSZip();
   const imageFolder = zip.folder("images");
   if (!imageFolder) throw new Error("Could not create images folder");
 
-  const fragment = buildWiziwigFragment(recording);
+  const fragment = buildWiziwigFragment(
+    recording,
+    imageFormat,
+    imageFilenameSuffix,
+  );
   const availableImages = new Map(
     images.map((image) => [image.filename, image] as const),
   );
 
   zip.file("guide.html", fragment.html);
-  for (const filename of fragment.imageFilenames) {
-    const image = availableImages.get(filename);
+  for (const { sourceFilename, outputFilename } of fragment.images) {
+    const image = availableImages.get(sourceFilename);
     if (!image) {
       throw new Error(
-        `Referenced Wiziwig export image is missing: images/${filename}`,
+        `Referenced Wiziwig export image is missing: images/${sourceFilename}`,
       );
     }
-    imageFolder.file(filename, image.content);
+    imageFolder.file(outputFilename, image.content);
   }
 
   return zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });

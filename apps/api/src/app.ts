@@ -539,6 +539,7 @@ export function buildApp(
       "/setup/admin",
       "/auth/login",
       "/auth/login/2fa",
+      "/downloads/extension-offline.zip",
     ]);
     const setupRequired = (await countUsers(pool)) === 0;
     if (setupRequired) {

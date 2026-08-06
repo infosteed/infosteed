@@ -403,6 +403,14 @@ describe("API request boundaries", () => {
     );
     expect(chromeDownload.body).toBe("chrome");
 
+    const publicDownload = await app.inject({
+      method: "GET",
+      url: "/downloads/extension-offline.zip",
+    });
+    expect(publicDownload.statusCode).toBe(200);
+    expect(publicDownload.headers["content-type"]).toBe("application/zip");
+    expect(publicDownload.body).toBe("chrome");
+
     const firefoxDownload = await app.inject({
       method: "GET",
       url: "/admin/extensions/firefox-offline/download",

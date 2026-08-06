@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply } from "fastify";
 import type { AuthenticatedRouteContext } from "./context.js";
 
 interface ExtensionArtifactDefinition {
@@ -77,6 +77,33 @@ export function registerExtensionRoutes(
 ): void {
   const { config, requireAdmin, httpError } = context;
 
+  async function sendArtifact(
+    reply: FastifyReply,
+    artifact: ExtensionArtifactDefinition,
+  ) {
+    const absolutePath = artifactPath(config.EXTENSION_ARTIFACT_DIR, artifact);
+    const details = await stat(absolutePath).catch(() => undefined);
+    if (!details?.isFile()) throw httpError(404, "Extension artifact missing");
+    return reply
+      .header("content-type", artifact.contentType)
+      .header(
+        "content-disposition",
+        `attachment; filename="${safeAttachmentFilename(artifact.filename)}"`,
+      )
+      .header("content-length", String(details.size))
+      .send(createReadStream(absolutePath));
+  }
+
+  app.get("/downloads/extension-offline.zip", async (_request, reply) => {
+    const artifact = extensionArtifacts.find(
+      (candidate) =>
+        candidate.releaseEnabled &&
+        candidate.filename === "extension-offline.zip",
+    );
+    if (!artifact) throw httpError(404, "Extension artifact not found");
+    return sendArtifact(reply, artifact);
+  });
+
   app.get("/admin/extensions", async (request) => {
     requireAdmin(request);
     const artifacts = await Promise.all(
@@ -102,21 +129,7 @@ export function registerExtensionRoutes(
           candidate.releaseEnabled && candidate.id === request.params.id,
       );
       if (!artifact) throw httpError(404, "Extension artifact not found");
-      const absolutePath = artifactPath(
-        config.EXTENSION_ARTIFACT_DIR,
-        artifact,
-      );
-      const details = await stat(absolutePath).catch(() => undefined);
-      if (!details?.isFile())
-        throw httpError(404, "Extension artifact missing");
-      return reply
-        .header("content-type", artifact.contentType)
-        .header(
-          "content-disposition",
-          `attachment; filename="${safeAttachmentFilename(artifact.filename)}"`,
-        )
-        .header("content-length", String(details.size))
-        .send(createReadStream(absolutePath));
+      return sendArtifact(reply, artifact);
     },
   );
 }

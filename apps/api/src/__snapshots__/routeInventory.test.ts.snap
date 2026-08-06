@@ -136,6 +136,14 @@ exports[`API route contract > preserves every registered method and path 1`] = `
   },
   {
     "method": "GET",
+    "url": "/downloads/extension-offline.zip",
+  },
+  {
+    "method": "HEAD",
+    "url": "/downloads/extension-offline.zip",
+  },
+  {
+    "method": "GET",
     "url": "/health/live",
   },
   {
@@ -641,6 +649,10 @@ exports[`API route contract > preserves every registered method and path 1`] = `
   {
     "method": "POST",
     "url": "/users",
+  },
+  {
+    "method": "DELETE",
+    "url": "/users/:id",
   },
   {
     "method": "PATCH",

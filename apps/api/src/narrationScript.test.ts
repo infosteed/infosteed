@@ -48,11 +48,11 @@ function responseFor(value: unknown, thinking?: string): Response {
 
 describe("local caption-to-script rewriting", () => {
   it.each([
-    [0.75, 7],
-    [1, 10],
-    [1.5, 15],
+    [0.75, 11],
+    [1, 15],
+    [1.5, 23],
   ])(
-    "uses native Ollama JSON with speed %sx and a %s-word limit",
+    "uses native Ollama JSON with speed %sx and a %s-word timing-neighborhood limit",
     async (speed, maxWords) => {
       let requestedUrl = "";
       let requestedBody = "";
@@ -137,6 +137,90 @@ describe("local caption-to-script rewriting", () => {
     );
   });
 
+  it("allows a cue to borrow timing from a sparse adjacent cue", async () => {
+    const shortTimedSource = [
+      {
+        id: "caption-1",
+        sourceStartMs: 10_000,
+        sourceEndMs: 12_400,
+        text: "Open the settings",
+      },
+      {
+        id: "caption-2",
+        sourceStartMs: 12_400,
+        sourceEndMs: 13_600,
+        text: "save",
+      },
+    ];
+    const output = {
+      cues: [
+        {
+          id: "caption-1",
+          text: "Open the customer account settings panel now",
+        },
+        { id: "caption-2", text: "Save." },
+      ],
+    };
+    const fetcher = vi.fn(async () => responseFor(output));
+
+    await expect(
+      rewriteNarrationScript(
+        config(),
+        {
+          outputLocale: "en",
+          cues: shortTimedSource,
+          style: "natural",
+          speed: 1,
+        },
+        fetcher as typeof fetch,
+      ),
+    ).resolves.toEqual([
+      { ...shortTimedSource[0], text: output.cues[0].text },
+      { ...shortTimedSource[1], text: output.cues[1].text },
+    ]);
+  });
+
+  it("rejects adjacent cues that exceed their combined timing slot", async () => {
+    const shortTimedSource = [
+      {
+        id: "caption-1",
+        sourceStartMs: 10_000,
+        sourceEndMs: 12_400,
+        text: "Open the settings",
+      },
+      {
+        id: "caption-2",
+        sourceStartMs: 12_400,
+        sourceEndMs: 13_600,
+        text: "save",
+      },
+    ];
+    const output = {
+      cues: [
+        {
+          id: "caption-1",
+          text: "Open the customer account settings panel now please",
+        },
+        { id: "caption-2", text: "Save every visible change." },
+      ],
+    };
+    const fetcher = vi.fn(async () => responseFor(output));
+
+    await expect(
+      rewriteNarrationScript(
+        config(),
+        {
+          outputLocale: "en",
+          cues: shortTimedSource,
+          style: "natural",
+          speed: 1,
+        },
+        fetcher as typeof fetch,
+      ),
+    ).rejects.toThrow("combined time slot");
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
   it.each([
     [
       "punctuation-only text",
@@ -158,7 +242,7 @@ describe("local caption-to-script rewriting", () => {
         cues: [
           {
             id: "cue-1",
-            text: "One two three four five six seven eight nine ten eleven",
+            text: "One two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen",
           },
           validOutput.cues[1],
         ],

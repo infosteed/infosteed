@@ -48,13 +48,41 @@ function testPool(role: "admin" | "user" = "user", csrfToken?: string): Pool {
     created_at: new Date(),
     updated_at: new Date(),
   };
-  return {
+  const executed: string[] = [];
+  const pool = {
     async query(sql: string, values?: unknown[]) {
+      executed.push(sql);
+      if (sql === "begin" || sql === "commit" || sql === "rollback")
+        return { rows: [] };
+      if (
+        sql.includes("select count(*) as count from users where role = 'admin'")
+      )
+        return { rows: [{ count: "2" }] };
       if (sql.includes("count(*) as count from users"))
         return { rows: [{ count: "1" }] };
       if (sql.includes("delete from sessions")) return { rows: [] };
+      if (sql.includes("delete from recordings where owner_user_id"))
+        return { rows: [] };
+      if (sql.includes("delete from users where id")) return { rows: [] };
+      if (sql.includes("delete from audit_events")) return { rows: [] };
+      if (sql.includes("insert into audit_events")) return { rows: [] };
       if (sql.includes("from word_export_templates")) return { rows: [] };
       if (sql.includes("join users u")) return { rows: [user] };
+      if (sql.includes("from users u") && sql.includes("where u.id = $1"))
+        return { rows: [user] };
+      if (sql.includes("from recording_video_assets a"))
+        return {
+          rows: [
+            {
+              storage_key: "videos/recording/raw.webm",
+              multipart_upload_id: null,
+            },
+            {
+              storage_key: "videos/recording/render.mp4",
+              multipart_upload_id: null,
+            },
+          ],
+        };
       if (sql.includes("set theme_preference = $2"))
         return {
           rows: [{ ...user, theme_preference: values?.[1] }],
@@ -130,7 +158,15 @@ function testPool(role: "admin" | "user" = "user", csrfToken?: string): Pool {
       if (sql.trim() === "select 1") return { rows: [{ "?column?": 1 }] };
       throw new Error(`Unexpected test query: ${sql}`);
     },
-  } as unknown as Pool;
+    async connect() {
+      return {
+        query: pool.query,
+        release() {},
+      };
+    },
+    executed,
+  };
+  return pool as unknown as Pool;
 }
 
 function appFor(
@@ -294,6 +330,34 @@ describe("API request boundaries", () => {
       headers: { cookie: "infosteed_session=session" },
     });
     expect(response.statusCode).toBe(403);
+  });
+
+  it("lets administrators delete users and owned recording storage", async () => {
+    const csrfToken = "delete-user-csrf";
+    const deletedObjects: string[] = [];
+    const app = appFor("admin", csrfToken, {
+      ...storage,
+      enabled: true,
+      async deleteObject(key: string) {
+        deletedObjects.push(key);
+      },
+    });
+    openApps.push(app);
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: "/users/00000000-0000-4000-8000-000000000002",
+      headers: {
+        cookie: "infosteed_session=session",
+        "x-csrf-token": csrfToken,
+      },
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(deletedObjects).toEqual([
+      "videos/recording/raw.webm",
+      "videos/recording/render.mp4",
+    ]);
   });
 
   it("lists and serves only release-enabled extension artifacts", async () => {

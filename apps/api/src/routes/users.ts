@@ -9,9 +9,11 @@ import {
 import { withTransaction } from "../db.js";
 import {
   createUser,
+  deleteUserAndOwnedData,
   deleteUserSessions,
   ensurePersonalProject,
   findUserWithPassword,
+  getUserDeletionPlan,
   listAuditEvents,
   listUserDirectory,
   listUsers,
@@ -187,6 +189,65 @@ export function registerUserRoutes(
     );
     return user;
   });
+
+  app.delete<{ Params: { id: string } }>(
+    "/users/:id",
+    async (request, reply) => {
+      const admin = requireAdmin(request);
+      if (request.params.id === admin.id)
+        throw httpError(409, "Administrators cannot delete their own account");
+
+      const plan = await getUserDeletionPlan(pool, request.params.id);
+      if (!plan.user) throw httpError(404, "User not found");
+      if (plan.isLastAdmin)
+        throw httpError(409, "Cannot delete the last administrator");
+
+      if (videoStorage.enabled) {
+        const results = await Promise.allSettled(
+          plan.storageObjects.map((object) =>
+            object.multipartUploadId
+              ? videoStorage.abortMultipartUpload(
+                  object.storageKey,
+                  object.multipartUploadId,
+                )
+              : videoStorage.deleteObject(object.storageKey),
+          ),
+        );
+        const failed = results.filter((result) => result.status === "rejected");
+        if (failed.length > 0) {
+          await audit(
+            request,
+            "user_storage_delete_failed",
+            "user",
+            request.params.id,
+            {
+              storageObjectCount: plan.storageObjects.length,
+              failedObjectCount: failed.length,
+            },
+          );
+          throw httpError(502, "Could not delete all user video data");
+        }
+      }
+
+      await withTransaction(pool, async (client) => {
+        const deletionPlan = await getUserDeletionPlan(
+          client,
+          request.params.id,
+        );
+        if (!deletionPlan.user) throw httpError(404, "User not found");
+        if (deletionPlan.isLastAdmin)
+          throw httpError(409, "Cannot delete the last administrator");
+        await deleteUserAndOwnedData(client, request.params.id);
+      });
+
+      await audit(request, "user_deleted", "user", request.params.id, {
+        username: plan.user.username,
+        role: plan.user.role,
+        storageObjectCount: plan.storageObjects.length,
+      });
+      return reply.code(204).send();
+    },
+  );
 
   app.post<{ Params: { id: string } }>(
     "/users/:id/2fa/reset",

@@ -248,7 +248,17 @@ async function followChildTab(
   )
     return false;
   const tab = await chrome.tabs.get(tabId).catch(() => undefined);
-  if (!tab?.id || !tab.active || !isRecordableTab(tab)) return false;
+  if (!tab?.id) return false;
+  if (!tab.active || !isRecordableTab(tab)) {
+    if (current.pendingFollowTabId !== tab.id) {
+      await setState({
+        ...current,
+        pendingFollowTabId: tab.id,
+        pendingFollowOpenerTabId: openerTabId,
+      });
+    }
+    return true;
+  }
 
   if (current.captureMode === "video" || current.captureMode === "both") {
     if (current.pendingFollowTabId !== tab.id) {
@@ -273,12 +283,9 @@ async function followChildTab(
   return true;
 }
 
-async function followPendingVideoTab(): Promise<void> {
+async function followPendingTab(): Promise<void> {
   const current = await getState();
-  if (
-    (current.captureMode !== "video" && current.captureMode !== "both") ||
-    current.pendingFollowTabId === undefined
-  ) {
+  if (current.pendingFollowTabId === undefined) {
     throw new Error(t("There is no new tab waiting to be followed"));
   }
   if (current.pendingFollowOpenerTabId !== current.targetTabId)
@@ -292,8 +299,10 @@ async function followPendingVideoTab(): Promise<void> {
     );
 
   await ensureContentRecorder(tab.id);
-  const streamId = await tabMediaStreamId(tab.id);
-  await offscreen("offscreen-switch-tab", { tabId: tab.id, streamId });
+  if (current.captureMode === "video" || current.captureMode === "both") {
+    const streamId = await tabMediaStreamId(tab.id);
+    await offscreen("offscreen-switch-tab", { tabId: tab.id, streamId });
+  }
   const trail = current.tabTrail?.length
     ? current.tabTrail
     : current.targetTabId === undefined
@@ -506,7 +515,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     if (message.type === "follow-pending-tab") {
-      await enqueueTabHandoff(followPendingVideoTab);
+      await enqueueTabHandoff(followPendingTab);
       return { ok: true };
     }
 

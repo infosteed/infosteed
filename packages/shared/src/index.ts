@@ -4,7 +4,7 @@ import { z } from "zod";
 export const PRODUCT_METADATA = Object.freeze({
   displayName: "InfoSteed",
   slug: "infosteed",
-  releaseVersion: "0.1.0-beta.9",
+  releaseVersion: "0.1.0-beta.10",
   protocolVersion: 1,
   minimumExtensionVersion: "0.1.0",
 });
@@ -65,6 +65,25 @@ export const OUTPUT_LOCALE_NAMES = {
   fr: "French (Français)",
   de: "German (Deutsch)",
 } as const satisfies Record<z.infer<typeof outputLocaleSchema>, string>;
+
+const GUIDE_STEP_SEQUENCE_PREFIX =
+  /^\s*(?:step|étape|etape|schritt|céim|ceim)\s+\d+\s*(?:(?:of|sur|von|de|as)\s+|\/\s*)\d+\s*(?::|[-–—])?\s*/iu;
+
+export function normalizeGuideOutlineTitle(
+  title: string,
+  fallback = "Untitled step",
+): string {
+  const normalized = title.trim().replace(/\s+/g, " ");
+  if (!GUIDE_STEP_SEQUENCE_PREFIX.test(normalized)) return normalized;
+
+  const descriptiveTitle = normalized
+    .replace(GUIDE_STEP_SEQUENCE_PREFIX, "")
+    .trim();
+  if (descriptiveTitle) return descriptiveTitle;
+
+  const normalizedFallback = fallback.trim().replace(/\s+/g, " ");
+  return normalizedFallback || "Untitled step";
+}
 
 export const boundingBoxSchema = z.object({
   x: z.number().finite(),
@@ -920,6 +939,11 @@ export const updateUserRequestSchema = z.object({
 });
 
 export const adminTwoFactorResetRequestSchema = z.object({
+  currentPassword: z.string().min(1).max(256),
+  code: twoFactorTokenSchema.optional(),
+});
+
+export const deleteUserRequestSchema = z.object({
   currentPassword: z.string().min(1).max(256),
   code: twoFactorTokenSchema.optional(),
 });

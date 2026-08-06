@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ActiveRecordingClock,
+  chooseVideoRecorderOptions,
   chooseVideoMimeType,
   chooseTranscriptionAudioSource,
   inputCategoryFor,
@@ -74,6 +75,26 @@ describe("recorder core privacy and normalization", () => {
     expect(event.elementRole).toBe("div");
   });
 
+  it("prefers clean visible control text over internal element ids", () => {
+    const [event] = normalizeRawEvents([
+      {
+        actionType: "click",
+        timestamp: 1,
+        pageTitle: "Map",
+        url: "https://example.com/map",
+        element: {
+          tagName: "button",
+          id: "updateAttributesBtn",
+          name: "updateAttributesBtn",
+          text: "Update",
+        },
+      },
+    ]);
+
+    expect(event.elementName).toBe("Update");
+    expect(event.elementRole).toBe("button");
+  });
+
   it("preserves a canvas click's normalized position", () => {
     const [event] = normalizeRawEvents([
       {
@@ -132,8 +153,41 @@ describe("recorder core privacy and normalization", () => {
       "vp8",
     );
     expect(chooseVideoMimeType(() => false)).toBe("video/webm");
+    expect(
+      chooseVideoMimeType((mime) => mime.includes("vp9"), false),
+    ).toContain("vp9");
+    expect(
+      chooseVideoMimeType((mime) => mime.includes("vp8"), false),
+    ).toContain("vp8");
+    expect(chooseVideoMimeType(() => false, false)).toBe("video/webm");
     expect(shouldAutoPauseUpload(127, 128)).toBe(false);
     expect(shouldAutoPauseUpload(128, 128)).toBe(true);
+  });
+
+  it("omits audio recorder options for silent video streams", () => {
+    expect(
+      chooseVideoRecorderOptions({
+        hasAudio: true,
+        isSupported: (mime) => mime.includes("vp9"),
+        videoBitsPerSecond: 4_000_000,
+        audioBitsPerSecond: 128_000,
+      }),
+    ).toMatchObject({
+      mimeType: "video/webm;codecs=vp9,opus",
+      videoBitsPerSecond: 4_000_000,
+      audioBitsPerSecond: 128_000,
+    });
+    expect(
+      chooseVideoRecorderOptions({
+        hasAudio: false,
+        isSupported: (mime) => mime.includes("vp9"),
+        videoBitsPerSecond: 4_000_000,
+        audioBitsPerSecond: 128_000,
+      }),
+    ).toEqual({
+      mimeType: "video/webm;codecs=vp9",
+      videoBitsPerSecond: 4_000_000,
+    });
   });
 
   it("prefers narration and keeps a one-hour transcription asset below 25 MB", () => {

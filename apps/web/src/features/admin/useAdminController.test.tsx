@@ -3,6 +3,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  deleteUser,
   deleteWordTemplate,
   getAdminSystemStatus,
   getBranding,
@@ -17,6 +18,7 @@ import { useAdminController } from "./useAdminController";
 
 vi.mock("../../api", () => ({
   createUser: vi.fn(),
+  deleteUser: vi.fn(),
   deleteWordTemplate: vi.fn(),
   getAdminSystemStatus: vi.fn(),
   getBranding: vi.fn(),
@@ -85,6 +87,9 @@ describe("admin Word templates controller", () => {
     vi.mocked(uploadWordTemplate).mockResolvedValue(template);
     vi.mocked(updateWordTemplate).mockResolvedValue(template);
     vi.mocked(deleteWordTemplate).mockResolvedValue(undefined);
+    vi.mocked(deleteUser).mockResolvedValue(
+      new Response(null, { status: 204 }),
+    );
   });
 
   it("loads, uploads, selects and deletes templates", async () => {
@@ -110,5 +115,31 @@ describe("admin Word templates controller", () => {
 
     await act(() => result.current.removeTemplate(template.id));
     expect(deleteWordTemplate).toHaveBeenCalledWith(template.id);
+  });
+
+  it("deletes users and reloads admin data", async () => {
+    const { result } = renderHook(() => useAdminController());
+    await waitFor(() =>
+      expect(result.current.wordTemplates).toEqual([template]),
+    );
+    const listCallsBeforeDelete = vi.mocked(listUsers).mock.calls.length;
+
+    await act(() =>
+      result.current.removeUser({
+        id: "00000000-0000-4000-8000-000000000001",
+        username: "old.user",
+        displayName: "Old User",
+        role: "user",
+        enabled: false,
+        twoFactorEnabled: false,
+        twoFactorRequired: false,
+        themePreference: "system",
+      }),
+    );
+
+    expect(deleteUser).toHaveBeenCalledWith(
+      "00000000-0000-4000-8000-000000000001",
+    );
+    expect(listUsers).toHaveBeenCalledTimes(listCallsBeforeDelete + 1);
   });
 });

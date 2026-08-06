@@ -148,6 +148,7 @@ export function accessibleNameFor(hints: ElementHints): string | undefined {
     hints.labelText,
     hints.placeholder,
     hints.title,
+    hints.text,
     hints.name,
     hints.id,
   ];
@@ -268,15 +269,31 @@ export class ActiveRecordingClock {
 
 export function chooseVideoMimeType(
   isSupported: (mimeType: string) => boolean,
+  hasAudio = true,
 ): string {
-  for (const mimeType of [
-    "video/webm;codecs=vp9,opus",
-    "video/webm;codecs=vp8,opus",
-    "video/webm",
-  ]) {
+  const candidates = hasAudio
+    ? ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus"]
+    : ["video/webm;codecs=vp9", "video/webm;codecs=vp8"];
+  for (const mimeType of [...candidates, "video/webm"]) {
     if (mimeType === "video/webm" || isSupported(mimeType)) return mimeType;
   }
   return "video/webm";
+}
+
+export function chooseVideoRecorderOptions(input: {
+  hasAudio: boolean;
+  isSupported: (mimeType: string) => boolean;
+  videoBitsPerSecond: number;
+  audioBitsPerSecond?: number;
+}): MediaRecorderOptions & { mimeType: string } {
+  const options: MediaRecorderOptions & { mimeType: string } = {
+    mimeType: chooseVideoMimeType(input.isSupported, input.hasAudio),
+    videoBitsPerSecond: input.videoBitsPerSecond,
+  };
+  if (input.hasAudio && input.audioBitsPerSecond !== undefined) {
+    options.audioBitsPerSecond = input.audioBitsPerSecond;
+  }
+  return options;
 }
 
 export function shouldAutoPauseUpload(

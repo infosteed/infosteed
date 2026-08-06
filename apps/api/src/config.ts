@@ -109,7 +109,7 @@ const configSchema = z
       .min(1)
       .default("extension-artifacts"),
     APP_SOURCE_URL: optionalUrlEnv,
-    RELEASE_VERSION: z.string().trim().min(1).default("0.1.0-beta.9"),
+    RELEASE_VERSION: z.string().trim().min(1).default("0.1.0-beta.10"),
     RELEASE_COMMIT: z.string().trim().min(1).default("development"),
     APP_DOMAIN: optionalEnv,
     TWO_FACTOR_ENABLED: booleanEnv.default(false),

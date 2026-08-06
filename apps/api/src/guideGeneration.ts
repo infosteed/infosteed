@@ -2,19 +2,88 @@
 import type { PoolClient } from "./db.js";
 import {
   screenshotsByEvent,
+  updateRecordingSummary,
   upsertGeneratedStep,
 } from "./repositories/recordings.js";
 import {
+  writeGuideOverview,
   writeStep,
   type AiStepWriterProvider,
 } from "@infosteed/ai-step-writer";
 import { prepareAiScreenshotDataUrl } from "@infosteed/image-processor";
 import type {
+  GuideItem,
+  GuideStep,
   OutputLocale,
   Recording,
   TranscriptSegment,
 } from "@infosteed/shared";
 import { transcriptAround } from "./transcriptContext.js";
+
+export type GuideSummaryMode = "skip" | "fill" | "overwrite";
+
+function overviewItems(
+  recording: Recording,
+  generatedSteps: GuideStep[],
+): Array<{ kind: GuideItem["kind"]; title: string; body: string }> {
+  const generatedEventIds = new Set(
+    generatedSteps.map((step) => step.eventId).filter(Boolean),
+  );
+  const existingItems = recording.items.filter(
+    (item) => !item.eventId || !generatedEventIds.has(item.eventId),
+  );
+  return [
+    ...existingItems.map((item) => ({
+      kind: item.kind,
+      title: item.title,
+      body: item.body,
+      ordinal: item.ordinal,
+    })),
+    ...generatedSteps.map((step) => ({
+      kind: "step" as const,
+      title: step.title,
+      body: step.instruction,
+      ordinal: step.ordinal,
+    })),
+  ]
+    .sort((a, b) => a.ordinal - b.ordinal)
+    .map(({ kind, title, body }) => ({ kind, title, body }));
+}
+
+async function generateGuideSummary(
+  client: PoolClient,
+  recording: Recording,
+  provider: AiStepWriterProvider | undefined,
+  steps: GuideStep[],
+  outputLocale: OutputLocale,
+  mode: GuideSummaryMode,
+) {
+  if (mode === "skip") return;
+  const titleMissing = recording.title.trim().length === 0;
+  const overviewMissing = !recording.purpose?.trim();
+  if (mode === "fill" && !titleMissing && !overviewMissing) return;
+
+  const generated = await writeGuideOverview(provider, {
+    outputLocale,
+    currentTitle: recording.title,
+    purpose: recording.purpose,
+    audience: recording.audience,
+    items: overviewItems(recording, steps),
+    events: recording.events.map((event) => ({
+      actionType: event.actionType,
+      pageTitle: event.pageTitle,
+      elementName: event.elementName,
+      elementRole: event.elementRole,
+      nearbyHeading: event.nearbyHeading,
+    })),
+  });
+
+  await updateRecordingSummary(client, recording.id, {
+    title: mode === "overwrite" || titleMissing ? generated.title : undefined,
+    purpose:
+      mode === "overwrite" || overviewMissing ? generated.overview : undefined,
+  });
+}
 
 export async function generateGuideSteps(
   client: PoolClient,
@@ -23,6 +92,7 @@ export async function generateGuideSteps(
   overwriteUserEdited = false,
   transcriptSegments: TranscriptSegment[] = [],
   outputLocale: OutputLocale = "en",
+  summaryMode: GuideSummaryMode = "skip",
 ) {
   const screenshots = await screenshotsByEvent(client, recording.id);
   const steps = [];
@@ -59,6 +129,15 @@ export async function generateGuideSteps(
     );
   }
 
+  await generateGuideSummary(
+    client,
+    recording,
+    provider,
+    steps,
+    outputLocale,
+    summaryMode,
+  );
+
   return steps;
 }
 
@@ -69,6 +148,7 @@ export async function generateGuideStepsForCaptureSession(
   provider?: AiStepWriterProvider,
   transcriptSegments: TranscriptSegment[] = [],
   outputLocale: OutputLocale = "en",
+  summaryMode: GuideSummaryMode = "skip",
 ) {
   const screenshots = await screenshotsByEvent(client, recording.id);
   const sessionEvents = recording.events.filter(
@@ -113,6 +193,15 @@ export async function generateGuideStepsForCaptureSession(
     );
     appendOrdinal += 1;
   }
+
+  await generateGuideSummary(
+    client,
+    recording,
+    provider,
+    steps,
+    outputLocale,
+    summaryMode,
+  );
 
   return steps;
 }

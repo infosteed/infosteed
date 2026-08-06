@@ -182,6 +182,7 @@ export class TranscriptionWorker {
               false,
               transcriptCues,
               job.outputLocale,
+              latest.items.length === 0 ? "overwrite" : "fill",
             );
         });
         if (job.createdByUserId) {
@@ -230,6 +231,7 @@ export class TranscriptionWorker {
                 false,
                 [],
                 job.outputLocale,
+                latest.items.length === 0 ? "overwrite" : "fill",
               );
           });
         }

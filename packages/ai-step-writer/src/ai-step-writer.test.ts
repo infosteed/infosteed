@@ -153,24 +153,95 @@ describe("AI step writer", () => {
     expect(generated.altText.endsWith("...")).toBe(true);
   });
 
-  it("keeps semantic-control instructions deterministic while retaining safe AI context", async () => {
+  it("removes sequence counts from provider-generated outline titles", async () => {
     const generated = await writeStep(
       {
         async generateStep() {
-          return aiCandidate({
-            title: "Use Login",
-            instruction: "Click Login.",
-            altText: "Login on the sign-in screen",
-          });
+          return aiCandidate({ title: "Step 2 of 4: Click Login" });
         },
       },
       { current: clickEvent, outputLocale: "en" },
     );
 
+    expect(generated.title).toBe("Click Login");
+    expect(generated.source).toBe("ai");
+  });
+
+  it("keeps safe AI context for semantic controls", async () => {
+    const generated = await writeStep(
+      {
+        async generateStep() {
+          return aiCandidate({
+            title: "Use Login",
+            instruction: "Click Login to open the sign-in screen.",
+            altText: "Login on the sign-in screen",
+          });
+        },
+      },
+      {
+        current: clickEvent,
+        outputLocale: "en",
+        transcriptAfter: "Open the sign-in screen.",
+      },
+    );
+
     expect(generated).toEqual({
       title: "Use Login",
-      instruction: "Click **Login**.",
+      instruction: "Click Login to open the sign-in screen.",
       altText: "Login on the sign-in screen",
+      source: "ai",
+    });
+  });
+
+  it("accepts grounded context around the recorded action", async () => {
+    const updateEvent = {
+      ...clickEvent,
+      elementName: "Update",
+      nearbyHeading: "Update Attributes",
+    };
+    const generated = await writeStep(
+      {
+        async generateStep() {
+          return aiCandidate({
+            elementName: "Update",
+            title: "Update attributes",
+            instruction: "Click Update to save the attribute changes.",
+            altText: "Update button in the attributes form",
+          });
+        },
+      },
+      { current: updateEvent, outputLocale: "en" },
+    );
+
+    expect(generated).toMatchObject({
+      instruction: "Click Update to save the attribute changes.",
+      source: "ai",
+    });
+  });
+
+  it("allows a human label for internal-looking captured targets", async () => {
+    const internalEvent = {
+      ...clickEvent,
+      elementName: "updateAttributesBtn",
+      nearbyHeading: "Update Attributes",
+    };
+    const generated = await writeStep(
+      {
+        async generateStep() {
+          return aiCandidate({
+            elementName: "updateAttributesBtn",
+            title: "Update attributes",
+            instruction: "Click Update to save the attribute changes.",
+            altText: "Update button in the attributes form",
+          });
+        },
+      },
+      { current: internalEvent, outputLocale: "en" },
+    );
+
+    expect(generated).toMatchObject({
+      title: "Update attributes",
+      instruction: "Click Update to save the attribute changes.",
       source: "ai",
     });
   });
@@ -180,7 +251,7 @@ describe("AI step writer", () => {
     ["element name", { elementName: "Register" }],
     ["element role", { elementRole: "link" }],
     ["different target", { instruction: "Click Register." }],
-    ["trailing outcome", { instruction: "Click Login to sign in." }],
+    ["ungrounded outcome", { instruction: "Click Login to sign in." }],
     ["extra sentence", { instruction: "Click Login. Continue." }],
   ])("rejects AI output that changes the %s", async (_label, override) => {
     const generated = await writeStep(
@@ -274,7 +345,7 @@ describe("AI step writer", () => {
           outputLocale: "en",
         },
       );
-      expect(generated.instruction).toContain(`**${current.elementName}**`);
+      expect(generated.instruction).toContain(current.elementName);
       results.push(generated);
     }
 

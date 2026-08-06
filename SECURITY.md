@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-`v0.1.0-beta.9` is an unpublished InfoSteed release candidate. Beta.8 and earlier beta tags were superseded without public publication. Tagged candidates and untagged builds may contain breaking changes and receive no formal security-support commitment.
+`v0.1.0-beta.10` is an unpublished InfoSteed release candidate. Beta.8 and earlier beta tags were superseded without public publication. Tagged candidates and untagged builds may contain breaking changes and receive no formal security-support commitment.
 
 After the first public beta, security fixes will be provided for the latest published beta only. If you administer an InfoSteed deployment, subscribe to GitHub release notifications and take a verified backup before upgrading.
 

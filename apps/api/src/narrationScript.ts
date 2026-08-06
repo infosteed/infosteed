@@ -24,11 +24,42 @@ type TimedCue = VoiceoverCueInput & { maxWords: number };
 
 class InvalidModelOutputError extends Error {}
 
-function maxWordsForCue(cue: VoiceoverCueInput, speed: number): number {
+function maxWordsForDuration(durationMs: number, speed: number): number {
   // 150 words per minute is one word every 400 ms at normal speed.
+  return Math.max(1, Math.floor((durationMs * speed) / 400));
+}
+
+function timingWindowBudget(
+  cues: VoiceoverCueInput[],
+  startIndex: number,
+  endIndex: number,
+  speed: number,
+): number {
+  const window = cues.slice(startIndex, endIndex + 1);
+  const startMs = Math.min(...window.map((cue) => cue.sourceStartMs));
+  const endMs = Math.max(...window.map((cue) => cue.sourceEndMs));
+  return maxWordsForDuration(endMs - startMs, speed);
+}
+
+function maxWordsForCue(
+  cues: VoiceoverCueInput[],
+  index: number,
+  speed: number,
+): number {
+  const cue = cues[index];
+  const localLimit = maxWordsForDuration(
+    cue.sourceEndMs - cue.sourceStartMs,
+    speed,
+  );
+  const startIndex = Math.max(0, index - 1);
+  const endIndex = Math.min(cues.length - 1, index + 1);
+  const neighboringCueCount = endIndex - startIndex;
+  const contextualLimit =
+    timingWindowBudget(cues, startIndex, endIndex, speed) - neighboringCueCount;
+  const borrowLimit = Math.max(2, Math.ceil(localLimit * 0.5));
   return Math.max(
-    1,
-    Math.floor(((cue.sourceEndMs - cue.sourceStartMs) * speed) / 400),
+    localLimit,
+    Math.min(contextualLimit, localLimit + borrowLimit),
   );
 }
 
@@ -97,6 +128,7 @@ function extractJson(value: string): unknown {
 function validateRewrite(
   source: TimedCue[],
   value: unknown,
+  speed: number,
 ): { cues?: VoiceoverCueInput[]; problems: string[] } {
   const parsed = outputSchema.safeParse(value);
   if (!parsed.success)
@@ -118,10 +150,37 @@ function validateRewrite(
       problems.push(`Cue ${cue.id} must contain spoken words.`);
     const limit = source[index]?.maxWords;
     if (limit !== undefined && countWords(cue.text) > limit)
-      problems.push(`Cue ${cue.id} must contain at most ${limit} words.`);
+      problems.push(
+        `Cue ${cue.id} is too long for its timing neighborhood; use at most ${limit} words.`,
+      );
   });
 
   if (parsed.data.cues.length === source.length) {
+    const wordCounts = parsed.data.cues.map((cue) => countWords(cue.text));
+    for (const windowSize of [2, 3]) {
+      for (
+        let startIndex = 0;
+        startIndex + windowSize <= source.length;
+        startIndex += 1
+      ) {
+        const endIndex = startIndex + windowSize - 1;
+        const words = wordCounts
+          .slice(startIndex, endIndex + 1)
+          .reduce((sum, count) => sum + count, 0);
+        const budget = timingWindowBudget(source, startIndex, endIndex, speed);
+        if (words > budget)
+          problems.push(
+            `Cues ${source[startIndex].id} through ${source[endIndex].id} contain ${words} words, but their combined time slot supports about ${budget}.`,
+          );
+      }
+    }
+    const totalWords = wordCounts.reduce((sum, count) => sum + count, 0);
+    const totalBudget = timingWindowBudget(source, 0, source.length - 1, speed);
+    if (totalWords > totalBudget)
+      problems.push(
+        `The narration contains ${totalWords} words, but the complete cue timeline supports about ${totalBudget}.`,
+      );
+
     const unchanged = parsed.data.cues.filter(
       (cue, index) =>
         normalizeText(cue.text) === normalizeText(source[index].text),
@@ -169,7 +228,8 @@ function promptMessages(
     'Correct malformed transcription such as "U .S." to "U.S." and "pre -populated" to "pre-populated".',
     "Never return an ellipsis or punctuation-only cue.",
     "Give every cue a useful, non-empty spoken line.",
-    "Stay within each cue's maxWords limit.",
+    "Treat maxWords as a timing-neighborhood limit for each cue, based on that cue and adjacent cue slots.",
+    "A short cue may borrow a little time from nearby sparse cues, but adjacent cues together must still fit their combined time slot.",
     'Do not leave conjunctions such as "and", "but", "if", or "to" dangling at the end of a cue.',
     "Prefer complete sentences that flow naturally into the next cue.",
     "Describe only information supported by the captions; do not invent interface behavior.",
@@ -197,6 +257,8 @@ function promptMessages(
         JSON.stringify(
           cues.map((cue) => ({
             id: cue.id,
+            sourceStartMs: cue.sourceStartMs,
+            sourceEndMs: cue.sourceEndMs,
             maxWords: cue.maxWords,
             text: cue.text,
           })),
@@ -294,9 +356,10 @@ export async function rewriteNarrationScript(
       statusCode: 503,
     });
 
-  const cues = input.cues.map((cue) => ({
+  const speed = input.speed ?? 1;
+  const cues = input.cues.map((cue, index) => ({
     ...cue,
-    maxWords: maxWordsForCue(cue, input.speed ?? 1),
+    maxWords: maxWordsForCue(input.cues, index, speed),
   }));
   let problems: string[] = [];
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -310,7 +373,7 @@ export async function rewriteNarrationScript(
           ? problems.map((problem) => `- ${problem}`).join("\n")
           : undefined,
       );
-      const result = validateRewrite(cues, value);
+      const result = validateRewrite(cues, value, speed);
       if (result.cues) return result.cues;
       problems = result.problems;
     } catch (error) {

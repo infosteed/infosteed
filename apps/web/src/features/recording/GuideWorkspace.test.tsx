@@ -36,12 +36,14 @@ describe("guide workspace", () => {
       title: "Second step",
       body: "Second instruction",
     });
-    const recordingFixture = recording({ items: [first, second] });
+    const [recordingFixture, setRecordingFixture] = useState(() =>
+      recording({ items: [first, second] }),
+    );
     const [selectedItemId, setSelectedItemId] = useState("");
 
     const controller = {
       recording: recordingFixture,
-      setRecording: vi.fn(),
+      setRecording: setRecordingFixture,
       rightPanelMode: "display",
       setRightPanelMode: vi.fn(),
       imageVersions: new Map(),
@@ -64,12 +66,18 @@ describe("guide workspace", () => {
       setPreviewScrollRef: vi.fn(),
       load: vi.fn(),
       bumpImageVersion: vi.fn(),
-      updateLocalItem: vi.fn(),
+      updateLocalItem: (nextItem: typeof first) =>
+        setRecordingFixture((current) => ({
+          ...current,
+          items: current.items.map((item) =>
+            item.id === nextItem.id ? nextItem : item,
+          ),
+        })),
       moveItemBy: vi.fn(),
       dropItem: vi.fn(),
       markdown: "",
       eventsById: new Map(),
-      items: [first, second],
+      items: recordingFixture.items,
       stepNumbers: new Map([
         [first.id, 1],
         [second.id, 2],
@@ -101,6 +109,14 @@ describe("guide workspace", () => {
     expect(
       screen.getAllByRole("textbox", { name: "Instruction" }),
     ).toHaveLength(1);
+    const outlineTitle = screen.getByRole("textbox", {
+      name: "Outline title",
+    });
+    expect((outlineTitle as HTMLInputElement).value).toBe("First step");
+    fireEvent.change(outlineTitle, { target: { value: "Choose a method" } });
+    expect(
+      screen.getByRole("button", { name: /1\. Choose a method/ }),
+    ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Crop / Redact" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Replace Image" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Delete Image" })).toBeTruthy();

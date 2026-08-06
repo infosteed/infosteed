@@ -4,6 +4,17 @@ All notable changes are documented here. The project uses Semantic Versioning on
 
 ## [Unreleased]
 
+## [0.1.0-beta.10] - 2026-08-06
+
+### Added
+
+- Added administrator deletion for users, including owned guides, video data, sessions, 2FA data, and shares.
+
+### Fixed
+
+- Added fix for follow on guides
+- added fix for videos with no audio
+
 ## [0.1.0-beta.9] - 2026-08-05
 
 ### Fixed

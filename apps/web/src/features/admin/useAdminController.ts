@@ -9,6 +9,7 @@ import type {
 } from "@infosteed/shared";
 import {
   createUser,
+  deleteUser,
   deleteWordTemplate,
   getAdminSystemStatus,
   getBranding,
@@ -193,6 +194,15 @@ export function useAdminController() {
     await load();
   }
 
+  async function removeUser(user: CurrentUser) {
+    try {
+      await deleteUser(user.id);
+      await load();
+    } catch (deleteError) {
+      setError(errorMessage(deleteError));
+    }
+  }
+
   async function toggleTwoFactorRequirement(user: CurrentUser) {
     try {
       await updateUser(user.id, {
@@ -257,6 +267,7 @@ export function useAdminController() {
     toggleProjectPrivate,
     updateUserRole,
     toggleUserEnabled,
+    removeUser,
     toggleTwoFactorRequirement,
     removeMember,
     confirmTwoFactorReset,

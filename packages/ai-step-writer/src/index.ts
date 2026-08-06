@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { z } from "zod";
 import {
+  normalizeGuideOutlineTitle,
   OUTPUT_LOCALE_NAMES,
   type OutputLocale,
   type RecordingEvent,
@@ -316,7 +317,10 @@ function normalizeGeneratedStepCandidate(
     actionType: parsed.actionType,
     elementName: parsed.elementName,
     elementRole: parsed.elementRole,
-    title: clampText(parsed.title, 120),
+    title: clampText(
+      normalizeGuideOutlineTitle(parsed.title, parsed.instruction),
+      120,
+    ),
     instruction: clampText(parsed.instruction, 500),
     altText: clampText(parsed.altText, 160),
   };
@@ -476,13 +480,6 @@ export function deterministicInstruction(
   };
 }
 
-const DETERMINISTIC_CLICK_ROLES = new Set([
-  "button",
-  "link",
-  "menuitem",
-  "tab",
-]);
-
 const imperativePrefixes: Record<
   OutputLocale,
   Record<RecordingEvent["actionType"], string[]>
@@ -550,46 +547,131 @@ function includesTarget(value: string, target: string): boolean {
   return normalizedForMatch(value).includes(normalizedForMatch(target));
 }
 
-function validateDirectInstruction(
+function isInternalLikeTarget(value: string): boolean {
+  const normalized = plainGeneratedText(value);
+  if (!normalized) return true;
+  if (normalized.length > 60) return true;
+  if (/^[a-z]+(?:[A-Z][a-z0-9]*)+(?:Btn|Button|Link|Input)?$/u.test(normalized))
+    return true;
+  if (
+    /(?:^|[_-])(btn|button|input|link|el|elem|node|ctl|ctrl)(?:$|[_-])/i.test(
+      normalized,
+    )
+  )
+    return true;
+  if (/^[a-z0-9_-]{12,}$/i.test(normalized) && !/\s/.test(normalized))
+    return true;
+  return false;
+}
+
+function relevantWords(value: string | undefined | null): string[] {
+  if (!value) return [];
+  return plainGeneratedText(value)
+    .toLocaleLowerCase()
+    .split(/[^a-z0-9À-ž]+/iu)
+    .filter((word) => word.length >= 4);
+}
+
+function stemForGrounding(word: string): string {
+  return word
+    .replace(/(?:attributes?)$/u, "attribute")
+    .replace(/(?:ges|ces|ses)$/u, "ge")
+    .replace(/(?:ing|ed|es|s)$/u, "");
+}
+
+function groundedWords(context: StepWritingContext): Set<string> {
+  return new Set(
+    [
+      ...relevantWords(context.current.elementName),
+      ...relevantWords(context.current.labelText),
+      ...relevantWords(context.current.nearbyHeading),
+      ...relevantWords(context.current.pageTitle),
+      ...relevantWords(context.transcriptBefore),
+      ...relevantWords(context.transcriptAfter),
+    ].map(stemForGrounding),
+  );
+}
+
+function validateGroundedClause(
+  clause: string,
+  context: StepWritingContext,
+): void {
+  if (!clause) return;
+  if (context.screenshotBase64 || context.screenshotDataUrl) return;
+
+  const words = relevantWords(clause);
+  if (words.length === 0) return;
+
+  const grounded = groundedWords(context);
+  const hasGrounding = words.some((word) => {
+    const stem = stemForGrounding(word);
+    return grounded.has(stem);
+  });
+  if (!hasGrounding)
+    throw new Error("AI instruction added an ungrounded outcome");
+}
+
+function validateInstructionShape(
   instruction: string,
   context: StepWritingContext,
 ): void {
-  const target = context.current.elementName;
-  if (!target) throw new Error("AI output cannot be target-validated");
+  const currentName = context.current.elementName;
+  if (!currentName) throw new Error("AI output cannot be target-validated");
 
   const plainInstruction = plainGeneratedText(instruction);
   const comparableInstruction = plainInstruction.toLocaleLowerCase();
-  const comparableTarget = normalizedForMatch(target);
-  const targetIndex = comparableInstruction.indexOf(comparableTarget);
-  if (
-    targetIndex < 0 ||
-    comparableInstruction.lastIndexOf(comparableTarget) !== targetIndex
-  ) {
-    throw new Error("AI instruction did not preserve the recorded target");
-  }
-
-  const beforeTarget = comparableInstruction.slice(0, targetIndex).trim();
-  const afterTarget = comparableInstruction
-    .slice(targetIndex + comparableTarget.length)
-    .trim();
   const prefixes =
     imperativePrefixes[context.outputLocale][context.current.actionType];
-  if (
-    !prefixes.some(
-      (prefix) =>
-        beforeTarget === prefix || beforeTarget.startsWith(`${prefix} `),
-    )
-  ) {
+  const prefix = prefixes.find(
+    (candidate) =>
+      comparableInstruction === candidate ||
+      comparableInstruction.startsWith(`${candidate} `),
+  );
+  if (!prefix) {
     throw new Error("AI instruction did not preserve the recorded action");
   }
-  if (
-    /[.!?;:,()[\]{}\n\r]/.test(beforeTarget) ||
-    !/^[.!?]?$/.test(afterTarget)
-  ) {
-    throw new Error(
-      "AI instruction added an outcome, location, or extra clause",
-    );
+
+  if (/[;:()[\]{}\n\r]/.test(plainInstruction)) {
+    throw new Error("AI instruction added unsupported punctuation");
   }
+  const innerSentenceMarks = plainInstruction.replace(/[.!?]\s*$/u, "");
+  if (/[.!?]/.test(innerSentenceMarks)) {
+    throw new Error("AI instruction added an extra sentence");
+  }
+
+  const weakTarget = isInternalLikeTarget(currentName);
+  const comparableTarget = normalizedForMatch(currentName);
+  const targetIndex = comparableInstruction.indexOf(comparableTarget);
+  if (!weakTarget) {
+    if (
+      targetIndex < 0 ||
+      comparableInstruction.lastIndexOf(comparableTarget) !== targetIndex
+    ) {
+      throw new Error("AI instruction did not preserve the recorded target");
+    }
+    const beforeTarget = comparableInstruction.slice(0, targetIndex).trim();
+    const afterTarget = comparableInstruction
+      .slice(targetIndex + comparableTarget.length)
+      .replace(/^[.!?]\s*/u, "")
+      .replace(/[.!?]$/u, "")
+      .trim();
+    if (beforeTarget !== prefix && !beforeTarget.startsWith(`${prefix} `)) {
+      throw new Error("AI instruction did not preserve the recorded action");
+    }
+    validateGroundedClause(afterTarget, context);
+    return;
+  }
+
+  const afterPrefix = plainInstruction
+    .slice(prefix.length)
+    .replace(/[.!?]$/u, "")
+    .trim();
+  if (!afterPrefix)
+    throw new Error("AI instruction did not identify the current target");
+  validateGroundedClause(
+    afterPrefix.replace(/^.+?\b(to|for|in|on)\b/iu, "$1"),
+    context,
+  );
 }
 
 function validateGeneratedAuthority(
@@ -606,13 +688,14 @@ function validateGeneratedAuthority(
     throw new Error("AI output changed the authoritative recorded action");
   }
   if (!currentName) throw new Error("AI output cannot be target-validated");
+  const weakTarget = isInternalLikeTarget(currentName);
 
   for (const [field, value] of [
     ["title", generated.title],
     ["instruction", generated.instruction],
     ["alt text", generated.altText],
   ] as const) {
-    if (!includesTarget(value, currentName))
+    if (!weakTarget && !includesTarget(value, currentName))
       throw new Error(`AI ${field} did not preserve the recorded target`);
   }
 
@@ -632,7 +715,7 @@ function validateGeneratedAuthority(
     }
   }
 
-  validateDirectInstruction(generated.instruction, context);
+  validateInstructionShape(generated.instruction, context);
 }
 
 function acceptedGeneratedStep(
@@ -640,16 +723,12 @@ function acceptedGeneratedStep(
   context: StepWritingContext,
 ): GeneratedStep & { source: "ai" } {
   validateGeneratedAuthority(generated, context);
-  const deterministic = deterministicInstruction(
-    context.current,
-    context.outputLocale,
-  );
-  const role = context.current.elementRole?.toLowerCase() ?? "";
   return {
-    title: generated.title,
-    instruction: DETERMINISTIC_CLICK_ROLES.has(role)
-      ? deterministic.instruction
-      : generated.instruction,
+    title: clampText(
+      normalizeGuideOutlineTitle(generated.title, generated.instruction),
+      120,
+    ),
+    instruction: generated.instruction,
     altText: generated.altText,
     source: "ai",
   };
@@ -853,7 +932,7 @@ export class OpenAiCompatibleStepWriter implements AiStepWriterProvider {
       targetLanguageInstruction(context.outputLocale) +
       "\nAUTHORITATIVE_ACTION=" +
       JSON.stringify(authoritativeAction) +
-      "\nCopy every AUTHORITATIVE_ACTION value exactly into the matching JSON field. The current action, element name, and role override the screenshot, transcript, previous event, and next event. Write one direct imperative instruction that starts with the recorded action and ends with the literal elementName. Do not add a destination, outcome, location, adjacent target, or explanatory clause. The title and altText must contain the literal elementName.\n" +
+      "\nCopy every AUTHORITATIVE_ACTION value exactly into the matching JSON field. The current action, element name, and role override the screenshot, transcript, previous event, and next event. Write one direct imperative instruction that starts with the recorded action, identifies the current target, and may add one short context clause only when it is grounded in visible UI text, nearby headings, screenshot evidence, or transcript context. Prefer visible product and control language over internal IDs such as camelCase button names. Do not mention adjacent targets, invent outcomes, or include multiple actions. For internal-looking elementName values, keep elementName unchanged in JSON while using the visible human label in title, instruction, and altText. Never put a step number, total step count, or wording like Step X of Y in the title.\n" +
       jsonContract +
       "\n/no_think";
 
@@ -891,7 +970,7 @@ export class OpenAiCompatibleStepWriter implements AiStepWriterProvider {
         messages: [
           {
             role: "system",
-            content: `/no_think\nWrite concise browser workflow instructions. ${jsonContract} Treat AUTHORITATIVE_ACTION as immutable. Never infer the target action from the screenshot or neighboring events. Avoid mechanical words like div, canvas, field, i, or full page text.\n/no_think`,
+            content: `/no_think\nWrite concise browser workflow instructions. ${jsonContract} Treat AUTHORITATIVE_ACTION as immutable machine metadata. Never infer a different action or target from the screenshot or neighboring events. Prefer visible product and control labels over mechanical words or internal IDs like div, canvas, field, i, camelCase names, or full page text.\n/no_think`,
           },
           {
             role: "user",
@@ -1033,7 +1112,7 @@ export class OllamaNativeStepWriter implements AiStepWriterProvider {
       targetLanguageInstruction(context.outputLocale) +
       "\nAUTHORITATIVE_ACTION=" +
       JSON.stringify(authoritativeAction) +
-      "\nCopy every AUTHORITATIVE_ACTION value exactly into the matching JSON field. The current action, element name, and role override the image, transcript, previous event, and next event. Write one direct imperative instruction that starts with the recorded action and ends with the literal elementName. Do not add a destination, outcome, location, adjacent target, or explanatory clause. The title and altText must contain the literal elementName.\n" +
+      "\nCopy every AUTHORITATIVE_ACTION value exactly into the matching JSON field. The current action, element name, and role override the image, transcript, previous event, and next event. Write one direct imperative instruction that starts with the recorded action, identifies the current target, and may add one short context clause only when it is grounded in visible UI text, nearby headings, screenshot evidence, or transcript context. Prefer visible product and control language over internal IDs such as camelCase button names. Do not mention adjacent targets, invent outcomes, or include multiple actions. For internal-looking elementName values, keep elementName unchanged in JSON while using the visible human label in title, instruction, and altText. Never put a step number, total step count, or wording like Step X of Y in the title.\n" +
       "\n" +
       JSON.stringify({
         workflowPurpose: context.workflowPurpose,

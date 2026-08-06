@@ -52,6 +52,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
     toggleProjectPrivate,
     updateUserRole,
     toggleUserEnabled,
+    removeUser,
     toggleTwoFactorRequirement,
     removeMember,
     confirmTwoFactorReset,
@@ -477,6 +478,23 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                   </button>
                   <button onClick={() => setTwoFactorResetUser(user)}>
                     {t("Reset 2FA")}
+                  </button>
+                  <button
+                    className="danger-action"
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          t(
+                            "Delete {username}? This permanently removes their owned guides, video data, sessions, 2FA, and shares.",
+                            { username: user.username },
+                          ),
+                        )
+                      ) {
+                        void removeUser(user);
+                      }
+                    }}
+                  >
+                    {t("Delete")}
                   </button>
                 </div>
               ))}

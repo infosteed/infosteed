@@ -8,7 +8,7 @@ import type {
 import {
   ActiveRecordingClock,
   chooseTranscriptionAudioSource,
-  chooseVideoMimeType,
+  chooseVideoRecorderOptions,
   shouldAutoPauseUpload,
   TRANSCRIPTION_AUDIO_BITS_PER_SECOND,
 } from "@infosteed/recorder-core";
@@ -137,10 +137,16 @@ class OffscreenRecorder {
     return this.clock.elapsed();
   }
 
-  private videoMimeType() {
-    return chooseVideoMimeType((mimeType) =>
-      MediaRecorder.isTypeSupported(mimeType),
-    );
+  private videoRecorderOptions(
+    stream: MediaStream,
+    videoBitsPerSecond: number,
+  ): MediaRecorderOptions & { mimeType: string } {
+    return chooseVideoRecorderOptions({
+      hasAudio: stream.getAudioTracks().length > 0,
+      isSupported: (mimeType) => MediaRecorder.isTypeSupported(mimeType),
+      videoBitsPerSecond,
+      audioBitsPerSecond: 128_000,
+    });
   }
 
   private audioMimeType() {
@@ -359,59 +365,72 @@ class OffscreenRecorder {
       microphoneSource.connect(this.transcriptionAudio);
     }
 
+    const hasTabAudio = tab.getAudioTracks().length > 0;
+    const hasMicrophoneAudio = Boolean(microphone?.getAudioTracks().length);
     const composite = new MediaStream(compositeVideo.getVideoTracks());
-    this.mixedAudio.stream
-      .getAudioTracks()
-      .forEach((track) => composite.addTrack(track));
+    if (hasTabAudio || hasMicrophoneAudio) {
+      this.mixedAudio.stream
+        .getAudioTracks()
+        .forEach((track) => composite.addTrack(track));
+    }
     const screen = new MediaStream(screenVideo.getVideoTracks());
-    this.screenAudio.stream
-      .getAudioTracks()
-      .forEach((track) => screen.addTrack(track));
+    if (hasTabAudio) {
+      this.screenAudio.stream
+        .getAudioTracks()
+        .forEach((track) => screen.addTrack(track));
+    }
     this.streams.push(composite);
     this.streams.push(screen);
+    const compositeRecorderOptions = this.videoRecorderOptions(
+      composite,
+      4_000_000,
+    );
+    const screenRecorderOptions = this.videoRecorderOptions(screen, 4_000_000);
     const specs: Array<{
       kind: VideoAssetKind;
       stream: MediaStream;
       mimeType: string;
       width?: number;
       height?: number;
-      videoBitsPerSecond?: number;
-      audioBitsPerSecond?: number;
+      recorderOptions: MediaRecorderOptions;
     }> = [
       {
         kind: "composite",
         stream: composite,
-        mimeType: this.videoMimeType(),
+        mimeType: compositeRecorderOptions.mimeType,
         width,
         height,
-        videoBitsPerSecond: 4_000_000,
-        audioBitsPerSecond: 128_000,
+        recorderOptions: compositeRecorderOptions,
       },
       {
         kind: "screen",
         stream: screen,
-        mimeType: this.videoMimeType(),
+        mimeType: screenRecorderOptions.mimeType,
         width,
         height,
-        videoBitsPerSecond: 4_000_000,
-        audioBitsPerSecond: 128_000,
+        recorderOptions: screenRecorderOptions,
       },
     ];
-    if (camera)
+    if (camera) {
+      const recorderOptions = this.videoRecorderOptions(camera, 1_500_000);
       specs.push({
         kind: "camera",
         stream: camera,
-        mimeType: this.videoMimeType(),
+        mimeType: recorderOptions.mimeType,
         width: camera.getVideoTracks()[0].getSettings().width,
         height: camera.getVideoTracks()[0].getSettings().height,
-        videoBitsPerSecond: 1_500_000,
+        recorderOptions,
       });
+    }
     if (microphone)
       specs.push({
         kind: "microphone",
         stream: microphone,
         mimeType: this.audioMimeType(),
-        audioBitsPerSecond: 128_000,
+        recorderOptions: {
+          mimeType: this.audioMimeType(),
+          audioBitsPerSecond: 128_000,
+        },
       });
     if (
       chooseTranscriptionAudioSource(
@@ -423,7 +442,10 @@ class OffscreenRecorder {
         kind: "transcription",
         stream: this.transcriptionAudio.stream,
         mimeType: this.audioMimeType(),
-        audioBitsPerSecond: TRANSCRIPTION_AUDIO_BITS_PER_SECOND,
+        recorderOptions: {
+          mimeType: this.audioMimeType(),
+          audioBitsPerSecond: TRANSCRIPTION_AUDIO_BITS_PER_SECOND,
+        },
       });
     }
 
@@ -453,11 +475,7 @@ class OffscreenRecorder {
         this.clock,
         this.backlog,
       );
-      const recorder = new MediaRecorder(spec.stream, {
-        mimeType: spec.mimeType,
-        videoBitsPerSecond: spec.videoBitsPerSecond,
-        audioBitsPerSecond: spec.audioBitsPerSecond,
-      });
+      const recorder = new MediaRecorder(spec.stream, spec.recorderOptions);
       recorder.ondataavailable = (event) => uploader.add(event.data);
       recorder.start(2000);
       this.uploaders.push(uploader);

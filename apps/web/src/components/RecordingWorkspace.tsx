@@ -2,6 +2,7 @@
 import React, { useEffect, useRef } from "react";
 import type { GuideItem, Recording, RecordingVideo } from "@infosteed/shared";
 import {
+  normalizeGuideOutlineTitle,
   PRODUCT_IDENTIFIERS,
   recordingEventNeedsReview,
 } from "@infosteed/shared";
@@ -864,6 +865,16 @@ export function GuideItemEditor({
         )}
         <div className="guide-item-controls">{controls}</div>
       </div>
+      <label className="field-label">{t("Outline title")}</label>
+      <input
+        aria-label={t("Outline title")}
+        value={draft.title}
+        onChange={(event) =>
+          updateDraft({
+            title: normalizeGuideOutlineTitle(event.target.value, draft.body),
+          })
+        }
+      />
       <label className="field-label">{t("Instruction")}</label>
       <MarkdownAssistantField
         ariaLabel={t("Instruction")}

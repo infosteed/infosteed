@@ -281,6 +281,83 @@ export async function updateUser(
   return result.rows[0] ? mapUser(result.rows[0]) : null;
 }
 
+export async function getUserDeletionPlan(
+  db: Db,
+  userId: string,
+): Promise<{
+  user: CurrentUser | null;
+  isLastAdmin: boolean;
+  storageObjects: Array<{
+    storageKey: string;
+    multipartUploadId: string | null;
+  }>;
+}> {
+  const user = await db.query<UserRow>(
+    `
+      select u.*, exists(
+        select 1 from user_totp_credentials c where c.user_id = u.id
+      ) as two_factor_enabled
+      from users u
+      where u.id = $1
+    `,
+    [userId],
+  );
+  if (!user.rows[0])
+    return { user: null, isLastAdmin: false, storageObjects: [] };
+
+  const adminCount = await db.query<{ count: string }>(
+    "select count(*) as count from users where role = 'admin'",
+  );
+  const storageObjects = await db.query<{
+    storage_key: string;
+    multipart_upload_id: string | null;
+  }>(
+    `
+      select distinct storage_key, multipart_upload_id
+      from (
+        select a.storage_key, a.multipart_upload_id
+        from recording_video_assets a
+        join recording_videos v on v.id = a.video_id
+        join recordings r on r.id = v.recording_id
+        where r.owner_user_id = $1
+        union all
+        select rendered.storage_key, null::text as multipart_upload_id
+        from recording_video_renders rendered
+        join recording_videos v on v.id = rendered.video_id
+        join recordings r on r.id = v.recording_id
+        where r.owner_user_id = $1 and rendered.storage_key is not null
+        union all
+        select exported.storage_key, null::text as multipart_upload_id
+        from recording_video_exports exported
+        join recording_videos v on v.id = exported.video_id
+        join recordings r on r.id = v.recording_id
+        where r.owner_user_id = $1 and exported.storage_key is not null
+      ) owned_storage
+      where storage_key is not null
+    `,
+    [userId],
+  );
+
+  return {
+    user: mapUser(user.rows[0]),
+    isLastAdmin:
+      user.rows[0].role === "admin" &&
+      Number(adminCount.rows[0]?.count ?? 0) <= 1,
+    storageObjects: storageObjects.rows.map((row) => ({
+      storageKey: row.storage_key,
+      multipartUploadId: row.multipart_upload_id,
+    })),
+  };
+}
+
+export async function deleteUserAndOwnedData(
+  db: Db,
+  userId: string,
+): Promise<void> {
+  await db.query("delete from recordings where owner_user_id = $1", [userId]);
+  await db.query("delete from users where id = $1", [userId]);
+}
+
 export async function updateOwnPassword(
   db: Db,
   userId: string,

@@ -1,6 +1,6 @@
 # Official release status
 
-`v0.1.0-beta.9` is an unpublished InfoSteed release candidate. Beta.8 and earlier beta tags are unpublished, superseded candidates; do not treat them or an untagged checkout as supported.
+`v0.1.0-beta.10` is an unpublished InfoSteed release candidate. Beta.8 and earlier beta tags are unpublished, superseded candidates; do not treat them or an untagged checkout as supported.
 
 The repository already includes the application, dual GHCR/source-build production Compose configuration, Chrome extension packaging for beta.9, backup tools, automated checks, and tag-triggered release workflow.
 

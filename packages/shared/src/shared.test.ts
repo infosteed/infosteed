@@ -6,6 +6,7 @@ import {
   finalizeVideoRequestSchema,
   guideItemSchema,
   initializeVideoRequestSchema,
+  normalizeGuideOutlineTitle,
   outputLocaleRequestSchema,
   recordingEventNeedsReview,
   recordingProjectSchema,
@@ -22,6 +23,23 @@ import {
 } from "./index";
 
 describe("shared schemas", () => {
+  it.each([
+    ["Step 2 of 4: Upload", "Upload"],
+    ["Étape 2 sur 4 – Téléverser", "Téléverser"],
+    ["Schritt 2 von 4 - Hochladen", "Hochladen"],
+    ["Céim 2 de 4: Uaslódáil", "Uaslódáil"],
+    ["Step 2/4: Choose options", "Choose options"],
+    ["Review import job", "Review import job"],
+  ])("normalizes guide outline title %s", (title, expected) => {
+    expect(normalizeGuideOutlineTitle(title)).toBe(expected);
+  });
+
+  it("uses the instruction when a sequence prefix is the whole title", () => {
+    expect(normalizeGuideOutlineTitle("Step 2 of 4", "Upload the file")).toBe(
+      "Upload the file",
+    );
+  });
+
   it("validates AI output locales with an English compatibility default", () => {
     expect(outputLocaleRequestSchema.parse(undefined)).toEqual({
       outputLocale: "en",

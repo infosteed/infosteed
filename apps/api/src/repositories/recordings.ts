@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "../db.js";
+import { normalizeGuideOutlineTitle } from "@infosteed/shared";
 import type {
   CreateRecordingRequest,
   GuideItem,
@@ -657,6 +658,10 @@ export async function updateGuideItem(
   itemId: string,
   patch: { title?: string; body?: string; altText?: string },
 ): Promise<GuideItem | null> {
+  const normalizedTitle =
+    patch.title === undefined
+      ? undefined
+      : normalizeGuideOutlineTitle(patch.title, patch.body);
   const result = await db.query<ItemRow>(
     `
       update guide_items
@@ -672,7 +677,7 @@ export async function updateGuideItem(
     [
       recordingId,
       itemId,
-      patch.title ?? null,
+      normalizedTitle ?? null,
       patch.body ?? null,
       patch.altText ?? null,
     ],
@@ -718,6 +723,10 @@ export async function upsertGeneratedStep(
     overwriteUserEdited?: boolean;
   },
 ): Promise<GuideStep> {
+  const normalizedTitle = normalizeGuideOutlineTitle(
+    input.title,
+    input.instruction,
+  );
   const existing = input.eventId
     ? await db.query<ItemRow>(
         "select * from guide_items where recording_id = $1 and event_id = $2 and kind = 'step'",
@@ -752,7 +761,7 @@ export async function upsertGeneratedStep(
         input.recordingId,
         existing.rows[0].id,
         input.eventId,
-        input.title,
+        normalizedTitle,
         input.instruction,
         input.imageFilename,
         input.altText,
@@ -777,7 +786,7 @@ export async function upsertGeneratedStep(
       input.recordingId,
       input.eventId,
       input.ordinal,
-      input.title,
+      normalizedTitle,
       input.instruction,
       input.imageFilename,
       input.altText,
@@ -793,6 +802,10 @@ export async function updateGuideStep(
   stepId: string,
   patch: { title?: string; instruction?: string; altText?: string },
 ): Promise<GuideStep | null> {
+  const normalizedTitle =
+    patch.title === undefined
+      ? undefined
+      : normalizeGuideOutlineTitle(patch.title, patch.instruction);
   const result = await db.query<ItemRow>(
     `
       update guide_items
@@ -808,7 +821,7 @@ export async function updateGuideStep(
     [
       recordingId,
       stepId,
-      patch.title ?? null,
+      normalizedTitle ?? null,
       patch.instruction ?? null,
       patch.altText ?? null,
     ],

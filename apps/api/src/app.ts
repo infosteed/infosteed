@@ -1312,6 +1312,7 @@ export function buildApp(
               false,
               [],
               input.outputLocale,
+              "overwrite",
             );
         }
       });
@@ -2115,6 +2116,7 @@ export function buildApp(
           provider,
           [],
           outputLocale,
+          "fill",
         );
         return getRecording(client, request.params.id);
       });
@@ -2204,6 +2206,7 @@ export function buildApp(
           false,
           transcript?.cues ?? [],
           outputLocale,
+          "overwrite",
         );
         return getRecording(client, request.params.id);
       });
@@ -2233,6 +2236,7 @@ export function buildApp(
           false,
           transcript?.cues ?? [],
           outputLocale,
+          "fill",
         );
         return getRecording(client, request.params.id);
       });

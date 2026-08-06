@@ -328,6 +328,10 @@ export function updateUser(
   });
 }
 
+export function deleteUser(id: string) {
+  return requestResponse(`/users/${id}`, { method: "DELETE" });
+}
+
 export interface TwoFactorStatus {
   enabled: boolean;
   required: boolean;

@@ -1,6 +1,6 @@
 # Support Policy
 
-`v0.1.0-beta.9` is an unpublished InfoSteed release candidate. Beta.8 and earlier beta tags were superseded without public publication. Private candidate evaluation is best-effort and is not a production support commitment.
+`v0.1.0-beta.10` is an unpublished InfoSteed release candidate. Beta.8 and earlier beta tags were superseded without public publication. Private candidate evaluation is best-effort and is not a production support commitment.
 
 After publication, the supported deployment will be the production Docker Compose bundle on Linux amd64 using its pinned container versions. The latest published beta will receive security and data-loss fixes; older published betas will be supported only long enough to perform the documented backup and forward upgrade.
 

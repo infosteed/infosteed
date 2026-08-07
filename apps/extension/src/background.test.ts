@@ -91,20 +91,23 @@ describe("extension background tab handoff", () => {
 
     const onInstalled = createEvent<() => void>();
     const onCreated = createEvent<(tab: chrome.tabs.Tab) => void>();
-    const onActivated = createEvent<
-      (activeInfo: chrome.tabs.TabActiveInfo) => void
-    >();
+    const onActivated =
+      createEvent<(activeInfo: chrome.tabs.TabActiveInfo) => void>();
     const onRemoved = createEvent<(tabId: number) => void>();
-    const onCreatedNavigationTarget = createEvent<
-      (details: chrome.webNavigation.WebNavigationSourceCallbackDetails) => void
-    >();
-    onMessage = createEvent<
-      (
-        message: unknown,
-        sender: chrome.runtime.MessageSender,
-        sendResponse: (response?: unknown) => void,
-      ) => void
-    >();
+    const onCreatedNavigationTarget =
+      createEvent<
+        (
+          details: chrome.webNavigation.WebNavigationSourceCallbackDetails,
+        ) => void
+      >();
+    onMessage =
+      createEvent<
+        (
+          message: unknown,
+          sender: chrome.runtime.MessageSender,
+          sendResponse: (response?: unknown) => void,
+        ) => void
+      >();
 
     Object.defineProperty(globalThis, "chrome", {
       configurable: true,
@@ -213,9 +216,7 @@ describe("extension background tab handoff", () => {
       }),
     );
 
-    await vi.waitFor(() =>
-      expect(store.get("recordingTargetTabId")).toBe(2),
-    );
+    await vi.waitFor(() => expect(store.get("recordingTargetTabId")).toBe(2));
     expect(store.get("recordingTabTrail")).toEqual([1, 2]);
     expect(store.has("recordingPendingFollowTabId")).toBe(false);
     expect(store.has("recordingPendingFollowOpenerTabId")).toBe(false);

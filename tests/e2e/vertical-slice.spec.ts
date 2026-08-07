@@ -202,11 +202,8 @@ test("creates and exports an offline guide over HTTP", async ({ request }) => {
   );
   const wiziwigHtml = await wiziwigZip.file("guide.html")?.async("string");
   const wiziwigImagePath =
-    wiziwigHtml?.match(/src="(images\/step-001-login-[^"]+\.jpg)"/)?.[1] ??
-    "";
-  expect(wiziwigImagePath).toMatch(
-    /^images\/step-001-login-\d{8}T\d{9}\.jpg$/,
-  );
+    wiziwigHtml?.match(/src="(images\/step-001-login-[^"]+\.jpg)"/)?.[1] ?? "";
+  expect(wiziwigImagePath).toMatch(/^images\/step-001-login-\d{8}T\d{9}\.jpg$/);
   expect(wiziwigHtml).not.toContain("data:image/");
   expect(wiziwigZip.file(wiziwigImagePath)).toBeTruthy();
   expect(wiziwigZip.file("images/step-001-login.webp")).toBeNull();
@@ -230,9 +227,7 @@ test("creates and exports an offline guide over HTTP", async ({ request }) => {
     "image@file://./",
     "",
   );
-  expect(sanityImagePath).toMatch(
-    /^images\/step-001-login-\d{8}T\d{9}\.webp$/,
-  );
+  expect(sanityImagePath).toMatch(/^images\/step-001-login-\d{8}T\d{9}\.webp$/);
   expect(sanityFiles.get(sanityImagePath)).toBeTruthy();
 
   const capability = await request.get(`${apiUrl}/capabilities/video`);

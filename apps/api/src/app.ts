@@ -277,7 +277,10 @@ export function buildApp(
   const requestSessionIds = new WeakMap<FastifyRequest, string>();
 
   function exportTimestampSuffix(date = new Date()): string {
-    return date.toISOString().replace(/Z$/, "").replace(/[^0-9A-Za-z]/g, "");
+    return date
+      .toISOString()
+      .replace(/Z$/, "")
+      .replace(/[^0-9A-Za-z]/g, "");
   }
 
   app.addContentTypeParser(
@@ -2925,31 +2928,28 @@ export function buildApp(
   app.get<{
     Params: { id: string };
     Querystring: { format?: WiziwigImageExportFormat };
-  }>(
-    "/recordings/:id/export/wiziwig",
-    async (request, reply) => {
-      await requireRecordingRead(request, request.params.id);
-      const format = request.query.format === "webp" ? "webp" : "jpg";
-      const { recording, images } = await loadRecordingAndWiziwigImages(
-        request.params.id,
-        format,
-      );
-      const zip = await buildWiziwigZip(
-        recording,
-        images,
-        format,
-        exportTimestampSuffix(),
-      );
+  }>("/recordings/:id/export/wiziwig", async (request, reply) => {
+    await requireRecordingRead(request, request.params.id);
+    const format = request.query.format === "webp" ? "webp" : "jpg";
+    const { recording, images } = await loadRecordingAndWiziwigImages(
+      request.params.id,
+      format,
+    );
+    const zip = await buildWiziwigZip(
+      recording,
+      images,
+      format,
+      exportTimestampSuffix(),
+    );
 
-      return reply
-        .header("content-type", "application/zip")
-        .header(
-          "content-disposition",
-          `attachment; filename="${PRODUCT_IDENTIFIERS.exportPrefix}-${recording.id}-wiziwig.zip"`,
-        )
-        .send(zip);
-    },
-  );
+    return reply
+      .header("content-type", "application/zip")
+      .header(
+        "content-disposition",
+        `attachment; filename="${PRODUCT_IDENTIFIERS.exportPrefix}-${recording.id}-wiziwig.zip"`,
+      )
+      .send(zip);
+  });
 
   app.get<{
     Params: { id: string };

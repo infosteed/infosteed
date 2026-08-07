@@ -499,9 +499,7 @@ describe("markdown exporter", () => {
       /https?:\/\/|s3:\/\/|blob:|data:|chrome-extension:/i,
     );
     expect(
-      await zip
-        .file("images/step-001-open-customers.jpg")!
-        .async("nodebuffer"),
+      await zip.file("images/step-001-open-customers.jpg")!.async("nodebuffer"),
     ).toEqual(Buffer.from("referenced-image"));
     expect(zip.file("images/step-001-open-customers.webp")).toBeNull();
     expect(zip.file("images/unused.webp")).toBeNull();

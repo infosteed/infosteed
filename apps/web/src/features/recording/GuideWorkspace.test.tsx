@@ -19,9 +19,11 @@ describe("guide workspace", () => {
   function Harness({
     viewOnly = false,
     showViewNavigation = false,
+    purpose,
   }: {
     viewOnly?: boolean;
     showViewNavigation?: boolean;
+    purpose?: string;
   }) {
     const first = guideItem({
       id: "first",
@@ -37,7 +39,7 @@ describe("guide workspace", () => {
       body: "Second instruction",
     });
     const [recordingFixture, setRecordingFixture] = useState(() =>
-      recording({ items: [first, second] }),
+      recording({ items: [first, second], purpose }),
     );
     const [selectedItemId, setSelectedItemId] = useState("");
 
@@ -162,6 +164,62 @@ describe("guide workspace", () => {
     expect(scrollIntoView).toHaveBeenCalledWith({
       behavior: "smooth",
       block: "start",
+    });
+  });
+
+  it("renders overview Markdown outside edit mode", () => {
+    render(
+      <Harness
+        purpose={
+          "Use **bold**, *emphasis*, and [documentation](https://example.com).\n\n- Owners\n- Editors"
+        }
+      />,
+    );
+
+    expect(screen.getByText("bold").tagName).toBe("STRONG");
+    expect(screen.getByText("emphasis").tagName).toBe("EM");
+    expect(screen.getByRole("link", { name: "documentation" })).toHaveProperty(
+      "href",
+      "https://example.com/",
+    );
+    expect(screen.getByText("Owners").closest("li")).toBeTruthy();
+    expect(screen.getByText("Editors").closest("li")).toBeTruthy();
+  });
+
+  it("moves an inline-selected item near the top after opening its editor", () => {
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(Element.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    render(<Harness />);
+
+    fireEvent.click(screen.getByText("Second instruction"));
+
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      behavior: "smooth",
+      block: "start",
+    });
+  });
+
+  it("keeps an edited item at the same viewport position when closing it", () => {
+    const scrollBy = vi
+      .spyOn(window, "scrollBy")
+      .mockImplementation(() => undefined);
+    render(<Harness />);
+
+    fireEvent.click(screen.getByText("First instruction"));
+    const selectedItem = document.getElementById("guide-item-first")!;
+    vi.spyOn(selectedItem, "getBoundingClientRect")
+      .mockReturnValueOnce({ top: 120 } as DOMRect)
+      .mockReturnValue({ top: 72 } as DOMRect);
+
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+
+    expect(scrollBy).toHaveBeenCalledWith({
+      top: -48,
+      left: 0,
+      behavior: "auto",
     });
   });
 

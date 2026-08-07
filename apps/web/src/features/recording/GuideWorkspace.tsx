@@ -71,6 +71,10 @@ export function GuideWorkspace({
     reorderDisabled,
   } = controller;
   const pendingOutlineScroll = React.useRef<string>();
+  const pendingClosePosition = React.useRef<{
+    itemId: string;
+    top: number;
+  }>();
   const [mobileOutlineOpen, setMobileOutlineOpen] = React.useState(false);
   const [activeOutlineItemId, setActiveOutlineItemId] = React.useState(
     selectedItemId || "overview",
@@ -94,8 +98,20 @@ export function GuideWorkspace({
   };
 
   const selectInlineItem = (itemId: string) => {
+    pendingOutlineScroll.current = itemId;
     setActiveOutlineItemId(itemId);
     setSelectedItemId(itemId);
+  };
+
+  const closeInlineEditor = (itemId: string) => {
+    const target = document.getElementById(`guide-item-${itemId}`);
+    if (target) {
+      pendingClosePosition.current = {
+        itemId,
+        top: target.getBoundingClientRect().top,
+      };
+    }
+    setSelectedItemId("");
   };
 
   const navigateFromOutline = (itemId: string) => {
@@ -112,6 +128,25 @@ export function GuideWorkspace({
     pendingOutlineScroll.current = undefined;
     scrollToGuideItem(selectedItemId);
   }, [scrollToGuideItem, selectedItemId]);
+
+  React.useLayoutEffect(() => {
+    const pending = pendingClosePosition.current;
+    if (!pending || selectedItemId) return undefined;
+    pendingClosePosition.current = undefined;
+
+    const restorePosition = () => {
+      const target = document.getElementById(`guide-item-${pending.itemId}`);
+      if (!target) return;
+      const delta = target.getBoundingClientRect().top - pending.top;
+      if (Math.abs(delta) > 0.5) {
+        window.scrollBy({ top: delta, left: 0, behavior: "auto" });
+      }
+    };
+
+    restorePosition();
+    const animationFrame = window.requestAnimationFrame(restorePosition);
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [selectedItemId]);
 
   React.useEffect(() => {
     if ((viewOnly && !showViewNavigation) || recording?.captureMode === "video")
@@ -277,7 +312,7 @@ export function GuideWorkspace({
                 recording={recording}
                 isSelected={selectedItemId === "overview"}
                 onSelect={() => selectInlineItem("overview")}
-                onCloseEdit={() => setSelectedItemId("")}
+                onCloseEdit={() => closeInlineEditor("overview")}
                 editable={!viewOnly}
                 onDraftChange={(updated) => setRecording(updated)}
                 onSaved={(updated) => setRecording(updated)}
@@ -342,7 +377,7 @@ export function GuideWorkspace({
                       onImageSaved={bumpImageVersion}
                       isSelected={selectedItemId === item.id}
                       onSelect={() => selectInlineItem(item.id)}
-                      onCloseEdit={() => setSelectedItemId("")}
+                      onCloseEdit={() => closeInlineEditor(item.id)}
                       editable={!viewOnly}
                       onDraftChange={updateLocalItem}
                       onSaved={load}

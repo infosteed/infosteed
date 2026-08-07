@@ -49,6 +49,7 @@ import {
 } from "../features/guide/useGuideWorkspaceControllers";
 import { GuideIconButton } from "../features/guide/GuideIconButton";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { MarkdownContent } from "./MarkdownContent";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -87,23 +88,6 @@ function sectionsForItems(items: GuideItem[]): GuideSection[] {
   return sections.length > 0
     ? sections
     : [{ id: "section-steps", title: t("Steps"), items: [] }];
-}
-
-function renderInlineMarkdown(value: string): React.ReactNode[] {
-  const nodes: React.ReactNode[] = [];
-  const pattern = /\*\*([^*]+)\*\*/g;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = pattern.exec(value))) {
-    if (match.index > lastIndex)
-      nodes.push(value.slice(lastIndex, match.index));
-    nodes.push(<strong key={`${match.index}-${match[1]}`}>{match[1]}</strong>);
-    lastIndex = match.index + match[0].length;
-  }
-
-  if (lastIndex < value.length) nodes.push(value.slice(lastIndex));
-  return nodes;
 }
 
 function versionedImageUrl(
@@ -202,9 +186,10 @@ export function GuideDisplayPreview({
       <div className="rendered-guide">
         <h1>{recording.title}</h1>
         {recording.purpose && (
-          <p className="rendered-overview">
-            {renderInlineMarkdown(recording.purpose)}
-          </p>
+          <MarkdownContent
+            className="rendered-overview"
+            value={recording.purpose}
+          />
         )}
         {sections.map((section) => (
           <section
@@ -218,7 +203,7 @@ export function GuideDisplayPreview({
                   <div key={item.id} className="rendered-section">
                     <h2>{item.title}</h2>
                     {item.body !== item.title && (
-                      <p>{renderInlineMarkdown(item.body)}</p>
+                      <MarkdownContent value={item.body} />
                     )}
                   </div>
                 );
@@ -232,7 +217,7 @@ export function GuideDisplayPreview({
                     <strong>
                       {item.kind === "tip" ? t("Tip") : t("Alert")}
                     </strong>
-                    <p>{renderInlineMarkdown(item.body)}</p>
+                    <MarkdownContent value={item.body} />
                   </aside>
                 );
               }
@@ -242,7 +227,7 @@ export function GuideDisplayPreview({
                 <section key={item.id} className="rendered-step">
                   <span>{stepNumber}</span>
                   <div>
-                    <p>{renderInlineMarkdown(item.body)}</p>
+                    <MarkdownContent value={item.body} />
                     {item.imageFilename && (
                       <img
                         src={versionedImageUrl(
@@ -758,7 +743,7 @@ export function GuideItemEditor({
           <div>
             {!repeatsKind && <h3>{item.title}</h3>}
             {item.body && item.body !== item.title && (
-              <p>{renderInlineMarkdown(item.body)}</p>
+              <MarkdownContent value={item.body} />
             )}
           </div>
         </article>
@@ -775,7 +760,7 @@ export function GuideItemEditor({
         <div className="display-step-head">
           <span>{stepNumber}</span>
           <div>
-            <p>{renderInlineMarkdown(item.body)}</p>
+            <MarkdownContent value={item.body} />
           </div>
           {controls}
         </div>
@@ -851,7 +836,11 @@ export function GuideItemEditor({
 
   return (
     <article
-      className={needsReview ? "selected-item needs-review" : "selected-item"}
+      className={
+        needsReview
+          ? "selected-item step-item-editor needs-review"
+          : "selected-item step-item-editor"
+      }
     >
       <div className="step-edit-head">
         <span>{stepNumber}</span>
@@ -894,7 +883,7 @@ export function GuideItemEditor({
         </p>
       )}
       {imageFilename && (
-        <div className="image-block">
+        <div className="image-block edit-image-block">
           <img
             src={versionedImageUrl(recordingId, imageFilename, imageVersion)}
             alt=""
@@ -1035,7 +1024,10 @@ export function GuideOverviewEditor({
         <p>{t("Workflow Guide")}</p>
         <h2>{recording.title}</h2>
         {recording.purpose && (
-          <p className="overview-text">{recording.purpose}</p>
+          <MarkdownContent
+            className="overview-text"
+            value={recording.purpose}
+          />
         )}
       </section>
     );

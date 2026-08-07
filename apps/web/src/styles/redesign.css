@@ -1377,6 +1377,33 @@ a:focus-visible {
   max-height: none;
 }
 
+.step-item-editor {
+  gap: 6px;
+  padding-block: 10px;
+}
+
+.step-item-editor > input,
+.step-item-editor .markdown-field textarea {
+  padding-block: 6px;
+}
+
+.step-item-editor .markdown-toolbar button {
+  min-height: 27px;
+}
+
+.edit-image-block {
+  display: grid;
+  min-height: 0;
+  place-items: center;
+}
+
+.edit-image-block > img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: clamp(120px, 24dvh, 240px);
+}
+
 .guide-overview,
 .reorderable-item {
   scroll-margin-top: 88px;

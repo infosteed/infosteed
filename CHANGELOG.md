@@ -4,17 +4,23 @@ All notable changes are documented here. The project uses Semantic Versioning on
 
 ## [Unreleased]
 
-## [0.1.0-beta.11] - 2026-08-06
+## [0.1.0-beta.11] - 2026-08-07
 
 ### Added
 
 - Added image-only guide exports in PNG and JPG formats.
 - Added timestamp-suffixed image filenames across guide archive exports.
 
+### Changed
+
+- Improved inline guide editing with a more compact step editor, constrained screenshot previews, and automatic selected-step positioning.
+
 ### Fixed
 
 - Fixed Guide Only child-tab following when the new tab becomes recordable after its initial creation event.
 - Hardened export image filename generation against unsafe archive paths.
+- Prevented the guide viewport from jumping when closing an editor after scrolling.
+- Rendered overview, tip, alert, header, and step content as safe Markdown in guide and preview views, including visible paragraph spacing for blank lines.
 
 ## [0.1.0-beta.10] - 2026-08-06
 

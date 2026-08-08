@@ -370,7 +370,7 @@ This file is generated from the production pnpm lockfile by `pnpm notices:genera
 | minimatch | 10.2.6 | BlueOak-1.0.0 | https://github.com/isaacs/minimatch#readme |
 | minimist | 1.2.8 | MIT | https://github.com/minimistjs/minimist |
 | ms | 2.1.3 | MIT | https://github.com/vercel/ms#readme |
-| nanoid | 3.3.16 | MIT | https://github.com/ai/nanoid#readme |
+| nanoid | 3.3.18 | MIT | https://github.com/ai/nanoid#readme |
 | negotiator | 1.0.0 | MIT | https://github.com/jshttp/negotiator#readme |
 | node-releases | 2.0.52 | MIT | https://github.com/chicoxyzzy/node-releases#readme |
 | npm-run-path | 4.0.1, 6.0.0 | MIT | https://github.com/sindresorhus/npm-run-path#readme |

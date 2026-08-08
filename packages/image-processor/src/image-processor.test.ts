@@ -6,6 +6,7 @@ import {
   convertImageToJpeg,
   convertImageToPng,
   prepareAiScreenshotDataUrl,
+  screenshotHighlightRect,
   viewportBoxToPixels,
 } from "./index";
 
@@ -41,6 +42,20 @@ describe("image processor edits", () => {
     ).toEqual({ x: 20, y: 24, width: 80, height: 60 });
   });
 
+  it("normalizes captured highlight boxes for the editor", async () => {
+    await expect(
+      screenshotHighlightRect(await testImage(), {
+        x: 10,
+        y: 5,
+        width: 20,
+        height: 10,
+        devicePixelRatio: 2,
+        scrollX: 0,
+        scrollY: 0,
+      }),
+    ).resolves.toEqual({ x: 0.2, y: 0.125, width: 0.4, height: 0.25 });
+  });
+
   it("preserves dimensions without edits", async () => {
     const output = await applyScreenshotEdits(await testImage(), {
       redactions: [],
@@ -72,6 +87,24 @@ describe("image processor edits", () => {
       .toBuffer();
 
     expect([...pixel]).toEqual([0, 0, 0]);
+  });
+
+  it("renders an editable highlight before applying other edits", async () => {
+    const output = await applyScreenshotEdits(await testImage(), {
+      highlight: { x: 0.2, y: 0.25, width: 0.4, height: 0.5 },
+      redactions: [],
+    });
+    const inside = await sharp(output)
+      .raw()
+      .extract({ left: 30, top: 30, width: 1, height: 1 })
+      .toBuffer();
+    const outside = await sharp(output)
+      .raw()
+      .extract({ left: 80, top: 70, width: 1, height: 1 })
+      .toBuffer();
+
+    expect([...inside]).not.toEqual([255, 255, 255]);
+    expect([...outside]).toEqual([255, 255, 255]);
   });
 
   it("prepares AI screenshots as PNG data URLs", async () => {

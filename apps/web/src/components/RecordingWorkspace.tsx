@@ -8,7 +8,6 @@ import {
 } from "@infosteed/shared";
 import {
   Check,
-  Crop,
   Eye,
   EyeOff,
   Heading,
@@ -884,10 +883,17 @@ export function GuideItemEditor({
       )}
       {imageFilename && (
         <div className="image-block edit-image-block">
-          <img
-            src={versionedImageUrl(recordingId, imageFilename, imageVersion)}
-            alt=""
-          />
+          <button
+            type="button"
+            className="edit-image-trigger"
+            aria-label={t("Edit Image")}
+            onClick={() => setEditingImage(true)}
+          >
+            <img
+              src={versionedImageUrl(recordingId, imageFilename, imageVersion)}
+              alt=""
+            />
+          </button>
         </div>
       )}
       <input
@@ -908,12 +914,6 @@ export function GuideItemEditor({
         </span>
         {imageFilename ? (
           <>
-            <GuideIconButton
-              label={t("Crop / Redact")}
-              onClick={() => setEditingImage(true)}
-            >
-              <Crop aria-hidden="true" />
-            </GuideIconButton>
             <GuideIconButton
               label={t("Replace Image")}
               disabled={imageBusy}

@@ -4,6 +4,16 @@ All notable changes are documented here. The project uses Semantic Versioning on
 
 ## [Unreleased]
 
+## [0.1.0-beta.12] - 2026-08-08
+
+### Added
+
+- Added movable, resizable, replaceable, and removable screenshot highlights to the image editor.
+
+### Changed
+
+- Made editable screenshots open the image editor when clicked instead of using a separate edit button, and paired each image action with its matching clear action.
+
 ## [0.1.0-beta.11] - 2026-08-07
 
 ### Added

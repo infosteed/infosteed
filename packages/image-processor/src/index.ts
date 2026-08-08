@@ -45,6 +45,25 @@ function highlightSvg(
   `);
 }
 
+function normalizedHighlightSvg(
+  rect: NormalizedRect,
+  canvasWidth: number,
+  canvasHeight: number,
+): Buffer {
+  const { left, top, width, height } = clampRect(
+    rect,
+    canvasWidth,
+    canvasHeight,
+  );
+
+  return Buffer.from(`
+    <svg width="${canvasWidth}" height="${canvasHeight}" xmlns="http://www.w3.org/2000/svg">
+      <rect x="${left}" y="${top}" width="${width}" height="${height}" rx="6" ry="6"
+        fill="rgba(255, 214, 10, 0.16)" stroke="rgba(255, 159, 10, 0.95)" stroke-width="4"/>
+    </svg>
+  `);
+}
+
 export async function originalToWebp(input: Buffer): Promise<Buffer> {
   return sharp(input).rotate().webp({ quality: 82 }).toBuffer();
 }
@@ -63,6 +82,27 @@ export async function annotateScreenshot(
     .composite([{ input: highlightSvg(box, width, height), top: 0, left: 0 }])
     .webp({ quality: 82 })
     .toBuffer();
+}
+
+export async function screenshotHighlightRect(
+  input: Buffer,
+  box: BoundingBox,
+): Promise<NormalizedRect> {
+  const { info } = await sharp(input).rotate().toBuffer({
+    resolveWithObject: true,
+  });
+  const canvasWidth = info.width;
+  const canvasHeight = info.height;
+  const pixels = viewportBoxToPixels(box, canvasWidth, canvasHeight);
+  const width = Math.min(pixels.width, canvasWidth - pixels.x);
+  const height = Math.min(pixels.height, canvasHeight - pixels.y);
+
+  return {
+    x: pixels.x / canvasWidth,
+    y: pixels.y / canvasHeight,
+    width: width / canvasWidth,
+    height: height / canvasHeight,
+  };
 }
 
 export async function prepareAiScreenshotDataUrl(
@@ -132,9 +172,11 @@ export async function applyScreenshotEdits(
   input: Buffer,
   operations: ScreenshotEditOperations,
 ): Promise<Buffer> {
-  const metadata = await sharp(input).metadata();
-  const sourceWidth = metadata.width ?? 1;
-  const sourceHeight = metadata.height ?? 1;
+  const oriented = await sharp(input).rotate().toBuffer({
+    resolveWithObject: true,
+  });
+  const sourceWidth = oriented.info.width;
+  const sourceHeight = oriented.info.height;
   const crop = operations.crop
     ? clampRect(operations.crop, sourceWidth, sourceHeight)
     : undefined;
@@ -165,7 +207,23 @@ export async function applyScreenshotEdits(
       height: Math.min(rect.height, outputHeight - Math.max(0, rect.top)),
     }));
 
-  let image = sharp(input).rotate();
+  const highlightedInput = operations.highlight
+    ? await sharp(oriented.data)
+        .composite([
+          {
+            input: normalizedHighlightSvg(
+              operations.highlight,
+              sourceWidth,
+              sourceHeight,
+            ),
+            top: 0,
+            left: 0,
+          },
+        ])
+        .toBuffer()
+    : oriented.data;
+
+  let image = sharp(highlightedInput);
   if (crop) image = image.extract(crop);
   if (redactions.length > 0) {
     image = image.composite([

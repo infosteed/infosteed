@@ -850,6 +850,25 @@ img {
   justify-items: start;
 }
 
+.edit-image-trigger {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.edit-image-trigger img {
+  display: block;
+}
+
+.edit-image-trigger:focus-visible {
+  outline: 3px solid var(--info-accent);
+  outline-offset: 3px;
+}
+
 .image-actions,
 .image-empty {
   display: flex;
@@ -1066,6 +1085,7 @@ pre {
   margin: 0 auto;
   cursor: crosshair;
   user-select: none;
+  touch-action: none;
 }
 
 .image-edit-surface img {
@@ -1074,9 +1094,91 @@ pre {
 }
 
 .crop-box,
+.highlight-box,
 .redact-box {
   position: absolute;
+}
+
+.crop-box,
+.redact-box {
   pointer-events: none;
+}
+
+.highlight-box {
+  border: 2px solid rgba(255, 159, 10, 0.95);
+  border-radius: 6px;
+  background: rgba(255, 214, 10, 0.16);
+  cursor: move;
+}
+
+.highlight-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border: 2px solid rgba(255, 159, 10, 0.95);
+  border-radius: 50%;
+  background: #fff;
+}
+
+.highlight-handle[data-highlight-handle="n"],
+.highlight-handle[data-highlight-handle="s"] {
+  left: 50%;
+  transform: translate(-50%, -50%);
+  cursor: ns-resize;
+}
+
+.highlight-handle[data-highlight-handle="e"],
+.highlight-handle[data-highlight-handle="w"] {
+  top: 50%;
+  transform: translate(-50%, -50%);
+  cursor: ew-resize;
+}
+
+.highlight-handle[data-highlight-handle="n"] {
+  top: 0;
+}
+
+.highlight-handle[data-highlight-handle="s"] {
+  top: 100%;
+}
+
+.highlight-handle[data-highlight-handle="e"] {
+  left: 100%;
+}
+
+.highlight-handle[data-highlight-handle="w"] {
+  left: 0;
+}
+
+.highlight-handle[data-highlight-handle="ne"],
+.highlight-handle[data-highlight-handle="se"],
+.highlight-handle[data-highlight-handle="sw"],
+.highlight-handle[data-highlight-handle="nw"] {
+  transform: translate(-50%, -50%);
+}
+
+.highlight-handle[data-highlight-handle="ne"] {
+  top: 0;
+  left: 100%;
+  cursor: nesw-resize;
+}
+
+.highlight-handle[data-highlight-handle="se"] {
+  top: 100%;
+  left: 100%;
+  cursor: nwse-resize;
+}
+
+.highlight-handle[data-highlight-handle="sw"] {
+  top: 100%;
+  left: 0;
+  cursor: nesw-resize;
+}
+
+.highlight-handle[data-highlight-handle="nw"] {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
 }
 
 .crop-box {

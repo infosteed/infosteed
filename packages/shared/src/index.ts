@@ -4,7 +4,7 @@ import { z } from "zod";
 export const PRODUCT_METADATA = Object.freeze({
   displayName: "InfoSteed",
   slug: "infosteed",
-  releaseVersion: "0.1.0-beta.11",
+  releaseVersion: "0.1.0-beta.12",
   protocolVersion: 1,
   minimumExtensionVersion: "0.1.0",
 });
@@ -103,6 +103,8 @@ export const normalizedRectSchema = z.object({
 });
 
 export const screenshotEditOperationsSchema = z.object({
+  // undefined preserves the legacy captured target; null explicitly removes it.
+  highlight: normalizedRectSchema.nullable().optional(),
   crop: normalizedRectSchema.optional(),
   redactions: z.array(normalizedRectSchema).default([]),
 });

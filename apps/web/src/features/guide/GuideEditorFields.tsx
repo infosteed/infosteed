@@ -9,6 +9,8 @@ import {
   Link,
   List,
   ListOrdered,
+  MousePointer2,
+  MousePointer2Off,
   ScanLine,
   Trash2,
   X,
@@ -18,13 +20,75 @@ import { t } from "../../i18n";
 import { useImageEditorController } from "./useGuideWorkspaceControllers";
 import { GuideIconButton } from "./GuideIconButton";
 
+const minimumRectSize = 0.01;
+
+type RectHandle = "move" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w" | "nw";
+
+type ImageDrag =
+  | {
+      kind: "draw";
+      mode: "highlight" | "crop" | "redact";
+      start: { x: number; y: number };
+    }
+  | {
+      kind: "adjust-highlight";
+      handle: RectHandle;
+      start: { x: number; y: number };
+      initial: NormalizedRect;
+    };
+
 function clampRect(rect: NormalizedRect): NormalizedRect {
+  const x = Math.max(0, Math.min(1 - minimumRectSize, rect.x));
+  const y = Math.max(0, Math.min(1 - minimumRectSize, rect.y));
   return {
-    x: Math.max(0, Math.min(1, rect.x)),
-    y: Math.max(0, Math.min(1, rect.y)),
-    width: Math.max(0.01, Math.min(1 - rect.x, rect.width)),
-    height: Math.max(0.01, Math.min(1 - rect.y, rect.height)),
+    x,
+    y,
+    width: Math.max(minimumRectSize, Math.min(1 - x, rect.width)),
+    height: Math.max(minimumRectSize, Math.min(1 - y, rect.height)),
   };
+}
+
+function rectBetween(
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+): NormalizedRect {
+  return clampRect({
+    x: Math.min(start.x, end.x),
+    y: Math.min(start.y, end.y),
+    width: Math.abs(end.x - start.x),
+    height: Math.abs(end.y - start.y),
+  });
+}
+
+export function adjustImageSelection(
+  initial: NormalizedRect,
+  handle: RectHandle,
+  deltaX: number,
+  deltaY: number,
+): NormalizedRect {
+  if (handle === "move") {
+    return {
+      ...initial,
+      x: Math.max(0, Math.min(1 - initial.width, initial.x + deltaX)),
+      y: Math.max(0, Math.min(1 - initial.height, initial.y + deltaY)),
+    };
+  }
+
+  let left = initial.x;
+  let top = initial.y;
+  let right = initial.x + initial.width;
+  let bottom = initial.y + initial.height;
+
+  if (handle.includes("w"))
+    left = Math.max(0, Math.min(right - minimumRectSize, left + deltaX));
+  if (handle.includes("e"))
+    right = Math.min(1, Math.max(left + minimumRectSize, right + deltaX));
+  if (handle.includes("n"))
+    top = Math.max(0, Math.min(bottom - minimumRectSize, top + deltaY));
+  if (handle.includes("s"))
+    bottom = Math.min(1, Math.max(top + minimumRectSize, bottom + deltaY));
+
+  return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
 export function ImageEditor({
@@ -39,8 +103,10 @@ export function ImageEditor({
   onSaved: () => void;
 }) {
   const imageRef = useRef<HTMLImageElement>(null);
-  const dragStart = useRef<{ x: number; y: number } | undefined>();
-  const [mode, setMode] = useState<"crop" | "redact">("crop");
+  const drag = useRef<ImageDrag>();
+  const [mode, setMode] = useState<"highlight" | "crop" | "redact">(
+    "highlight",
+  );
   const { operations, setOperations, save } = useImageEditorController({
     recordingId,
     filename,
@@ -59,23 +125,45 @@ export function ImageEditor({
     };
   }
 
-  function finishDrag(event: React.PointerEvent) {
-    const start = dragStart.current;
+  function updateDrag(event: React.PointerEvent) {
+    const currentDrag = drag.current;
     const end = point(event);
-    dragStart.current = undefined;
-    if (!start || !end) return;
-    const rect = clampRect({
-      x: Math.min(start.x, end.x),
-      y: Math.min(start.y, end.y),
-      width: Math.abs(end.x - start.x),
-      height: Math.abs(end.y - start.y),
-    });
-    if (mode === "crop") setOperations({ ...operations, crop: rect });
-    else
-      setOperations({
-        ...operations,
-        redactions: [...(operations.redactions ?? []), rect],
-      });
+    if (!currentDrag || !end) return;
+
+    if (currentDrag.kind === "adjust-highlight") {
+      const rect = adjustImageSelection(
+        currentDrag.initial,
+        currentDrag.handle,
+        end.x - currentDrag.start.x,
+        end.y - currentDrag.start.y,
+      );
+      setOperations((current) => ({ ...current, highlight: rect }));
+      return;
+    }
+
+    if (currentDrag.mode === "redact") return;
+    const rect = rectBetween(currentDrag.start, end);
+    setOperations((current) =>
+      currentDrag.mode === "highlight"
+        ? { ...current, highlight: rect }
+        : { ...current, crop: rect },
+    );
+  }
+
+  function finishDrag(event: React.PointerEvent) {
+    const currentDrag = drag.current;
+    const end = point(event);
+    updateDrag(event);
+    drag.current = undefined;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    if (!currentDrag || currentDrag.kind !== "draw" || !end) return;
+    if (currentDrag.mode === "redact") {
+      const rect = rectBetween(currentDrag.start, end);
+      setOperations((current) => ({
+        ...current,
+        redactions: [...(current.redactions ?? []), rect],
+      }));
+    }
   }
 
   return (
@@ -89,6 +177,21 @@ export function ImageEditor({
         </div>
         <div className="editor-tools">
           <GuideIconButton
+            label={t("Highlight")}
+            active={mode === "highlight"}
+            onClick={() => setMode("highlight")}
+          >
+            <MousePointer2 aria-hidden="true" />
+          </GuideIconButton>
+          <GuideIconButton
+            label={t("Clear Highlight")}
+            onClick={() =>
+              setOperations((current) => ({ ...current, highlight: null }))
+            }
+          >
+            <MousePointer2Off aria-hidden="true" />
+          </GuideIconButton>
+          <GuideIconButton
             label={t("Crop / Zoom")}
             active={mode === "crop"}
             onClick={() => setMode("crop")}
@@ -96,19 +199,19 @@ export function ImageEditor({
             <Crop aria-hidden="true" />
           </GuideIconButton>
           <GuideIconButton
+            label={t("Clear Crop")}
+            onClick={() =>
+              setOperations((current) => ({ ...current, crop: undefined }))
+            }
+          >
+            <Eraser aria-hidden="true" />
+          </GuideIconButton>
+          <GuideIconButton
             label={t("Redact")}
             active={mode === "redact"}
             onClick={() => setMode("redact")}
           >
             <ScanLine aria-hidden="true" />
-          </GuideIconButton>
-          <GuideIconButton
-            label={t("Clear Crop")}
-            onClick={() =>
-              setOperations({ redactions: operations.redactions ?? [] })
-            }
-          >
-            <Eraser aria-hidden="true" />
           </GuideIconButton>
           <GuideIconButton
             label={t("Clear Redactions")}
@@ -121,9 +224,28 @@ export function ImageEditor({
         <div
           className="image-edit-surface"
           onPointerDown={(event) => {
-            dragStart.current = point(event);
+            const start = point(event);
+            if (!start) return;
+            const handle = (event.target as HTMLElement).closest<HTMLElement>(
+              "[data-highlight-handle]",
+            )?.dataset.highlightHandle as RectHandle | undefined;
+            drag.current =
+              handle && operations.highlight
+                ? {
+                    kind: "adjust-highlight",
+                    handle,
+                    start,
+                    initial: operations.highlight,
+                  }
+                : { kind: "draw", mode, start };
+            event.currentTarget.setPointerCapture?.(event.pointerId);
           }}
+          onPointerMove={updateDrag}
           onPointerUp={finishDrag}
+          onPointerCancel={(event) => {
+            drag.current = undefined;
+            event.currentTarget.releasePointerCapture?.(event.pointerId);
+          }}
         >
           <img
             ref={imageRef}
@@ -131,6 +253,25 @@ export function ImageEditor({
             alt=""
             draggable={false}
           />
+          {operations.highlight && (
+            <span
+              className="highlight-box"
+              style={rectStyle(operations.highlight)}
+              data-highlight-handle="move"
+              aria-label={t("Highlight")}
+            >
+              {(["n", "ne", "e", "se", "s", "sw", "w", "nw"] as const).map(
+                (handle) => (
+                  <span
+                    key={handle}
+                    className="highlight-handle"
+                    data-highlight-handle={handle}
+                    aria-hidden="true"
+                  />
+                ),
+              )}
+            </span>
+          )}
           {operations.crop && (
             <span className="crop-box" style={rectStyle(operations.crop)} />
           )}

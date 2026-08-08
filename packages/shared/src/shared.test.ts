@@ -10,6 +10,7 @@ import {
   outputLocaleRequestSchema,
   recordingEventNeedsReview,
   recordingProjectSchema,
+  screenshotEditOperationsSchema,
   uploadScreenshotRequestSchema,
   updateOwnPreferencesRequestSchema,
   recordingEventSchema,
@@ -126,6 +127,15 @@ describe("shared schemas", () => {
         imageBase64: "abc",
       }),
     ).toThrow();
+  });
+
+  it("distinguishes removing a screenshot highlight from legacy defaults", () => {
+    expect(
+      screenshotEditOperationsSchema.parse({
+        highlight: null,
+        redactions: [],
+      }),
+    ).toEqual({ highlight: null, redactions: [] });
   });
 
   it("validates guide item block types", () => {

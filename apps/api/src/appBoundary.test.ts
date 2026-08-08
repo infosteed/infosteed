@@ -35,7 +35,16 @@ const storage: VideoStorage = {
   },
 };
 
-function testPool(role: "admin" | "user" = "user", csrfToken?: string): Pool {
+function testPool(
+  role: "admin" | "user" = "user",
+  csrfToken?: string,
+  screenshot?: {
+    filename: string;
+    contentType: string;
+    originalImage: Buffer;
+    annotatedImage: Buffer;
+  },
+): Pool {
   const user = {
     id: "00000000-0000-4000-8000-000000000001",
     username: "tester",
@@ -154,7 +163,26 @@ function testPool(role: "admin" | "user" = "user", csrfToken?: string): Pool {
         sql.includes("select * from guide_items")
       )
         return { rows: [] };
-      if (sql.includes("from screenshots")) return { rows: [] };
+      if (sql.includes("from screenshots")) {
+        if (!screenshot) return { rows: [] };
+        return {
+          rows: [
+            {
+              id: "00000000-0000-4000-8000-000000000050",
+              recording_id: "00000000-0000-4000-8000-000000000010",
+              event_id: "00000000-0000-4000-8000-000000000060",
+              filename: screenshot.filename,
+              content_type: screenshot.contentType,
+              byte_size: screenshot.originalImage.byteLength,
+              original_image: screenshot.originalImage,
+              annotated_image: screenshot.annotatedImage,
+              edited_image: null,
+              edit_operations: { redactions: [] },
+              target_box: null,
+            },
+          ],
+        };
+      }
       if (sql.trim() === "select 1") return { rows: [{ "?column?": 1 }] };
       throw new Error(`Unexpected test query: ${sql}`);
     },
@@ -174,6 +202,7 @@ function appFor(
   csrfToken?: string,
   videoStorage: VideoStorage = storage,
   configOverrides: Record<string, string> = {},
+  screenshot?: Parameters<typeof testPool>[2],
 ) {
   return buildApp(
     readConfig({
@@ -181,7 +210,7 @@ function appFor(
       VIDEO_RENDER_ENABLED: "false",
       ...configOverrides,
     }),
-    testPool(role, csrfToken),
+    testPool(role, csrfToken, screenshot),
     videoStorage,
   );
 }
@@ -252,6 +281,39 @@ describe("API request boundaries", () => {
     });
 
     expect(response.statusCode).toBe(401);
+  });
+
+  it("serves the annotated guide image but the original editor source", async () => {
+    const app = appFor(
+      "admin",
+      undefined,
+      storage,
+      {},
+      {
+        filename: "step.webp",
+        contentType: "image/png",
+        originalImage: Buffer.from("original"),
+        annotatedImage: Buffer.from("annotated"),
+      },
+    );
+    openApps.push(app);
+    const base =
+      "/recordings/00000000-0000-4000-8000-000000000010/images/step.webp";
+    const guideImage = await app.inject({
+      method: "GET",
+      url: base,
+      headers: { cookie: "infosteed_session=session" },
+    });
+    const editorSource = await app.inject({
+      method: "GET",
+      url: `${base}/source`,
+      headers: { cookie: "infosteed_session=session" },
+    });
+
+    expect(guideImage.headers["content-type"]).toBe("image/webp");
+    expect(guideImage.body).toBe("annotated");
+    expect(editorSource.headers["content-type"]).toBe("image/png");
+    expect(editorSource.body).toBe("original");
   });
 
   it("serves image-only exports as named ZIP attachments", async () => {

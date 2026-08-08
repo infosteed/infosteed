@@ -11,6 +11,7 @@ import {
   convertImageToJpeg,
   convertImageToPng,
   prepareAiScreenshotDataUrl,
+  screenshotHighlightRect,
 } from "@infosteed/image-processor";
 import {
   buildEmbeddedHtml,
@@ -59,8 +60,13 @@ import {
   videoRecipeChapters,
   PRODUCT_IDENTIFIERS,
   PROTOCOL_VERSION,
+  boundingBoxSchema,
 } from "@infosteed/shared";
-import type { RecordingProject, VideoChapter } from "@infosteed/shared";
+import type {
+  RecordingProject,
+  ScreenshotEditOperations,
+  VideoChapter,
+} from "@infosteed/shared";
 import type { ApiConfig } from "./config.js";
 import { createAiProvider } from "./aiProvider.js";
 import type { Pool } from "./db.js";
@@ -104,6 +110,7 @@ import {
   updateScreenshotEdits,
   upsertGeneratedStep,
 } from "./repositories/recordings.js";
+import type { ScreenshotRow } from "./repositories/recordings.js";
 import {
   canEditProject,
   canManageProject,
@@ -340,6 +347,28 @@ export function buildApp(
     const sessionId = requestSessionIds.get(request);
     if (!sessionId) throw httpError(401, "Login required");
     return sessionId;
+  }
+
+  async function resolveScreenshotEditOperations(
+    screenshot: ScreenshotRow,
+    operations = screenshot.edit_operations ?? { redactions: [] },
+  ): Promise<ScreenshotEditOperations> {
+    if (
+      operations.highlight !== undefined ||
+      !screenshot.target_box ||
+      !screenshot.original_image
+    )
+      return operations;
+
+    const targetBox = boundingBoxSchema.safeParse(screenshot.target_box);
+    if (!targetBox.success) return operations;
+    return {
+      ...operations,
+      highlight: await screenshotHighlightRect(
+        screenshot.original_image,
+        targetBox.data,
+      ),
+    };
   }
 
   function requestMetadata(request: FastifyRequest) {
@@ -2391,9 +2420,9 @@ export function buildApp(
       );
       if (!screenshot) throw httpError(404, "Screenshot not found");
       return reply
-        .header("content-type", "image/webp")
+        .header("content-type", screenshot.content_type)
         .header("cache-control", "no-store")
-        .send(screenshot.annotated_image);
+        .send(screenshot.original_image ?? screenshot.annotated_image);
     },
   );
 
@@ -2407,7 +2436,7 @@ export function buildApp(
         request.params.filename,
       );
       if (!screenshot) throw httpError(404, "Screenshot not found");
-      return screenshot.edit_operations ?? { redactions: [] };
+      return resolveScreenshotEditOperations(screenshot);
     },
   );
 
@@ -2415,15 +2444,21 @@ export function buildApp(
     "/recordings/:id/images/:filename/edits",
     async (request, reply) => {
       await requireRecordingWrite(request, request.params.id);
-      const editOperations = screenshotEditOperationsSchema.parse(request.body);
+      const requestedOperations = screenshotEditOperationsSchema.parse(
+        request.body,
+      );
       const screenshot = await findProjectScreenshotByFilename(
         pool,
         request.params.id,
         request.params.filename,
       );
       if (!screenshot) throw httpError(404, "Screenshot not found");
+      const editOperations = await resolveScreenshotEditOperations(
+        screenshot,
+        requestedOperations,
+      );
       const editedImage = await applyScreenshotEdits(
-        screenshot.annotated_image,
+        screenshot.original_image ?? screenshot.annotated_image,
         editOperations,
       );
       await updateScreenshotEdits(pool, {
@@ -2766,14 +2801,18 @@ export function buildApp(
           screenshotEdit.filename,
         );
         if (!screenshot) continue;
-        const editedImage = await applyScreenshotEdits(
-          screenshot.annotated_image,
+        const editOperations = await resolveScreenshotEditOperations(
+          screenshot,
           screenshotEdit.editOperations,
+        );
+        const editedImage = await applyScreenshotEdits(
+          screenshot.original_image ?? screenshot.annotated_image,
+          editOperations,
         );
         await updateScreenshotEdits(pool, {
           recordingId: request.params.id,
           filename: screenshotEdit.filename,
-          editOperations: screenshotEdit.editOperations,
+          editOperations,
           editedImage,
         });
       }

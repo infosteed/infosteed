@@ -2,7 +2,7 @@
 
 InfoSteed installs the core application first. LLM, transcription, and voiceover services are configured afterward and can each be managed by InfoSteed, supplied by another host, or disabled.
 
-`v0.1.0-beta.11` is an unpublished InfoSteed release candidate. Beta.10 and earlier beta tags were superseded without public publication. Use the commands below only after the signed beta.11 tag exists; do not deploy an untagged checkout as a supported release.
+`v0.1.0-beta.12` is an unpublished InfoSteed release candidate. Beta.11 and earlier beta tags were superseded without public publication. Use the commands below only after the signed beta.12 tag exists; do not deploy an untagged checkout as a supported release.
 
 ## Choose a topology
 
@@ -42,7 +42,7 @@ Do not rely on `ss` alone. Kubernetes ServiceLB and similar components can redir
 ```bash
 git clone https://github.com/infosteed/infosteed.git
 cd infosteed
-git checkout v0.1.0-beta.11
+git checkout v0.1.0-beta.12
 ```
 
 For a publicly resolvable host, use public ACME certificates:
@@ -126,7 +126,7 @@ For existing or split-host services, follow [AI services](ai-services.md). Crede
 
 ## Install the browser extension offline
 
-The beta.11 API image bundles the Chrome browser extension package. Sign in as an administrator, open **Administration**, select **Browser Extensions**, and download `extension-offline.zip`.
+The beta.12 API image bundles the Chrome browser extension package. Sign in as an administrator, open **Administration**, select **Browser Extensions**, and download `extension-offline.zip`.
 
 The matching GitHub Release assets are an alternative when the deployment is not yet running. Assets on a draft release are visible only to an authenticated repository owner; the public download URL returns `404` until that draft is published. Do not use GitHub's automatically generated source-code ZIP as the extension. Build output under `artifacts/` and `apps/extension/dist/` remains deliberately ignored by Git.
 

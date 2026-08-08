@@ -1,9 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // @vitest-environment jsdom
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GuideItemEditor } from "../../components/RecordingWorkspace";
 import { guideItem } from "../../test/fixtures";
+
+vi.mock("../../api", async () => {
+  const actual = await vi.importActual<typeof import("../../api")>("../../api");
+  return {
+    ...actual,
+    getImageEdits: vi.fn().mockResolvedValue({ redactions: [] }),
+    updateImageEdits: vi.fn().mockResolvedValue({ ok: true }),
+  };
+});
 
 describe("guide item presentation", () => {
   afterEach(cleanup);
@@ -74,5 +83,29 @@ describe("guide item presentation", () => {
     expect(rendered.container.querySelector(".review")?.textContent).toBe(
       "Review",
     );
+  });
+
+  it("opens the image editor by clicking the screenshot", () => {
+    const rendered = render(
+      <GuideItemEditor
+        recordingId="recording-id"
+        item={guideItem({ imageFilename: "step.webp" })}
+        stepNumber={1}
+        imageVersion={1}
+        onImageSaved={vi.fn()}
+        isSelected
+        onSelect={vi.fn()}
+        onCloseEdit={vi.fn()}
+        editable
+        onDraftChange={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(
+      rendered.container.querySelector(".edit-image-trigger") as HTMLElement,
+    );
+
+    expect(screen.getByRole("heading", { name: "Edit Image" })).toBeTruthy();
   });
 });

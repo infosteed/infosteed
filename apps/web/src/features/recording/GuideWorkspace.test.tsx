@@ -119,14 +119,16 @@ describe("guide workspace", () => {
     expect(
       screen.getByRole("button", { name: /1\. Choose a method/ }),
     ).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Crop / Redact" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Edit Image" }).className).toBe(
+      "edit-image-trigger",
+    );
     expect(screen.getByRole("button", { name: "Replace Image" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Delete Image" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Regenerate" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Delete" })).toBeTruthy();
     expect(
       screen
-        .getByRole("button", { name: "Crop / Redact" })
+        .getByRole("button", { name: "Replace Image" })
         .closest(".guide-action-toolbar"),
     ).toBe(
       screen

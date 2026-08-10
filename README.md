@@ -82,7 +82,7 @@ not trapped in a single viewing experience.
 
 ## Self-hosted deployment
 
-`v0.1.0-beta.12` is an unpublished InfoSteed release candidate. Beta.11 and
+`v0.1.0-beta.13` is an unpublished InfoSteed release candidate. Beta.12 and
 earlier beta tags were superseded without public publication. Deployments keep
 recordings, screenshots, transcripts, and media on infrastructure you control.
 Follow the [deployment guide](docs/deployment.md) and review [release

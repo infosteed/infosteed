@@ -4,6 +4,16 @@ All notable changes are documented here. The project uses Semantic Versioning on
 
 ## [Unreleased]
 
+## [0.1.0-beta.13] - 2026-08-10
+
+### Added
+
+- Added a source-provenance policy for imported dependencies, generated templates, design tokens, and third-party source.
+
+### Fixed
+
+- Corrected shadcn/ui and Radix Colors source attribution, preserved their licence notices during notice regeneration, and enforced the combined SPDX markers on derived files.
+
 ## [0.1.0-beta.12] - 2026-08-08
 
 ### Added

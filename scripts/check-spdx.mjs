@@ -21,6 +21,23 @@ const comments = new Map([
   [".css", "/* SPDX-License-Identifier: AGPL-3.0-only */"],
   [".html", "<!-- SPDX-License-Identifier: AGPL-3.0-only -->"],
 ]);
+const sourceDerivedMarker = "SPDX-License-Identifier: MIT AND AGPL-3.0-only";
+
+function isSourceDerived(file) {
+  const normalized = file.split(path.sep).join("/");
+  return (
+    normalized.startsWith("apps/web/src/components/ui/") ||
+    normalized === "apps/web/src/lib/utils.ts" ||
+    normalized === "apps/web/src/styles/tokens.css"
+  );
+}
+
+function sourceDerivedNotice(file) {
+  if (path.extname(file) === ".css") {
+    return `/* Palette values derived from Radix Colors (MIT); locally modified for InfoSteed. */\n/* ${sourceDerivedMarker} */`;
+  }
+  return `// Derived from shadcn/ui (MIT); locally modified for InfoSteed.\n// ${sourceDerivedMarker}`;
+}
 
 function filesUnder(directory) {
   if (!statSync(directory).isDirectory()) return [directory];
@@ -38,20 +55,23 @@ for (const file of roots.flatMap((root) => filesUnder(root))) {
       : comments.get(path.extname(file));
   if (!marker) continue;
   const content = readFileSync(file, "utf8");
-  if (content.slice(0, 300).includes("SPDX-License-Identifier: AGPL-3.0-only"))
-    continue;
+  const expectedMarker = isSourceDerived(file)
+    ? sourceDerivedMarker
+    : "SPDX-License-Identifier: AGPL-3.0-only";
+  if (content.slice(0, 300).includes(expectedMarker)) continue;
   if (!process.argv.includes("--fix")) {
     missing.push(file);
     continue;
   }
+  const notice = isSourceDerived(file) ? sourceDerivedNotice(file) : marker;
   if (content.startsWith("#!")) {
     const newline = content.indexOf("\n");
     writeFileSync(
       file,
-      `${content.slice(0, newline + 1)}${marker}\n${content.slice(newline + 1)}`,
+      `${content.slice(0, newline + 1)}${notice}\n${content.slice(newline + 1)}`,
     );
   } else {
-    writeFileSync(file, `${marker}\n${content}`);
+    writeFileSync(file, `${notice}\n${content}`);
   }
 }
 

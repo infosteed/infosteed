@@ -3,6 +3,31 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 
 const target = "THIRD_PARTY_NOTICES.md";
+const manualNoticesStart =
+  "<!-- BEGIN MANUALLY MAINTAINED VENDORED SOURCE NOTICES -->";
+const manualNoticesEnd =
+  "<!-- END MANUALLY MAINTAINED VENDORED SOURCE NOTICES -->";
+
+function readManualNotices() {
+  const existing = readFileSync(target, "utf8");
+  const start = existing.indexOf(manualNoticesStart);
+  const end = existing.indexOf(manualNoticesEnd);
+  if (
+    start === -1 ||
+    end === -1 ||
+    end < start ||
+    existing.indexOf(manualNoticesStart, start + manualNoticesStart.length) !==
+      -1 ||
+    existing.indexOf(manualNoticesEnd, end + manualNoticesEnd.length) !== -1
+  ) {
+    throw new Error(
+      `${target} must contain exactly one complete manually maintained vendored-source notice section`,
+    );
+  }
+  return existing.slice(start, end + manualNoticesEnd.length);
+}
+
+const manualNotices = readManualNotices();
 const raw = process.env.NOTICE_INVENTORY_FILE
   ? readFileSync(process.env.NOTICE_INVENTORY_FILE, "utf8")
   : (() => {
@@ -46,6 +71,8 @@ This file is generated from the production pnpm lockfile by \`pnpm notices:gener
 | Package | Version | Licence | Project |
 | --- | --- | --- | --- |
 ${rows}
+
+${manualNotices}
 
 ## Python transcription environment
 

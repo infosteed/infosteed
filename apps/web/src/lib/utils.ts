@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// Derived from shadcn/ui (MIT); locally modified for InfoSteed.
+// SPDX-License-Identifier: MIT AND AGPL-3.0-only
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 

@@ -537,6 +537,85 @@ This file is generated from the production pnpm lockfile by `pnpm notices:genera
 | zod | 3.25.76 | MIT | https://zod.dev |
 | zod-to-json-schema | 3.25.2 | ISC | https://github.com/StefanTerdell/zod-to-json-schema#readme |
 
+<!-- BEGIN MANUALLY MAINTAINED VENDORED SOURCE NOTICES -->
+
+## Vendored/source-derived components
+
+This section is manually maintained. `pnpm notices:generate` preserves it verbatim while regenerating the dependency inventory above.
+
+### shadcn/ui
+
+The locally modified dashboard components in `apps/web/src/components/ui` and the helper in `apps/web/src/lib/utils.ts` are derived from shadcn/ui source patterns.
+
+Project: https://github.com/shadcn-ui/ui
+
+- Source snapshot: shadcn CLI 4.16.1, `new-york` style (pinned in `pnpm-lock.yaml`)
+- Imported: 2026-08-04 in InfoSteed commit `b2fb4fd47725c8464e6a097e681370522c9b0889`
+- Affected files: `apps/web/src/components/ui/*.tsx` and `apps/web/src/lib/utils.ts`
+- Local modifications: adapted component composition, styling, types, and exports for the InfoSteed application shell
+
+```text
+MIT License
+
+Copyright (c) 2023 shadcn
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### Radix Colors
+
+The locally modified dark-theme palette in `apps/web/src/styles/tokens.css` includes values derived from Radix Colors.
+
+Project: https://github.com/radix-ui/colors
+
+- Source snapshot: `@radix-ui/colors` 3.0.0, upstream commit `c4d0e50006c71ec51c4d6ff349062ab261b57e67`
+- Imported: 2026-08-05 in InfoSteed commit `ec8254b0`
+- Affected file: `apps/web/src/styles/tokens.css`
+- Local modifications: mapped selected palette values to application-specific semantic light and dark theme tokens
+
+```text
+MIT License
+
+Copyright (c) 2021-2022 Modulz
+Copyright (c) 2022-Present WorkOS
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+<!-- END MANUALLY MAINTAINED VENDORED SOURCE NOTICES -->
+
 ## Python transcription environment
 
 | Component | Pinned version | Licence |

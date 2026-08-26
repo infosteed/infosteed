@@ -9,22 +9,20 @@ import {
 describe("Scribe Markdown parser", () => {
   it("parses the supplied Scribe export fixture", async () => {
     const markdown = await readFile(
-      new URL("../../../temp/screibemdexport.md", import.meta.url),
+      new URL("./fixtures/scribe-export.md", import.meta.url),
       "utf8",
     );
     const parsed = parseScribeMarkdown(markdown);
 
-    expect(parsed.title).toBe("Create Heat Map in Azimap Platform");
+    expect(parsed.title).toBe("Create a Trail Heat Map");
     expect(parsed.sourceUrl).toContain("scribehow.com/");
     expect(parsed.steps).toHaveLength(13);
     expect(parsed.steps.filter((step) => step.imageUrl)).toHaveLength(12);
     expect(parsed.steps[0].imageUrl).toBeNull();
     expect(parsed.steps[0].body).toContain(
-      "[YOURMAP](https://azimuth.azimap.com/",
+      "[Trail Map](https://maps.example.com/",
     );
-    expect(parsed.steps[1].imageUrl).toContain(
-      "colony-recorder.s3.us-west-1.amazonaws.com",
-    );
+    expect(parsed.steps[1].imageUrl).toContain("images.example.com");
   });
 
   it("accepts ordinary numbering and preserves multiline Markdown", () => {

@@ -160,6 +160,30 @@ exports[`API route contract > preserves every registered method and path 1`] = `
   },
   {
     "method": "GET",
+    "url": "/imports/scribe-markdown",
+  },
+  {
+    "method": "HEAD",
+    "url": "/imports/scribe-markdown",
+  },
+  {
+    "method": "POST",
+    "url": "/imports/scribe-markdown",
+  },
+  {
+    "method": "GET",
+    "url": "/imports/scribe-markdown/:id",
+  },
+  {
+    "method": "HEAD",
+    "url": "/imports/scribe-markdown/:id",
+  },
+  {
+    "method": "POST",
+    "url": "/imports/scribe-markdown/:id/retry",
+  },
+  {
+    "method": "GET",
     "url": "/projects",
   },
   {

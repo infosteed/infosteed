@@ -4,6 +4,10 @@ All notable changes are documented here. The project uses Semantic Versioning on
 
 ## [Unreleased]
 
+### Added
+
+- Added a guided Confluence DOCX export that reuses the standard Word document for manual import without requiring an Atlassian connection.
+
 ## [0.1.0-beta.13] - 2026-08-10
 
 ### Added

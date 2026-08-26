@@ -25,6 +25,7 @@ import type {
   RecordingListItem,
   RecordingProject,
   ScreenshotEditOperations,
+  ScribeMarkdownImportJob,
   ThemePreference,
   UserDirectoryEntry,
   WordTemplateSummary,
@@ -870,6 +871,34 @@ export function importProject(project: RecordingProject, projectId?: string) {
     method: "POST",
     body: JSON.stringify(project),
   });
+}
+
+export function createScribeMarkdownImport(input: {
+  markdown: string;
+  originalFilename: string;
+  projectId?: string;
+}) {
+  return request<ScribeMarkdownImportJob>("/imports/scribe-markdown", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function listScribeMarkdownImports() {
+  return request<{ jobs: ScribeMarkdownImportJob[] }>(
+    "/imports/scribe-markdown",
+  );
+}
+
+export function getScribeMarkdownImport(id: string) {
+  return request<ScribeMarkdownImportJob>(`/imports/scribe-markdown/${id}`);
+}
+
+export function retryScribeMarkdownImport(id: string) {
+  return request<ScribeMarkdownImportJob>(
+    `/imports/scribe-markdown/${id}/retry`,
+    { method: "POST" },
+  );
 }
 
 export function getImageEdits(recordingId: string, filename: string) {

@@ -40,6 +40,14 @@ describe("video storage configuration", () => {
     expect(config.VIDEO_RENDER_RETENTION_DAYS).toBe(7);
   });
 
+  it("uses staggered and bounded defaults for Scribe screenshot imports", () => {
+    const config = readConfig({});
+    expect(config.SCRIBE_IMPORT_IMAGE_DELAY_MS).toBe(750);
+    expect(config.SCRIBE_IMPORT_IMAGE_MAX_BYTES).toBe(20 * 1024 * 1024);
+    expect(config.SCRIBE_IMPORT_TOTAL_IMAGE_MAX_BYTES).toBe(100 * 1024 * 1024);
+    expect(config.SCRIBE_IMPORT_IMAGE_TIMEOUT_MS).toBe(30_000);
+  });
+
   it("requires a 2FA encryption key when new enrollment is enabled", () => {
     expect(() => readConfig({ TWO_FACTOR_ENABLED: "true" })).toThrow();
     expect(

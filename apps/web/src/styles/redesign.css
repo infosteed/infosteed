@@ -416,6 +416,88 @@ html {
   }
 }
 
+.scribe-import-dialog {
+  width: min(680px, calc(100vw - 32px));
+  max-width: 680px;
+}
+
+.scribe-import-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.scribe-import-jobs {
+  display: grid;
+  max-height: min(58vh, 560px);
+  gap: 12px;
+  overflow: auto;
+}
+
+.scribe-import-jobs > h3 {
+  margin: 6px 0 0;
+  font-size: 0.9rem;
+}
+
+.scribe-import-job {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background: hsl(var(--card));
+}
+
+.scribe-import-job-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scribe-import-job-head > div:first-child {
+  display: grid;
+  min-width: 0;
+  margin-right: auto;
+}
+
+.scribe-import-job-head strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scribe-import-job-head span,
+.scribe-import-job > p {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.8rem;
+}
+
+.scribe-import-job progress {
+  width: 100%;
+}
+
+.scribe-import-failures {
+  display: grid;
+  gap: 8px;
+}
+
+.scribe-import-failures p {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: hsl(var(--destructive));
+}
+
+.scribe-import-failures textarea {
+  width: 100%;
+  resize: vertical;
+  font:
+    0.75rem/1.45 ui-monospace,
+    SFMono-Regular,
+    Consolas,
+    monospace;
+}
+
 html.dark {
   color-scheme: dark;
 }

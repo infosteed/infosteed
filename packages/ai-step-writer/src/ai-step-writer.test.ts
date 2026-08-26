@@ -6,6 +6,7 @@ import {
   deterministicInstruction,
   deterministicOverview,
   generatedStepCandidateSchema,
+  guideCleanupClassificationSchema,
   OllamaNativeStepWriter,
   OpenAiCompatibleStepWriter,
   writeChapter,
@@ -494,6 +495,117 @@ describe("AI step writer", () => {
       expect(requestedBody).toContain("German (Deutsch)");
       expect(requestedBody).toContain("AUTHORITATIVE_ACTION");
       expect(requestedBody).toContain('\\"elementRole\\":\\"button\\"');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("validates cleanup classifier decisions", () => {
+    expect(
+      guideCleanupClassificationSchema.parse({
+        decision: "collapse",
+        confidence: 0.9,
+        reason: "Repeated retry",
+      }),
+    ).toMatchObject({ decision: "collapse", confidence: 0.9 });
+    expect(() =>
+      guideCleanupClassificationSchema.parse({
+        decision: "delete",
+        confidence: 2,
+        reason: "invalid",
+      }),
+    ).toThrow();
+  });
+
+  it("sends both cleanup screenshots to OpenAI-compatible providers", async () => {
+    const originalFetch = globalThis.fetch;
+    let requestedBody: any;
+    globalThis.fetch = (async (_url, init) => {
+      requestedBody = JSON.parse(String(init?.body));
+      return new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  decision: "collapse",
+                  confidence: 0.93,
+                  reason: "Repeated retry",
+                }),
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }) as typeof fetch;
+
+    try {
+      const provider = new OpenAiCompatibleStepWriter({
+        endpoint: "http://example.test/v1",
+        model: "vision-model",
+      });
+      const result = await provider.classifyGuideCleanup({
+        earlier: clickEvent,
+        later: { ...clickEvent, ordinal: 1 },
+        screenshotDataUrls: [
+          "data:image/png;base64,YQ==",
+          "data:image/png;base64,Yg==",
+        ],
+        evidence: {
+          elapsedMs: 500,
+          pointDistance: 1,
+          boundingBoxOverlap: 1,
+          meanScreenshotDifference: 0,
+          changedPixelRatio: 0,
+        },
+      });
+      expect(result.decision).toBe("collapse");
+      expect(requestedBody.messages[1].content).toHaveLength(3);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("sends both cleanup screenshots to native Ollama providers", async () => {
+    const originalFetch = globalThis.fetch;
+    let requestedBody: any;
+    globalThis.fetch = (async (_url, init) => {
+      requestedBody = JSON.parse(String(init?.body));
+      return new Response(
+        JSON.stringify({
+          response: JSON.stringify({
+            decision: "keep",
+            confidence: 0.98,
+            reason: "Intentional cumulative control",
+          }),
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }) as typeof fetch;
+
+    try {
+      const provider = new OllamaNativeStepWriter({
+        endpoint: "http://127.0.0.1:11434",
+        model: "vision-model",
+      });
+      const result = await provider.classifyGuideCleanup({
+        earlier: clickEvent,
+        later: { ...clickEvent, ordinal: 1 },
+        screenshotDataUrls: [
+          "data:image/png;base64,YQ==",
+          "data:image/png;base64,Yg==",
+        ],
+        evidence: {
+          elapsedMs: 500,
+          pointDistance: 1,
+          boundingBoxOverlap: 1,
+          meanScreenshotDifference: 0,
+          changedPixelRatio: 0,
+        },
+      });
+      expect(result.decision).toBe("keep");
+      expect(requestedBody.images).toEqual(["YQ==", "Yg=="]);
     } finally {
       globalThis.fetch = originalFetch;
     }

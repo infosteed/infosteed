@@ -271,6 +271,12 @@ function rawClickEvent(event: MouseEvent): RawRecorderEvent | undefined {
     element: hints,
     nearbyHeading: nearbyHeading(target),
     canvasPosition: position,
+    clickPoint: {
+      x: event.clientX,
+      y: event.clientY,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+    },
     boundingBox: isCanvas
       ? pointTargetBox(event, rect)
       : {

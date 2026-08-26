@@ -874,6 +874,47 @@ export const recordingProjectSchema = z.union([
   recordingProjectV2Schema,
 ]);
 
+export const scribeMarkdownImportStatusSchema = z.enum([
+  "queued",
+  "processing",
+  "completed",
+  "completed_with_warnings",
+  "failed",
+]);
+
+export const scribeMarkdownImportFailureSchema = z.object({
+  url: z.string(),
+  error: z.string(),
+});
+
+export const scribeMarkdownImportJobSchema = z.object({
+  id: z.string().uuid(),
+  status: scribeMarkdownImportStatusSchema,
+  originalFilename: z.string(),
+  sourceUrl: z.string().url().nullable(),
+  totalImages: z.number().int().nonnegative(),
+  processedImages: z.number().int().nonnegative(),
+  downloadedImages: z.number().int().nonnegative(),
+  failedImages: z.array(scribeMarkdownImportFailureSchema),
+  recordingId: z.string().uuid().nullable(),
+  errorMessage: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  completedAt: z.string().nullable(),
+});
+
+export const createScribeMarkdownImportRequestSchema = z.object({
+  markdown: z
+    .string()
+    .min(1)
+    .max(5 * 1024 * 1024),
+  originalFilename: safeTextSchema.refine(
+    (value) => value.toLowerCase().endsWith(".md"),
+    "Choose a Markdown (.md) file",
+  ),
+  projectId: z.string().uuid().optional(),
+});
+
 export const userRoleSchema = z.enum(["admin", "user"]);
 export const projectRoleSchema = z.enum(["owner", "editor", "viewer"]);
 export const themePreferenceSchema = z.enum(["light", "dark", "system"]);
@@ -1131,6 +1172,12 @@ export type UpdateGuideItemRequest = z.infer<
   typeof updateGuideItemRequestSchema
 >;
 export type RecordingProject = z.infer<typeof recordingProjectSchema>;
+export type ScribeMarkdownImportFailure = z.infer<
+  typeof scribeMarkdownImportFailureSchema
+>;
+export type ScribeMarkdownImportJob = z.infer<
+  typeof scribeMarkdownImportJobSchema
+>;
 export type UserRole = z.infer<typeof userRoleSchema>;
 export type ProjectRole = z.infer<typeof projectRoleSchema>;
 export type ThemePreference = z.infer<typeof themePreferenceSchema>;

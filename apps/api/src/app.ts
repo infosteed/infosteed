@@ -219,6 +219,8 @@ import { registerProjectRoutes } from "./routes/projects.js";
 import { registerUserRoutes } from "./routes/users.js";
 import { registerWordTemplateRoutes } from "./routes/wordTemplates.js";
 import { registerExtensionRoutes } from "./routes/extensions.js";
+import { registerScribeImportRoutes } from "./routes/scribeImports.js";
+import { ScribeImportWorker } from "./scribeImportWorker.js";
 import {
   findUserDisplayName,
   getDefaultWordTemplate,
@@ -278,6 +280,7 @@ export function buildApp(
     ttsProvider,
     app.log,
   );
+  const scribeImportWorker = new ScribeImportWorker(config, pool, app.log);
   const httpError = (statusCode: number, message: string) =>
     Object.assign(new Error(message), { statusCode });
   const requestUsers = new WeakMap<FastifyRequest, AuthUser>();
@@ -303,9 +306,14 @@ export function buildApp(
   app.addHook("onReady", async () => {
     await transcriptionWorker.start();
     await voiceoverWorker.start();
+    await scribeImportWorker.start();
   });
   app.addHook("onClose", async () => {
-    await Promise.all([transcriptionWorker.stop(), voiceoverWorker.stop()]);
+    await Promise.all([
+      transcriptionWorker.stop(),
+      voiceoverWorker.stop(),
+      scribeImportWorker.stop(),
+    ]);
   });
 
   function parseCookies(header: string | undefined): Map<string, string> {
@@ -530,6 +538,19 @@ export function buildApp(
       throw httpError(
         role ? 403 : 404,
         "You do not have owner access to this project",
+      );
+    return role;
+  }
+
+  async function requireProjectWrite(
+    request: FastifyRequest,
+    projectId: string,
+  ) {
+    const role = await getProjectRole(pool, currentUser(request), projectId);
+    if (!canEditProject(role))
+      throw httpError(
+        role ? 403 : 404,
+        "You do not have editor access to this project",
       );
     return role;
   }
@@ -1032,6 +1053,7 @@ export function buildApp(
     currentUser,
     requireAdmin,
     requireProjectRead,
+    requireProjectWrite,
     requireProjectManage,
     audit,
     httpError,
@@ -1048,6 +1070,7 @@ export function buildApp(
     currentUser,
     requireAdmin,
     requireProjectRead,
+    requireProjectWrite,
     requireProjectManage,
     audit,
     httpError,
@@ -1060,6 +1083,7 @@ export function buildApp(
     currentUser,
     requireAdmin,
     requireProjectRead,
+    requireProjectWrite,
     requireProjectManage,
     audit,
     httpError,
@@ -1071,9 +1095,23 @@ export function buildApp(
     currentUser,
     requireAdmin,
     requireProjectRead,
+    requireProjectWrite,
     requireProjectManage,
     audit,
     httpError,
+  });
+  registerScribeImportRoutes(app, {
+    config,
+    pool,
+    videoStorage,
+    currentUser,
+    requireAdmin,
+    requireProjectRead,
+    requireProjectWrite,
+    requireProjectManage,
+    audit,
+    httpError,
+    wakeScribeImportWorker: () => scribeImportWorker.wake(),
   });
 
   app.get("/recordings", async (request) => {
@@ -1353,6 +1391,10 @@ export function buildApp(
               [],
               input.outputLocale,
               "overwrite",
+              {
+                cleanupMode: "new-capture-cleanup",
+                logger: request.log,
+              },
             );
         }
       });
@@ -2157,6 +2199,10 @@ export function buildApp(
           [],
           outputLocale,
           "fill",
+          {
+            cleanupMode: "new-capture-cleanup",
+            logger: request.log,
+          },
         );
         return getRecording(client, request.params.id);
       });
@@ -2247,6 +2293,10 @@ export function buildApp(
           transcript?.cues ?? [],
           outputLocale,
           "overwrite",
+          {
+            cleanupMode: "new-capture-cleanup",
+            logger: request.log,
+          },
         );
         return getRecording(client, request.params.id);
       });

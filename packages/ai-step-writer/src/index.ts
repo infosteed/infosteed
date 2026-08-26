@@ -22,6 +22,12 @@ export const generatedChapterSchema = z.object({
   title: z.string().trim().min(1).max(120),
 });
 
+export const guideCleanupClassificationSchema = z.object({
+  decision: z.enum(["collapse", "keep", "uncertain"]),
+  confidence: z.number().min(0).max(1),
+  reason: z.string().trim().min(1).max(160),
+});
+
 const generatedStepInputSchema = z.object({
   title: z.string().trim().min(1),
   instruction: z.string().trim().min(1),
@@ -40,6 +46,22 @@ export type GeneratedStepCandidate = z.infer<
 >;
 export type GeneratedOverview = z.infer<typeof generatedOverviewSchema>;
 export type GeneratedChapter = z.infer<typeof generatedChapterSchema>;
+export type GuideCleanupClassification = z.infer<
+  typeof guideCleanupClassificationSchema
+>;
+
+export interface GuideCleanupClassificationContext {
+  earlier: RecordingEvent;
+  later: RecordingEvent;
+  screenshotDataUrls: [string, string];
+  evidence: {
+    elapsedMs: number;
+    pointDistance: number | null;
+    boundingBoxOverlap: number | null;
+    meanScreenshotDifference: number;
+    changedPixelRatio: number;
+  };
+}
 
 export interface StepWritingContext {
   outputLocale: OutputLocale;
@@ -70,6 +92,9 @@ export interface AiStepWriterProvider {
   generateStep(context: StepWritingContext): Promise<GeneratedStepCandidate>;
   generateOverview?(context: GuideOverviewContext): Promise<GeneratedOverview>;
   generateChapter?(context: ChapterWritingContext): Promise<GeneratedChapter>;
+  classifyGuideCleanup?(
+    context: GuideCleanupClassificationContext,
+  ): Promise<GuideCleanupClassification>;
 }
 
 export interface GuideOverviewContext {
@@ -337,6 +362,12 @@ function normalizeGeneratedOverview(value: unknown): GeneratedOverview {
 function normalizeGeneratedChapter(value: unknown): GeneratedChapter {
   const parsed = generatedChapterSchema.parse(value);
   return { title: clampText(parsed.title, 120) };
+}
+
+function normalizeGuideCleanupClassification(
+  value: unknown,
+): GuideCleanupClassification {
+  return guideCleanupClassificationSchema.parse(value);
 }
 
 function parseGeneratedOverview(value: string): GeneratedOverview {
@@ -840,6 +871,21 @@ function parseGeneratedStep(value: string): GeneratedStepCandidate {
   return normalizeGeneratedStepCandidate(JSON.parse(objectMatch[0]));
 }
 
+function parseGuideCleanupClassification(
+  value: string,
+): GuideCleanupClassification {
+  const trimmed = value.trim();
+  try {
+    return normalizeGuideCleanupClassification(JSON.parse(trimmed));
+  } catch {
+    // Fall through to extracting a JSON object from provider wrapper text.
+  }
+  const objectMatch = trimmed.match(/\{[\s\S]*\}/);
+  if (!objectMatch)
+    throw new Error("AI cleanup response did not contain a JSON object");
+  return normalizeGuideCleanupClassification(JSON.parse(objectMatch[0]));
+}
+
 export class OpenAiCompatibleStepWriter implements AiStepWriterProvider {
   constructor(private readonly options: OpenAiCompatibleProviderOptions) {}
 
@@ -1017,6 +1063,63 @@ export class OpenAiCompatibleStepWriter implements AiStepWriterProvider {
     }
   }
 
+  async classifyGuideCleanup(
+    context: GuideCleanupClassificationContext,
+  ): Promise<GuideCleanupClassification> {
+    const jsonContract =
+      'Return exactly one compact JSON object: {"decision":"collapse|keep|uncertain","confidence":0.0,"reason":"..."}. No markdown or reasoning.';
+    const prompt =
+      "/no_think\nReview two adjacent browser clicks that deterministic checks consider possible duplicate documentation. Collapse only when the earlier click is a retry or redundant repetition of the later click. Keep intentional cumulative controls such as zoom, increment, pagination, carousel navigation, and any action with a meaningful state change. When unsure, return uncertain.\n" +
+      JSON.stringify({
+        earlier: context.earlier,
+        later: context.later,
+        evidence: context.evidence,
+      }) +
+      "\n" +
+      jsonContract +
+      "\n/no_think";
+    const content = [
+      { type: "text", text: prompt },
+      ...context.screenshotDataUrls.map((url) => ({
+        type: "image_url",
+        image_url: { url },
+      })),
+    ];
+    const json = await postProviderJson<{
+      choices?: Array<{
+        finish_reason?: string;
+        message?: { content?: string; reasoning?: string };
+      }>;
+    }>({
+      options: this.options,
+      path: "/chat/completions",
+      providerName: "AI provider",
+      authenticate: true,
+      body: {
+        model: this.options.model,
+        temperature: 0,
+        max_tokens: 256,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content:
+              "/no_think\nClassify repeated browser actions conservatively. " +
+              jsonContract +
+              "\n/no_think",
+          },
+          { role: "user", content },
+        ],
+      },
+    });
+    const response =
+      json.choices?.[0]?.message?.content ??
+      json.choices?.[0]?.message?.reasoning;
+    if (!response)
+      throw new Error("AI provider returned no cleanup classification");
+    return parseGuideCleanupClassification(response);
+  }
+
   async generateChapter(
     context: ChapterWritingContext,
   ): Promise<GeneratedChapter> {
@@ -1151,6 +1254,45 @@ export class OllamaNativeStepWriter implements AiStepWriterProvider {
     throw new Error(
       `Ollama provider returned no response. done_reason=${json.done_reason ?? "unknown"}`,
     );
+  }
+
+  async classifyGuideCleanup(
+    context: GuideCleanupClassificationContext,
+  ): Promise<GuideCleanupClassification> {
+    const images = context.screenshotDataUrls.map((url) =>
+      url.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, ""),
+    );
+    const json = await postProviderJson<{
+      response?: string;
+      thinking?: string;
+      done_reason?: string;
+    }>({
+      options: this.options,
+      path: "/api/generate",
+      providerName: "Ollama provider",
+      body: {
+        model: this.options.model,
+        prompt:
+          "/no_think\nReturn ONLY JSON with decision, confidence, and reason. Review two adjacent browser clicks that passed strict deterministic duplicate checks. Collapse only when the earlier click is a retry or redundant repetition. Keep intentional cumulative controls such as zoom, increment, pagination, or carousel navigation. Return uncertain when unsure.\n" +
+          JSON.stringify({
+            earlier: context.earlier,
+            later: context.later,
+            evidence: context.evidence,
+          }) +
+          "\n/no_think",
+        images,
+        stream: false,
+        format: "json",
+        think: false,
+        options: { num_predict: 256, temperature: 0 },
+      },
+    });
+    const response = json.response ?? json.thinking;
+    if (!response)
+      throw new Error(
+        `Ollama provider returned no cleanup classification. done_reason=${json.done_reason ?? "unknown"}`,
+      );
+    return parseGuideCleanupClassification(response);
   }
 
   async generateChapter(

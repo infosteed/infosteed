@@ -14,6 +14,7 @@ InfoSteed is a self-hosted browser recorder for teams that need to keep workflow
 - Generate local guide instructions without an AI key.
 - Preview and edit generated steps in a React web editor.
 - Export a ZIP containing `guide.md`, `recording.json`, and local WebP images.
+- Export the standard DOCX with guided instructions for manual Confluence import.
 - Export a Sanity CLI-compatible `.tar.gz` containing a Portable Text guide and its referenced images.
 - Transcribe narration asynchronously with a local or hosted OpenAI-compatible Whisper endpoint, add captions, and use nearby speech to improve synchronized chapter and guide titles.
 - Edit video non-destructively with source-clock cuts, independent chapters and captions, webcam layout, audio levels, durable preview renders, and explicit replacement publishing.
@@ -21,7 +22,7 @@ InfoSteed is a self-hosted browser recorder for teams that need to keep workflow
 - Protect accounts with optional TOTP two-factor authentication, one-time recovery codes, and administrator-enforced enrollment.
 - Localize the web application and extension through validated JSON catalogs with plural and right-to-left support.
 
-See [Sanity import setup](docs/sanity/README.md) for the one-time Studio schema installation and import commands. Administrators can also prepare deployment-wide DOCX layouts using the [Word template formatting guide](docs/word-templates.md).
+See [Sanity import setup](docs/sanity/README.md) for the one-time Studio schema installation and import commands. Administrators can also prepare deployment-wide DOCX layouts using the [Word template formatting guide](docs/word-templates.md), and guide editors can follow the [manual Confluence import workflow](docs/confluence.md).
 
 ## Local Development
 

@@ -3,8 +3,10 @@ import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 import {
   applyScreenshotEdits,
+  compareScreenshots,
   convertImageToJpeg,
   convertImageToPng,
+  importedRasterToWebp,
   prepareAiScreenshotDataUrl,
   screenshotHighlightRect,
   viewportBoxToPixels,
@@ -24,6 +26,22 @@ async function testImage() {
 }
 
 describe("image processor edits", () => {
+  it("normalizes imported raster images to WebP and rejects SVG", async () => {
+    const converted = await importedRasterToWebp(await testImage());
+    await expect(sharp(converted).metadata()).resolves.toMatchObject({
+      format: "webp",
+      width: 100,
+      height: 80,
+    });
+    await expect(
+      importedRasterToWebp(
+        Buffer.from(
+          '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"></svg>',
+        ),
+      ),
+    ).rejects.toThrow(/Unsupported imported image format/);
+  });
+
   it("maps viewport boxes without adding page scroll offsets", () => {
     expect(
       viewportBoxToPixels(
@@ -111,6 +129,70 @@ describe("image processor edits", () => {
     const dataUrl = await prepareAiScreenshotDataUrl(await testImage());
 
     expect(dataUrl.startsWith("data:image/png;base64,")).toBe(true);
+  });
+
+  it("measures screenshot similarity conservatively", async () => {
+    const original = await testImage();
+    await expect(compareScreenshots(original, original)).resolves.toEqual({
+      dimensionsMatch: true,
+      meanDifference: 0,
+      changedPixelRatio: 0,
+    });
+
+    const changed = await sharp(original)
+      .composite([
+        {
+          input: Buffer.from(
+            '<svg width="100" height="80"><rect x="0" y="0" width="50" height="40" fill="black"/></svg>',
+          ),
+        },
+      ])
+      .png()
+      .toBuffer();
+    const difference = await compareScreenshots(original, changed);
+    expect(difference.dimensionsMatch).toBe(true);
+    expect(difference.meanDifference).toBeGreaterThan(0.015);
+    expect(difference.changedPixelRatio).toBeGreaterThan(0.01);
+  });
+
+  it("tolerates minor JPEG compression noise", async () => {
+    const original = await sharp({
+      create: {
+        width: 160,
+        height: 120,
+        channels: 3,
+        background: { r: 240, g: 245, b: 250 },
+      },
+    })
+      .composite([
+        {
+          input: Buffer.from(
+            '<svg width="160" height="120"><rect x="20" y="20" width="90" height="50" fill="#2672ec"/><text x="30" y="52" font-size="18" fill="white">Save</text></svg>',
+          ),
+        },
+      ])
+      .png()
+      .toBuffer();
+    const recompressed = await sharp(original).jpeg({ quality: 75 }).toBuffer();
+    const difference = await compareScreenshots(original, recompressed);
+
+    expect(difference.dimensionsMatch).toBe(true);
+    expect(difference.meanDifference).toBeLessThanOrEqual(0.015);
+    expect(difference.changedPixelRatio).toBeLessThanOrEqual(0.01);
+  });
+
+  it("rejects screenshot comparisons with different dimensions", async () => {
+    const resized = await sharp(await testImage())
+      .resize(50, 40)
+      .png()
+      .toBuffer();
+    await expect(
+      compareScreenshots(await testImage(), resized),
+    ).resolves.toEqual({
+      dimensionsMatch: false,
+      meanDifference: 1,
+      changedPixelRatio: 1,
+    });
   });
 
   it("converts screenshots to requested export formats", async () => {

@@ -53,6 +53,12 @@ export interface RawRecorderEvent {
     yRatio: number;
     region: string;
   };
+  clickPoint?: {
+    x: number;
+    y: number;
+    viewportWidth: number;
+    viewportHeight: number;
+  };
 }
 
 export function sanitizeUrl(rawUrl: string): string {
@@ -217,6 +223,10 @@ export function normalizeRawEvents(
         raw.actionType === "input" ? inputCategoryFor(raw.element) : undefined,
       boundingBox: raw.boundingBox,
       metadata: {
+        capture: {
+          timestampMs: raw.timestamp,
+          clickPoint: raw.clickPoint,
+        },
         canvasPosition: raw.canvasPosition,
         selectedValue:
           raw.actionType === "select" && !isSensitiveField(raw.element)

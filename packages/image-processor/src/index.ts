@@ -68,6 +68,17 @@ export async function originalToWebp(input: Buffer): Promise<Buffer> {
   return sharp(input).rotate().webp({ quality: 82 }).toBuffer();
 }
 
+export async function importedRasterToWebp(input: Buffer): Promise<Buffer> {
+  const image = sharp(input, { failOn: "error", limitInputPixels: 40_000_000 });
+  const metadata = await image.metadata();
+  if (
+    !metadata.format ||
+    !["jpeg", "png", "webp", "gif"].includes(metadata.format)
+  )
+    throw new Error("Unsupported imported image format");
+  return image.rotate().webp({ quality: 82 }).toBuffer();
+}
+
 export async function annotateScreenshot(
   input: Buffer,
   box?: BoundingBox,
@@ -121,6 +132,58 @@ export async function prepareAiScreenshotDataUrl(
     .toBuffer();
 
   return `data:image/png;base64,${png.toString("base64")}`;
+}
+
+export interface ScreenshotDifference {
+  dimensionsMatch: boolean;
+  meanDifference: number;
+  changedPixelRatio: number;
+}
+
+export async function compareScreenshots(
+  before: Buffer,
+  after: Buffer,
+): Promise<ScreenshotDifference> {
+  const [beforeMetadata, afterMetadata] = await Promise.all([
+    sharp(before).rotate().metadata(),
+    sharp(after).rotate().metadata(),
+  ]);
+  const dimensionsMatch =
+    beforeMetadata.width === afterMetadata.width &&
+    beforeMetadata.height === afterMetadata.height;
+  if (!dimensionsMatch) {
+    return {
+      dimensionsMatch: false,
+      meanDifference: 1,
+      changedPixelRatio: 1,
+    };
+  }
+
+  const normalize = (input: Buffer) =>
+    sharp(input)
+      .rotate()
+      .resize(96, 96, { fit: "fill" })
+      .greyscale()
+      .raw()
+      .toBuffer();
+  const [beforePixels, afterPixels] = await Promise.all([
+    normalize(before),
+    normalize(after),
+  ]);
+  let totalDifference = 0;
+  let changedPixels = 0;
+  const changedPixelThreshold = 0.08 * 255;
+  for (let index = 0; index < beforePixels.length; index += 1) {
+    const difference = Math.abs(beforePixels[index] - afterPixels[index]);
+    totalDifference += difference;
+    if (difference > changedPixelThreshold) changedPixels += 1;
+  }
+
+  return {
+    dimensionsMatch: true,
+    meanDifference: totalDifference / beforePixels.length / 255,
+    changedPixelRatio: changedPixels / beforePixels.length,
+  };
 }
 
 export async function convertImageToPng(input: Buffer): Promise<Buffer> {

@@ -82,11 +82,12 @@ not trapped in a single viewing experience.
 
 ## Self-hosted deployment
 
-`v0.1.0-beta.13` is an unpublished InfoSteed release candidate. Beta.12 and
-earlier beta tags were superseded without public publication. Deployments keep
-recordings, screenshots, transcripts, and media on infrastructure you control.
-Follow the [deployment guide](docs/deployment.md) and review [release
-readiness](docs/release-readiness.md) before production use.
+InfoSteed runs on your own infrastructure, where your recordings, screenshots,
+transcripts, and other media remain under your control. The current release
+candidate, `v0.1.0-beta.13`, has not been published, and it replaces all earlier
+beta tags. Start with the [deployment guide](docs/deployment.md), and check the
+[release readiness page](docs/release-readiness.md) before using InfoSteed in
+production.
 
 ## Explore the project
 
@@ -98,6 +99,7 @@ described on the [release readiness page](docs/release-readiness.md).
 - [Understand privacy and data handling](docs/privacy-policy.md)
 - [Review optional AI services](docs/ai-services.md)
 - [Prepare administrator-managed Word templates](docs/word-templates.md)
+- [Import guides into Confluence](docs/confluence.md)
 - [Explore the architecture](docs/architecture.md)
 - [Read the support policy](SUPPORT.md)
 - [View the original technical README](README.technical.md)

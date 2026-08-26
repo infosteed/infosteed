@@ -559,6 +559,25 @@ export async function screenshotsByEvent(
   );
 }
 
+export async function originalScreenshotsByEvent(
+  db: Db,
+  recordingId: string,
+): Promise<Map<string, Buffer>> {
+  const result = await db.query<{
+    event_id: string;
+    original_image: Buffer;
+  }>(
+    "select event_id, original_image from screenshots where recording_id = $1",
+    [recordingId],
+  );
+  return new Map(
+    result.rows.map((screenshot) => [
+      screenshot.event_id,
+      screenshot.original_image,
+    ]),
+  );
+}
+
 async function nextOrdinal(
   db: Db,
   recordingId: string,

@@ -4,14 +4,18 @@ import type {
   Project,
   RecordingListItem,
   RecordingProject,
+  ScribeMarkdownImportJob,
 } from "@infosteed/shared";
 import {
+  createScribeMarkdownImport,
   createProject,
   deleteRecording,
   importProject,
+  listScribeMarkdownImports,
   listProjects,
   listRecordings,
   restoreRecording,
+  retryScribeMarkdownImport,
 } from "../../api";
 import { errorMessage } from "../../errors";
 import { openRecording } from "../../navigation";
@@ -22,6 +26,9 @@ export interface LibraryControllerDependencies {
   listProjects: typeof listProjects;
   createProject: typeof createProject;
   importProject: typeof importProject;
+  createScribeMarkdownImport: typeof createScribeMarkdownImport;
+  listScribeMarkdownImports: typeof listScribeMarkdownImports;
+  retryScribeMarkdownImport: typeof retryScribeMarkdownImport;
   deleteRecording: typeof deleteRecording;
   restoreRecording: typeof restoreRecording;
   openRecording: typeof openRecording;
@@ -32,6 +39,9 @@ const libraryDependencies: LibraryControllerDependencies = {
   listProjects,
   createProject,
   importProject,
+  createScribeMarkdownImport,
+  listScribeMarkdownImports,
+  retryScribeMarkdownImport,
   deleteRecording,
   restoreRecording,
   openRecording,
@@ -70,6 +80,12 @@ export function useLibraryController(
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [deleteCandidate, setDeleteCandidate] = useState<RecordingListItem>();
+  const [scribeImports, setScribeImports] = useState<ScribeMarkdownImportJob[]>(
+    [],
+  );
+  const [scribeImportsLoaded, setScribeImportsLoaded] = useState(false);
+  const [scribeImportBusy, setScribeImportBusy] = useState(false);
+  const [scribeImportError, setScribeImportError] = useState<string>();
   const requestVersion = useRef(0);
   const loadingMore = useRef(false);
   const queryKey = JSON.stringify({ search, projectId, scope, sort });
@@ -127,6 +143,29 @@ export function useLibraryController(
   useEffect(() => {
     void load();
   }, [load]);
+
+  const loadScribeImports = useCallback(async () => {
+    try {
+      const result = await dependencies.listScribeMarkdownImports();
+      setScribeImports(result.jobs);
+      setScribeImportsLoaded(true);
+      setScribeImportError(undefined);
+    } catch (loadError) {
+      setScribeImportError(errorMessage(loadError));
+    }
+  }, [dependencies]);
+
+  useEffect(() => {
+    if (
+      !scribeImportsLoaded ||
+      !scribeImports.some(
+        (job) => job.status === "queued" || job.status === "processing",
+      )
+    )
+      return;
+    const timer = window.setInterval(() => void loadScribeImports(), 1_500);
+    return () => window.clearInterval(timer);
+  }, [loadScribeImports, scribeImports, scribeImportsLoaded]);
 
   async function loadMore() {
     if (loadingMore.current || guides.length >= total) return;
@@ -192,6 +231,43 @@ export function useLibraryController(
     }
   }
 
+  async function importScribeMarkdown(file?: File) {
+    if (!file) return;
+    setScribeImportBusy(true);
+    try {
+      const job = await dependencies.createScribeMarkdownImport({
+        markdown: await file.text(),
+        originalFilename: file.name,
+        projectId: projectId || undefined,
+      });
+      setScribeImports((current) => [
+        job,
+        ...current.filter((existing) => existing.id !== job.id),
+      ]);
+      setScribeImportsLoaded(true);
+      setScribeImportError(undefined);
+    } catch (importError) {
+      setScribeImportError(errorMessage(importError));
+    } finally {
+      setScribeImportBusy(false);
+    }
+  }
+
+  async function retryScribeImport(jobId: string) {
+    setScribeImportBusy(true);
+    try {
+      const job = await dependencies.retryScribeMarkdownImport(jobId);
+      setScribeImports((current) =>
+        current.map((existing) => (existing.id === job.id ? job : existing)),
+      );
+      setScribeImportError(undefined);
+    } catch (retryError) {
+      setScribeImportError(errorMessage(retryError));
+    } finally {
+      setScribeImportBusy(false);
+    }
+  }
+
   async function deleteGuide(guide: RecordingListItem) {
     const response = await dependencies.deleteRecording(guide.id);
     if (!response.ok) {
@@ -232,6 +308,13 @@ export function useLibraryController(
     setDeleteCandidate,
     addProject,
     importRecordingProject,
+    scribeImports,
+    scribeImportBusy,
+    scribeImportError,
+    loadScribeImports,
+    importScribeMarkdown,
+    retryScribeImport,
+    openImportedGuide: dependencies.openRecording,
     deleteGuide,
     restoreGuide,
   };

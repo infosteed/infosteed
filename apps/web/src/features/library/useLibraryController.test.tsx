@@ -177,4 +177,45 @@ describe("library controller", () => {
     await act(() => result.current.restoreGuide(guide));
     expect(api.restoreRecording).toHaveBeenCalledWith(guide.id);
   });
+
+  it("queues, reloads, and retries Scribe Markdown imports", async () => {
+    const api = libraryApiMocks();
+    const job = {
+      id: "00000000-0000-4000-8000-000000000090",
+      status: "queued" as const,
+      originalFilename: "guide.md",
+      sourceUrl: "https://scribehow.com/example",
+      totalImages: 2,
+      processedImages: 0,
+      downloadedImages: 0,
+      failedImages: [],
+      recordingId: null,
+      errorMessage: null,
+      createdAt: "2026-08-12T12:00:00.000Z",
+      updatedAt: "2026-08-12T12:00:00.000Z",
+      completedAt: null,
+    };
+    vi.mocked(api.createScribeMarkdownImport).mockResolvedValue(job);
+    vi.mocked(api.listScribeMarkdownImports).mockResolvedValue({ jobs: [job] });
+    vi.mocked(api.retryScribeMarkdownImport).mockResolvedValue(job);
+    const { result } = renderHook(() => useLibraryController(api));
+    await waitFor(() => expect(result.current.guides).toHaveLength(1));
+
+    await act(() => result.current.loadScribeImports());
+    expect(result.current.scribeImports).toEqual([job]);
+
+    const file = {
+      name: "guide.md",
+      text: async () => "# Guide\n\n1\\. Do it",
+    } as File;
+    await act(() => result.current.importScribeMarkdown(file));
+    expect(api.createScribeMarkdownImport).toHaveBeenCalledWith({
+      markdown: "# Guide\n\n1\\. Do it",
+      originalFilename: "guide.md",
+      projectId: undefined,
+    });
+
+    await act(() => result.current.retryScribeImport(job.id));
+    expect(api.retryScribeMarkdownImport).toHaveBeenCalledWith(job.id);
+  });
 });

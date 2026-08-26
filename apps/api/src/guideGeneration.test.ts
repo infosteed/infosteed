@@ -1,17 +1,28 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Recording } from "@infosteed/shared";
-import { generateGuideSteps } from "./guideGeneration.js";
+import { writeGuideOverview, writeStep } from "@infosteed/ai-step-writer";
+import { cleanupGuideEvents } from "./guideCleanup.js";
 import {
+  generateGuideSteps,
+  generateGuideStepsForCaptureSession,
+} from "./guideGeneration.js";
+import {
+  originalScreenshotsByEvent,
   screenshotsByEvent,
   updateRecordingSummary,
   upsertGeneratedStep,
 } from "./repositories/recordings.js";
 
 vi.mock("./repositories/recordings.js", () => ({
+  originalScreenshotsByEvent: vi.fn(),
   screenshotsByEvent: vi.fn(),
   updateRecordingSummary: vi.fn(),
   upsertGeneratedStep: vi.fn(),
+}));
+
+vi.mock("./guideCleanup.js", () => ({
+  cleanupGuideEvents: vi.fn(),
 }));
 
 vi.mock("@infosteed/ai-step-writer", () => ({
@@ -54,6 +65,12 @@ const event = {
   metadata: {},
 };
 
+const repeatedEvent = {
+  ...event,
+  id: "20000000-0000-4000-8000-000000000002",
+  ordinal: 1,
+};
+
 function recording(patch: Partial<Recording> = {}): Recording {
   return {
     id: "10000000-0000-4000-8000-000000000001",
@@ -76,6 +93,12 @@ describe("guide generation summaries", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(screenshotsByEvent).mockResolvedValue(new Map());
+    vi.mocked(originalScreenshotsByEvent).mockResolvedValue(new Map());
+    vi.mocked(cleanupGuideEvents).mockImplementation(async ({ events }) => ({
+      events,
+      excludedEventIds: new Set(),
+      stats: { candidates: 0, collapsed: 0, vetoed: 0, fallbacks: 0 },
+    }));
     vi.mocked(upsertGeneratedStep).mockResolvedValue({
       id: "30000000-0000-4000-8000-000000000001",
       recordingId: "10000000-0000-4000-8000-000000000001",
@@ -144,5 +167,92 @@ describe("guide generation summaries", () => {
     );
 
     expect(updateRecordingSummary).not.toHaveBeenCalled();
+    expect(cleanupGuideEvents).not.toHaveBeenCalled();
+  });
+
+  it("uses the cleaned sequence for steps, neighbors, and overview context", async () => {
+    const finalEvent = {
+      ...event,
+      id: "20000000-0000-4000-8000-000000000003",
+      ordinal: 2,
+      elementName: "Publish",
+    };
+    vi.mocked(cleanupGuideEvents).mockResolvedValue({
+      events: [repeatedEvent, finalEvent],
+      excludedEventIds: new Set([event.id]),
+      stats: { candidates: 1, collapsed: 1, vetoed: 0, fallbacks: 1 },
+    });
+
+    await generateGuideSteps(
+      { query: vi.fn() } as never,
+      recording({ events: [event, repeatedEvent, finalEvent] }),
+      undefined,
+      false,
+      [],
+      "en",
+      "overwrite",
+      { cleanupMode: "new-capture-cleanup" },
+    );
+
+    expect(cleanupGuideEvents).toHaveBeenCalledTimes(1);
+    expect(upsertGeneratedStep).toHaveBeenCalledTimes(2);
+    expect(upsertGeneratedStep).toHaveBeenNthCalledWith(
+      1,
+      expect.anything(),
+      expect.objectContaining({ eventId: repeatedEvent.id, ordinal: 0 }),
+    );
+    expect(vi.mocked(writeStep).mock.calls[0]?.[1]).toMatchObject({
+      current: repeatedEvent,
+      previous: undefined,
+      next: finalEvent,
+    });
+    expect(vi.mocked(writeGuideOverview).mock.calls.at(-1)?.[1].events).toEqual(
+      [
+        expect.objectContaining({ elementName: "Update" }),
+        expect.objectContaining({ elementName: "Publish" }),
+      ],
+    );
+  });
+
+  it("cleans only the newly appended capture session", async () => {
+    const sessionId = "40000000-0000-4000-8000-000000000001";
+    const existing = event;
+    const firstSessionEvent = {
+      ...repeatedEvent,
+      captureSessionId: sessionId,
+    };
+    const keptSessionEvent = {
+      ...repeatedEvent,
+      id: "20000000-0000-4000-8000-000000000004",
+      ordinal: 2,
+      captureSessionId: sessionId,
+    };
+    vi.mocked(cleanupGuideEvents).mockResolvedValue({
+      events: [keptSessionEvent],
+      excludedEventIds: new Set([firstSessionEvent.id]),
+      stats: { candidates: 1, collapsed: 1, vetoed: 0, fallbacks: 1 },
+    });
+
+    await generateGuideStepsForCaptureSession(
+      { query: vi.fn() } as never,
+      recording({ events: [existing, firstSessionEvent, keptSessionEvent] }),
+      sessionId,
+      undefined,
+      [],
+      "en",
+      "fill",
+      { cleanupMode: "new-capture-cleanup" },
+    );
+
+    expect(vi.mocked(cleanupGuideEvents).mock.calls[0]?.[0].events).toEqual([
+      firstSessionEvent,
+      keptSessionEvent,
+    ]);
+    expect(upsertGeneratedStep).toHaveBeenCalledTimes(1);
+    expect(upsertGeneratedStep).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ eventId: keptSessionEvent.id }),
+    );
+    expect(vi.mocked(writeStep).mock.calls[0]?.[1].previous).toEqual(existing);
   });
 });

@@ -64,6 +64,26 @@ const configSchema = z
       .int()
       .positive()
       .default(25_000_000),
+    SCRIBE_IMPORT_IMAGE_DELAY_MS: z.coerce
+      .number()
+      .int()
+      .nonnegative()
+      .default(750),
+    SCRIBE_IMPORT_IMAGE_MAX_BYTES: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(20 * 1024 * 1024),
+    SCRIBE_IMPORT_TOTAL_IMAGE_MAX_BYTES: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(100 * 1024 * 1024),
+    SCRIBE_IMPORT_IMAGE_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(30_000),
     TTS_BASE_URL: optionalUrlEnv,
     TTS_API_KEY: optionalEnv,
     TTS_MODEL: z.string().trim().min(1).default("kokoro"),

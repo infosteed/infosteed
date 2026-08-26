@@ -183,6 +183,10 @@ export class TranscriptionWorker {
               transcriptCues,
               job.outputLocale,
               latest.items.length === 0 ? "overwrite" : "fill",
+              {
+                cleanupMode: "new-capture-cleanup",
+                logger: this.log,
+              },
             );
         });
         if (job.createdByUserId) {
@@ -232,6 +236,10 @@ export class TranscriptionWorker {
                 [],
                 job.outputLocale,
                 latest.items.length === 0 ? "overwrite" : "fill",
+                {
+                  cleanupMode: "new-capture-cleanup",
+                  logger: this.log,
+                },
               );
           });
         }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import type { PoolClient } from "./db.js";
 import {
+  originalScreenshotsByEvent,
   screenshotsByEvent,
   updateRecordingSummary,
   upsertGeneratedStep,
@@ -19,8 +20,15 @@ import type {
   TranscriptSegment,
 } from "@infosteed/shared";
 import { transcriptAround } from "./transcriptContext.js";
+import { cleanupGuideEvents, type GuideCleanupLogger } from "./guideCleanup.js";
 
 export type GuideSummaryMode = "skip" | "fill" | "overwrite";
+export type GuideCleanupMode = "none" | "new-capture-cleanup";
+
+export interface GuideGenerationOptions {
+  cleanupMode?: GuideCleanupMode;
+  logger?: GuideCleanupLogger;
+}
 
 function overviewItems(
   recording: Recording,
@@ -55,6 +63,7 @@ async function generateGuideSummary(
   recording: Recording,
   provider: AiStepWriterProvider | undefined,
   steps: GuideStep[],
+  events: Recording["events"],
   outputLocale: OutputLocale,
   mode: GuideSummaryMode,
 ) {
@@ -69,7 +78,7 @@ async function generateGuideSummary(
     purpose: recording.purpose,
     audience: recording.audience,
     items: overviewItems(recording, steps),
-    events: recording.events.map((event) => ({
+    events: events.map((event) => ({
       actionType: event.actionType,
       pageTitle: event.pageTitle,
       elementName: event.elementName,
@@ -93,12 +102,28 @@ export async function generateGuideSteps(
   transcriptSegments: TranscriptSegment[] = [],
   outputLocale: OutputLocale = "en",
   summaryMode: GuideSummaryMode = "skip",
+  options: GuideGenerationOptions = {},
 ) {
   const screenshots = await screenshotsByEvent(client, recording.id);
+  let guideEvents = recording.events;
+  if (options.cleanupMode === "new-capture-cleanup") {
+    const cleanupScreenshots = await originalScreenshotsByEvent(
+      client,
+      recording.id,
+    );
+    guideEvents = (
+      await cleanupGuideEvents({
+        events: recording.events,
+        screenshots: cleanupScreenshots,
+        provider,
+        logger: options.logger,
+      })
+    ).events;
+  }
   const steps = [];
 
-  for (let index = 0; index < recording.events.length; index += 1) {
-    const current = recording.events[index];
+  for (let index = 0; index < guideEvents.length; index += 1) {
+    const current = guideEvents[index];
     const screenshot = screenshots.get(current.id);
     const screenshotDataUrl = screenshot
       ? await prepareAiScreenshotDataUrl(screenshot.annotated_image)
@@ -108,8 +133,8 @@ export async function generateGuideSteps(
       workflowPurpose: recording.purpose,
       audience: recording.audience,
       current,
-      previous: recording.events[index - 1],
-      next: recording.events[index + 1],
+      previous: guideEvents[index - 1],
+      next: guideEvents[index + 1],
       ...transcriptAround(transcriptSegments, current.videoOffsetMs),
       screenshotDataUrl,
     });
@@ -134,6 +159,7 @@ export async function generateGuideSteps(
     recording,
     provider,
     steps,
+    guideEvents,
     outputLocale,
     summaryMode,
   );
@@ -149,11 +175,29 @@ export async function generateGuideStepsForCaptureSession(
   transcriptSegments: TranscriptSegment[] = [],
   outputLocale: OutputLocale = "en",
   summaryMode: GuideSummaryMode = "skip",
+  options: GuideGenerationOptions = {},
 ) {
   const screenshots = await screenshotsByEvent(client, recording.id);
-  const sessionEvents = recording.events.filter(
+  let sessionEvents = recording.events.filter(
     (event) => event.captureSessionId === captureSessionId,
   );
+  let contextEvents = recording.events;
+  if (options.cleanupMode === "new-capture-cleanup") {
+    const cleanupScreenshots = await originalScreenshotsByEvent(
+      client,
+      recording.id,
+    );
+    const cleanup = await cleanupGuideEvents({
+      events: sessionEvents,
+      screenshots: cleanupScreenshots,
+      provider,
+      logger: options.logger,
+    });
+    sessionEvents = cleanup.events;
+    contextEvents = recording.events.filter(
+      (event) => !cleanup.excludedEventIds.has(event.id),
+    );
+  }
   const steps = [];
   let appendOrdinal =
     recording.items.length > 0
@@ -161,7 +205,7 @@ export async function generateGuideStepsForCaptureSession(
       : 0;
 
   for (const current of sessionEvents) {
-    const eventIndex = recording.events.findIndex(
+    const eventIndex = contextEvents.findIndex(
       (event) => event.id === current.id,
     );
     const screenshot = screenshots.get(current.id);
@@ -173,8 +217,8 @@ export async function generateGuideStepsForCaptureSession(
       workflowPurpose: recording.purpose,
       audience: recording.audience,
       current,
-      previous: recording.events[eventIndex - 1],
-      next: recording.events[eventIndex + 1],
+      previous: contextEvents[eventIndex - 1],
+      next: contextEvents[eventIndex + 1],
       ...transcriptAround(transcriptSegments, current.videoOffsetMs),
       screenshotDataUrl,
     });
@@ -199,6 +243,7 @@ export async function generateGuideStepsForCaptureSession(
     recording,
     provider,
     steps,
+    contextEvents,
     outputLocale,
     summaryMode,
   );

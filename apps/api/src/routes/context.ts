@@ -18,6 +18,10 @@ export interface AuthenticatedRouteContext extends ApiRouteContext {
     request: FastifyRequest,
     projectId: string,
   ): Promise<unknown>;
+  requireProjectWrite(
+    request: FastifyRequest,
+    projectId: string,
+  ): Promise<unknown>;
   requireProjectManage(
     request: FastifyRequest,
     projectId: string,

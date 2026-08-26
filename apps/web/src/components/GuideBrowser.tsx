@@ -38,6 +38,7 @@ import { recordingUrl } from "../navigation";
 import { BrandMark, productLogoUrl } from "./BrandMark";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { LanguageSelect } from "./LanguageSelect";
+import { ScribeMarkdownImportDialog } from "./ScribeMarkdownImportDialog";
 import { ActionMenu } from "./design/ActionMenu";
 import { AppShell } from "./design/AppShell";
 import { EmptyState } from "./design/EmptyState";
@@ -318,11 +319,19 @@ export function GuideBrowser({
     setDeleteCandidate,
     addProject,
     importRecordingProject,
+    scribeImports,
+    scribeImportBusy,
+    scribeImportError,
+    loadScribeImports,
+    importScribeMarkdown,
+    retryScribeImport,
+    openImportedGuide,
     deleteGuide,
     restoreGuide,
   } = useLibraryController();
   const [securityOpen, setSecurityOpen] = useState(false);
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
   const libraryView = new URLSearchParams(window.location.search).get(
@@ -389,6 +398,18 @@ export function GuideBrowser({
         {securityOpen && (
           <AccountSecurityDialog onClose={() => setSecurityOpen(false)} />
         )}
+        <ScribeMarkdownImportDialog
+          open={importDialogOpen}
+          onOpenChange={setImportDialogOpen}
+          jobs={scribeImports}
+          busy={scribeImportBusy}
+          error={scribeImportError}
+          onLoad={loadScribeImports}
+          onImportProject={() => importInputRef.current?.click()}
+          onImportScribe={importScribeMarkdown}
+          onRetry={retryScribeImport}
+          onOpenGuide={openImportedGuide}
+        />
         <PageHeader
           eyebrow={t("Library")}
           title={pageTitle}
@@ -406,10 +427,10 @@ export function GuideBrowser({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => importInputRef.current?.click()}
+                onClick={() => setImportDialogOpen(true)}
               >
                 <Import className="size-4" />
-                {t("Import Project")}
+                {t("Import")}
               </Button>
               <Dialog
                 open={projectDialogOpen}

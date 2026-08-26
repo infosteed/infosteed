@@ -118,6 +118,34 @@ describe("recorder core privacy and normalization", () => {
     });
   });
 
+  it("preserves optional capture timing and exact click position", () => {
+    const [event] = normalizeRawEvents([
+      {
+        actionType: "click",
+        timestamp: 1_725_000_000_123,
+        pageTitle: "Map",
+        url: "https://example.com/map",
+        element: { tagName: "button", text: "Update" },
+        clickPoint: {
+          x: 420,
+          y: 180,
+          viewportWidth: 1440,
+          viewportHeight: 900,
+        },
+      },
+    ]);
+
+    expect(event.metadata?.capture).toEqual({
+      timestampMs: 1_725_000_000_123,
+      clickPoint: {
+        x: 420,
+        y: 180,
+        viewportWidth: 1440,
+        viewportHeight: 900,
+      },
+    });
+  });
+
   it("does not retain typed values", () => {
     const [event] = normalizeRawEvents([
       {

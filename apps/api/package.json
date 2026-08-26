@@ -22,6 +22,8 @@
     "@infosteed/shared": "workspace:*",
     "@node-rs/argon2": "^2.0.2",
     "fastify": "^5.11.2",
+    "ipaddr.js": "^2.2.0",
+    "mdast-util-from-markdown": "^2.0.2",
     "otpauth": "^9.5.1",
     "pg": "^8.12.0",
     "playwright": "1.62.1",

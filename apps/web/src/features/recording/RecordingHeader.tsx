@@ -30,6 +30,7 @@ import { LanguageSelect } from "../../components/LanguageSelect";
 import { GuideIconButton } from "../guide/GuideIconButton";
 import { t } from "../../i18n";
 import { openRecording, type RecordingView } from "../../navigation";
+import { ConfluenceExportDialog } from "./ConfluenceExportDialog";
 import type { RecordingController } from "./useRecordingController";
 
 export function RecordingHeader({
@@ -40,6 +41,7 @@ export function RecordingHeader({
   contentView: RecordingView;
 }) {
   const [wordTemplates, setWordTemplates] = useState<WordTemplateSummary[]>([]);
+  const [confluenceExportOpen, setConfluenceExportOpen] = useState(false);
   useEffect(() => {
     void listWordTemplates()
       .then((result) => setWordTemplates(result.templates))
@@ -228,6 +230,14 @@ export function RecordingHeader({
                 <a href={projectExportUrl(recording.id)}>{t("Project")}</a>
                 <a href={htmlExportUrl(recording.id)}>HTML</a>
                 <a href={wiziwigExportUrl(recording.id)}>Wiziwig</a>
+                <button
+                  onClick={() => {
+                    headerMoreRef.current?.removeAttribute("open");
+                    setConfluenceExportOpen(true);
+                  }}
+                >
+                  {t("Confluence (DOCX)")}
+                </button>
                 <a href={wordExportUrl(recording.id)}>
                   {wordTemplates.find((template) => template.isDefault)
                     ? t("Word — {name}", {
@@ -303,6 +313,11 @@ export function RecordingHeader({
           </>
         )}
       </div>
+      <ConfluenceExportDialog
+        recordingId={recording.id}
+        open={confluenceExportOpen}
+        onOpenChange={setConfluenceExportOpen}
+      />
     </header>
   );
 }

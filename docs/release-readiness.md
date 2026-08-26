@@ -29,6 +29,7 @@ Beta.13 must not be published until the release owner has retained evidence that
 - validated web and extension locale selection, English fallback, placeholders, plural forms, and right-to-left direction with a non-production test catalog;
 - exercised the redesigned library, project, shared, trash, administration, guide, recording, and video-editor layouts at desktop and responsive widths;
 - uploaded, inspected, selected, exported with, and deleted Word templates, including rejection of malformed, unsafe, oversized, macro-enabled, and externally linked documents;
+- downloaded the guided Confluence DOCX export and imported it into a disposable Confluence page, checking headings, steps, callouts, screenshots, and permissions;
 - tested transcription, voiceover, and rendering through success, failure, retry, restart, and cache reuse;
 - restored a realistic backup after rebuilding the deployment and compared database records with stored objects;
 - verified the signed tag and successful Publish release workflow for the same candidate commit;

@@ -1,10 +1,10 @@
 # Official release status
 
-`v0.1.0-beta.13` is an unpublished InfoSteed release candidate. Beta.12 and earlier beta tags are unpublished, superseded candidates; do not treat them or an untagged checkout as supported.
+`v0.1.0-beta.14` is an unpublished InfoSteed release candidate. Beta.13 and earlier beta tags are unpublished, superseded candidates; do not treat them or an untagged checkout as supported.
 
-The repository already includes the application, dual GHCR/source-build production Compose configuration, Chrome extension packaging for beta.13, backup tools, automated checks, and tag-triggered release workflow.
+The repository already includes the application, dual GHCR/source-build production Compose configuration, Chrome extension packaging for beta.14, backup tools, automated checks, and tag-triggered release workflow.
 
-The beta.13 release sequence is documented in [`release-process.md`](release-process.md): successful CI and CodeQL on the candidate commit, a manual Container security rehearsal on that same commit, a signed immutable tag, verification of the generated draft and published image digests, a private soak, and publication of the existing draft.
+The beta.14 release sequence is documented in [`release-process.md`](release-process.md): successful CI and CodeQL on the candidate commit, a manual Container security rehearsal on that same commit, a signed immutable tag, verification of the generated draft and published image digests, a private soak, and publication of the existing draft.
 
 ## What remains before publication
 
@@ -20,7 +20,7 @@ These are publication controls, not settings required to run InfoSteed locally o
 
 ## Release and deployment evidence
 
-Beta.13 must not be published until the release owner has retained evidence that they have:
+Beta.14 must not be published until the release owner has retained evidence that they have:
 
 - recorded successful CI, CodeQL, and manual Container security workflow URLs for the exact candidate commit;
 - confirmed that the rehearsal completed the dependency audit, full-history secret scan, extension SBOM, four image builds, four container SBOMs, and all high/critical vulnerability gates without publishing an image;
@@ -33,11 +33,11 @@ Beta.13 must not be published until the release owner has retained evidence that
 - tested transcription, voiceover, and rendering through success, failure, retry, restart, and cache reuse;
 - restored a realistic backup after rebuilding the deployment and compared database records with stored objects;
 - verified the signed tag and successful Publish release workflow for the same candidate commit;
-- confirmed that the workflow-created draft contains only the beta.13 Chrome extension packages, checksums, SBOM, deployment bundle, `production-images.env`, and `SHA256SUMS` without deleting or recreating the draft;
+- confirmed that the workflow-created draft contains only the beta.14 Chrome extension packages, checksums, SBOM, deployment bundle, `production-images.env`, and `SHA256SUMS` without deleting or recreating the draft;
 - scanned and signed the final images, verified their SBOMs and provenance, recorded all four immutable digests, and tested anonymous access after making the packages public;
 - tested both GHCR and source-build installation paths from the candidate artifacts;
 - completed a one-week private installation soak.
 
-The resulting evidence must identify the beta.13 release commit and immutable image digests. Beta.13 upgrade validation covers beta.1 through beta.12. The beta.1 path must include removal of its temporary Compose and internal-TLS workarounds.
+The resulting evidence must identify the beta.14 release commit and immutable image digests. Beta.14 upgrade validation covers beta.1 through beta.13. The beta.1 path must include removal of its temporary Compose and internal-TLS workarounds.
 
-Do not move or recreate the beta.12 tag, overwrite its images, or publish its draft as the supported beta. Retain the beta.12 draft as unpublished and mark it superseded. The same immutability rule applies to every earlier candidate tag and image.
+Do not move or recreate the beta.13 tag, overwrite its images, or publish its draft as the supported beta. Retain the beta.13 draft as unpublished and mark it superseded. The same immutability rule applies to every earlier candidate tag and image.

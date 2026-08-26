@@ -83,11 +83,11 @@ not trapped in a single viewing experience.
 ## Self-hosted deployment
 
 InfoSteed runs on your own infrastructure, where your recordings, screenshots,
-transcripts, and other media remain under your control. The current release
-candidate, `v0.1.0-beta.13`, has not been published, and it replaces all earlier
-beta tags. Start with the [deployment guide](docs/deployment.md), and check the
-[release readiness page](docs/release-readiness.md) before using InfoSteed in
-production.
+transcripts, and other media remain under your control.
+`v0.1.0-beta.14` is an unpublished InfoSteed release candidate. Beta.13 and
+earlier beta tags were superseded without public publication. Start with the
+[deployment guide](docs/deployment.md), and check the [release readiness
+page](docs/release-readiness.md) before using InfoSteed in production.
 
 ## Explore the project
 

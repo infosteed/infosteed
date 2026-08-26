@@ -4,9 +4,16 @@ All notable changes are documented here. The project uses Semantic Versioning on
 
 ## [Unreleased]
 
+## [0.1.0-beta.14] - 2026-08-26
+
 ### Added
 
 - Added a guided Confluence DOCX export that reuses the standard Word document for manual import without requiring an Atlassian connection.
+- Added background Scribe Markdown imports that securely copy remotely hosted screenshots into locally stored guides with progress, retries, and bounded failure handling.
+
+### Changed
+
+- Improved generated guide cleanup by using capture timing, click position, target overlap, screenshot comparison, and optional AI classification to collapse duplicate click steps conservatively.
 
 ## [0.1.0-beta.13] - 2026-08-10
 

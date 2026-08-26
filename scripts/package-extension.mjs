@@ -45,12 +45,18 @@ function list(directory, prefix = "") {
     });
 }
 
-async function zipDirectory(directory) {
+async function zipDirectory(directory, { omitManifestKey = false } = {}) {
   const files = list(directory);
   const zip = new JSZip();
   const fixedDate = new Date("1980-01-01T00:00:00.000Z");
   for (const file of files) {
-    zip.file(file.relative, readFileSync(file.absolute), {
+    let contents = readFileSync(file.absolute);
+    if (omitManifestKey && file.relative === "manifest.json") {
+      const manifest = JSON.parse(contents.toString("utf8"));
+      delete manifest.key;
+      contents = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`);
+    }
+    zip.file(file.relative, contents, {
       date: fixedDate,
       createFolders: false,
     });
@@ -113,14 +119,17 @@ if (!chromeOnly) assertSignedFirefoxPackage();
 mkdirSync(artifacts, { recursive: true });
 rmSync(path.join(artifacts, "firefox-offline.xpi"), { force: true });
 
-const chromePackage = await zipDirectory(chromeDist);
+const chromeOfflinePackage = await zipDirectory(chromeDist);
+const chromeStorePackage = await zipDirectory(chromeDist, {
+  omitManifestKey: true,
+});
 const written = [
-  writeArtifact("extension-offline.zip", chromePackage.bytes),
-  writeArtifact("extension-store.zip", chromePackage.bytes),
+  writeArtifact("extension-offline.zip", chromeOfflinePackage.bytes),
+  writeArtifact("extension-store.zip", chromeStorePackage.bytes),
 ];
 const contents = [
   "[chrome]",
-  ...chromePackage.files.map((file) => file.relative),
+  ...chromeOfflinePackage.files.map((file) => file.relative),
 ];
 
 if (!chromeOnly) {

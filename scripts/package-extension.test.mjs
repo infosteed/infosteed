@@ -32,6 +32,14 @@ async function writeDist(root, target, manifest) {
   await writeFile(path.join(directory, "LICENSE"), "AGPL");
 }
 
+async function readZipManifest(bytes) {
+  const contents = await JSZip.loadAsync(bytes).then((zip) =>
+    zip.file("manifest.json")?.async("string"),
+  );
+  assert.ok(contents);
+  return JSON.parse(contents);
+}
+
 test("packages Chrome and Firefox extension artifacts with checksums", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "infosteed-package-"));
   try {
@@ -61,7 +69,9 @@ test("packages Chrome and Firefox extension artifacts with checksums", async () 
     const firefox = await readFile(
       path.join(root, "artifacts/firefox-offline.xpi"),
     );
-    assert.deepEqual(store, chrome);
+    assert.equal((await readZipManifest(chrome)).key, "release-key");
+    assert.equal("key" in (await readZipManifest(store)), false);
+    assert.notDeepEqual(store, chrome);
     assert.equal(
       await JSZip.loadAsync(firefox).then((zip) =>
         zip.file("background.js")?.async("string"),
@@ -116,6 +126,8 @@ test("Chrome-only packaging removes every stale Firefox release reference", asyn
     const store = await readFile(
       path.join(root, "artifacts/extension-store.zip"),
     );
+    assert.equal((await readZipManifest(chrome)).key, "release-key");
+    assert.equal("key" in (await readZipManifest(store)), false);
     await assert.rejects(
       access(path.join(root, "artifacts/firefox-offline.xpi")),
     );

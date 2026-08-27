@@ -10,6 +10,9 @@ import { buildApp } from "./app";
 import { readConfig } from "./config";
 import type { Pool } from "./db";
 import type { VideoStorage } from "./videoStorage";
+import { csrfTokenForSession } from "./repositories/auth";
+
+const TEST_CSRF_TOKEN = csrfTokenForSession("session");
 
 const storage: VideoStorage = {
   enabled: false,
@@ -96,17 +99,8 @@ function testPool(
         return {
           rows: [{ ...user, theme_preference: values?.[1] }],
         };
-      if (sql.includes("select csrf_token_hash from sessions")) {
-        return {
-          rows: [
-            {
-              csrf_token_hash: csrfToken
-                ? createHash("sha256").update(csrfToken).digest("base64url")
-                : null,
-            },
-          ],
-        };
-      }
+      if (sql.includes("select true as active from sessions"))
+        return { rows: csrfToken ? [{ active: true }] : [] };
       if (sql.includes("select r.owner_user_id, pm.role")) {
         return {
           rows: [
@@ -423,7 +417,7 @@ describe("API request boundaries", () => {
   });
 
   it("lets administrators delete users and owned recording storage", async () => {
-    const csrfToken = "delete-user-csrf";
+    const csrfToken = TEST_CSRF_TOKEN;
     const deletedObjects: string[] = [];
     const app = appFor("admin", csrfToken, {
       ...storage,
@@ -522,7 +516,7 @@ describe("API request boundaries", () => {
   });
 
   it("restricts Word template uploads to administrators", async () => {
-    const token = "test-csrf-token";
+    const token = TEST_CSRF_TOKEN;
     const app = appFor("user", token);
     openApps.push(app);
     const response = await app.inject({
@@ -540,7 +534,7 @@ describe("API request boundaries", () => {
   });
 
   it("validates uploaded Word packages", async () => {
-    const token = "test-csrf-token";
+    const token = TEST_CSRF_TOKEN;
     const app = appFor("admin", token);
     openApps.push(app);
     const response = await app.inject({
@@ -571,7 +565,7 @@ describe("API request boundaries", () => {
   });
 
   it("validates route input after authentication and CSRF checks", async () => {
-    const token = "test-csrf-token";
+    const token = TEST_CSRF_TOKEN;
     const app = appFor("admin", token);
     openApps.push(app);
     const response = await app.inject({
@@ -587,7 +581,7 @@ describe("API request boundaries", () => {
   });
 
   it("updates the current user's theme preference", async () => {
-    const token = "test-csrf-token";
+    const token = TEST_CSRF_TOKEN;
     const app = appFor("user", token);
     openApps.push(app);
     const response = await app.inject({
@@ -605,7 +599,7 @@ describe("API request boundaries", () => {
   });
 
   it("rejects invalid theme preferences", async () => {
-    const token = "test-csrf-token";
+    const token = TEST_CSRF_TOKEN;
     const app = appFor("user", token);
     openApps.push(app);
     const response = await app.inject({

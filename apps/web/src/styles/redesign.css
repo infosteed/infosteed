@@ -1040,6 +1040,35 @@ a:focus-visible {
   gap: 4px;
 }
 
+.empty-guide-warning {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  margin: 16px 28px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius);
+  background: var(--warning-surface);
+  color: var(--warning-foreground);
+}
+
+.empty-guide-warning > svg {
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+}
+
+.empty-guide-warning strong {
+  display: block;
+}
+
+.empty-guide-warning p {
+  margin: 2px 0 0;
+  color: inherit;
+  font-size: 13px;
+}
+
 .recording-workspace-container {
   min-width: 0;
   container-name: recording-workspace;

@@ -39,6 +39,10 @@ main {
   gap: 8px;
 }
 
+.language-select-content {
+  background-color: hsl(var(--surface));
+}
+
 header {
   position: sticky;
   top: 0;

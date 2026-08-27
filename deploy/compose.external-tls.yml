@@ -1,0 +1,7 @@
+services:
+  caddy:
+    volumes:
+      - type: bind
+        source: ${TLS_CERT_HOST_PATH:?Set TLS_CERT_HOST_PATH when TLS_MODE=external}
+        target: /certs
+        read_only: true

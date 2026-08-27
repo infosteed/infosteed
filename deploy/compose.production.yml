@@ -10,6 +10,8 @@ services:
     environment:
       APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN}
       ACME_EMAIL: ${ACME_EMAIL:-}
+      TLS_CERT_FILE: ${TLS_CERT_FILE:-/certs/fullchain.pem}
+      TLS_KEY_FILE: ${TLS_KEY_FILE:-/certs/key.pem}
     ports:
       - "80:80"
       - "443:443"

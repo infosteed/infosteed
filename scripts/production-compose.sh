@@ -68,18 +68,69 @@ production_append_profile() {
   esac
 }
 
+production_external_tls_host_file() {
+  local container_path=$1
+  local name=$2
+  [[ $container_path == /certs/* ]] || {
+    production_die "$name must be an absolute path below /certs"
+    return 1
+  }
+  local relative_path=${container_path#/certs/}
+  [[ -n $relative_path && /$relative_path/ != */../* ]] || {
+    production_die "$name must not escape /certs"
+    return 1
+  }
+  printf '%s/%s\n' "${TLS_CERT_HOST_PATH%/}" "$relative_path"
+}
+
+production_configure_external_tls() {
+  TLS_CERT_FILE=${TLS_CERT_FILE:-/certs/fullchain.pem}
+  TLS_KEY_FILE=${TLS_KEY_FILE:-/certs/key.pem}
+  [[ -n ${TLS_CERT_HOST_PATH:-} ]] || {
+    production_die "TLS_CERT_HOST_PATH is required when TLS_MODE=external"
+    return 1
+  }
+  [[ $TLS_CERT_HOST_PATH == /* ]] || {
+    production_die "TLS_CERT_HOST_PATH must be an absolute host directory"
+    return 1
+  }
+  [[ -d $TLS_CERT_HOST_PATH ]] || {
+    production_die "TLS_CERT_HOST_PATH is not a directory: $TLS_CERT_HOST_PATH"
+    return 1
+  }
+
+  local certificate key
+  certificate=$(production_external_tls_host_file "$TLS_CERT_FILE" TLS_CERT_FILE) || return 1
+  key=$(production_external_tls_host_file "$TLS_KEY_FILE" TLS_KEY_FILE) || return 1
+  [[ $certificate != "$key" ]] || {
+    production_die "TLS_CERT_FILE and TLS_KEY_FILE must identify different files"
+    return 1
+  }
+  [[ -f $certificate ]] || {
+    production_die "external TLS certificate is missing: $certificate"
+    return 1
+  }
+  [[ -f $key ]] || {
+    production_die "external TLS private key is missing: $key"
+    return 1
+  }
+}
+
 production_configure_modes() {
   local requested_profiles=${COMPOSE_PROFILES:-}
   TLS_MODE=${TLS_MODE:-public}
-  [[ $TLS_MODE == public || $TLS_MODE == internal ]] || {
-    production_die "TLS_MODE must be public or internal"
-    return 1
-  }
-  if [[ $TLS_MODE == internal ]]; then
-    CADDY_CONFIG_FILE=./Caddyfile.internal
-  else
-    CADDY_CONFIG_FILE=./Caddyfile
-  fi
+  case $TLS_MODE in
+    public) CADDY_CONFIG_FILE=./Caddyfile ;;
+    internal) CADDY_CONFIG_FILE=./Caddyfile.internal ;;
+    external)
+      CADDY_CONFIG_FILE=./Caddyfile.external
+      production_configure_external_tls || return 1
+      ;;
+    *)
+      production_die "TLS_MODE must be public, internal, or external"
+      return 1
+      ;;
+  esac
 
   if [[ -z ${LLM_MODE:-} ]]; then
     if [[ ,$requested_profiles, == *,llm-local,* ]]; then
@@ -156,7 +207,7 @@ production_configure_modes() {
     off) TTS_BASE_URL=; TTS_API_KEY= ;;
   esac
 
-  export TLS_MODE CADDY_CONFIG_FILE COMPOSE_PROFILES
+  export TLS_MODE CADDY_CONFIG_FILE TLS_CERT_HOST_PATH TLS_CERT_FILE TLS_KEY_FILE COMPOSE_PROFILES
   export LLM_MODE AI_PROVIDER AI_ENDPOINT AI_API_KEY AI_MODEL
   export TRANSCRIPTION_MODE TRANSCRIPTION_ENDPOINT TRANSCRIPTION_API_KEY TRANSCRIPTION_MODEL
   export VOICEOVER_MODE TTS_BASE_URL TTS_API_KEY
@@ -193,6 +244,9 @@ production_load_compose() {
       compose_paths+=(deploy/compose.build.yml)
     fi
   fi
+  if [[ $TLS_MODE == external ]]; then
+    compose_paths+=(deploy/compose.external-tls.yml)
+  fi
 
   production_compose=(docker compose --env-file "$production_env_file")
   local compose_path
@@ -209,6 +263,12 @@ production_prepare_images() {
   else
     "${production_compose[@]}" pull
   fi
+}
+
+production_validate_external_tls_container() {
+  [[ ${TLS_MODE:-public} == external ]] || return 0
+  "${production_compose[@]}" run --rm --no-deps caddy \
+    caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 }
 
 production_start() {

@@ -40,6 +40,13 @@ else
   note "2FA enrollment is disabled"
 fi
 if "${production_compose[@]}" config --quiet; then pass "Compose configuration is valid"; else fail "Compose configuration is invalid"; fi
+if [[ $TLS_MODE == external ]]; then
+  if production_validate_external_tls_container >/dev/null; then
+    pass "external certificate and key are readable by hardened Caddy"
+  else
+    fail "external certificate or key is invalid or unreadable by hardened Caddy"
+  fi
+fi
 
 note "Configured modes: TLS=$TLS_MODE LLM=$LLM_MODE transcription=$TRANSCRIPTION_MODE voiceover=$VOICEOVER_MODE"
 "${production_compose[@]}" ps -a || fail "container state could not be read"

@@ -25,6 +25,7 @@ production_load_compose
 
 required=(RELEASE_VERSION RELEASE_COMMIT APP_DOMAIN EXTENSION_ORIGINS SETUP_TOKEN POSTGRES_PASSWORD MINIO_ROOT_USER MINIO_ROOT_PASSWORD S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY)
 [[ $TLS_MODE == public ]] && required+=(ACME_EMAIL)
+[[ $TLS_MODE == external ]] && required+=(TLS_CERT_HOST_PATH TLS_CERT_FILE TLS_KEY_FILE)
 [[ $IMAGE_SOURCE == build ]] && required+=(LOCAL_IMAGE_TAG)
 for name in "${required[@]}"; do
   [[ -n ${!name:-} ]] || production_die "$name is required in $production_env_file"
@@ -33,6 +34,7 @@ done
 
 production_assert_checkout "$IMAGE_SOURCE" "$RELEASE_VERSION" "$RELEASE_COMMIT" "$allow_dirty"
 production_prepare_images
+production_validate_external_tls_container
 
 if [[ $prepare_only == true ]]; then
   printf 'Images prepared for InfoSteed %s.\n' "$RELEASE_VERSION"

@@ -123,6 +123,13 @@ if grep -q -- '--cacert' "$CURL_LOG"; then
   echo "public TLS host verification unexpectedly used a private CA" >&2
   exit 1
 fi
+(
+  # shellcheck source=production-compose.sh
+  source "$script_dir/production-compose.sh"
+  production_load_compose
+  [[ $CADDY_CONFIG_FILE == ./Caddyfile ]]
+  [[ " ${production_compose[*]} " != *" compose.external-tls.yml "* ]]
+)
 
 for curl_mode in certificate_error http_503 wrong_product wrong_release wrong_commit wrong_web; do
   verify_output="$test_root/verify-$curl_mode.log"
@@ -185,6 +192,77 @@ grep -q '^TLS_MODE=internal$' "$internal_env"
 grep -q '^ACME_EMAIL=$' "$internal_env"
 test -f "$internal_ca"
 grep -q -- "--resolve internal.example.test:443:127.0.0.1.*--cacert $internal_ca" "$CURL_LOG"
+(
+  # shellcheck source=production-compose.sh
+  source "$script_dir/production-compose.sh"
+  ENV_FILE="$internal_env" production_load_compose
+  [[ $CADDY_CONFIG_FILE == ./Caddyfile.internal ]]
+  [[ " ${production_compose[*]} " != *" compose.external-tls.yml "* ]]
+)
+
+external_certs="$test_root/external-certs"
+mkdir -p "$external_certs"
+printf 'test full chain\n' >"$external_certs/fullchain.pem"
+printf 'test private key\n' >"$external_certs/key.pem"
+chmod 644 "$external_certs/fullchain.pem"
+chmod 640 "$external_certs/key.pem"
+external_env="$test_root/external-tls-production.env"
+ENV_FILE="$external_env" "$script_dir/install-production.sh" \
+  --source build --allow-dirty --tls external \
+  --tls-cert-host-path "$external_certs" \
+  --domain external.example.test \
+  --extension-origin chrome-extension://abcdefghijklmnopabcdefghijklmnop >/dev/null
+grep -q '^TLS_MODE=external$' "$external_env"
+grep -Fqx "TLS_CERT_HOST_PATH=$external_certs" "$external_env"
+grep -q '^TLS_CERT_FILE=/certs/fullchain.pem$' "$external_env"
+grep -q '^TLS_KEY_FILE=/certs/key.pem$' "$external_env"
+(
+  # shellcheck source=production-compose.sh
+  source "$script_dir/production-compose.sh"
+  ENV_FILE="$external_env" production_load_compose
+  [[ $CADDY_CONFIG_FILE == ./Caddyfile.external ]]
+  [[ " ${production_compose[*]} " == *" -f deploy/compose.external-tls.yml "* ]]
+)
+grep -q -- 'run --rm --no-deps caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile' "$DOCKER_LOG"
+ENV_FILE="$external_env" "$script_dir/restart-production-proxy.sh" >/dev/null
+grep -q -- '-f deploy/compose.external-tls.yml restart caddy' "$DOCKER_LOG"
+external_doctor_env="$test_root/external-doctor-production.env"
+sed 's/^APP_DOMAIN=.*/APP_DOMAIN=localhost/' "$external_env" >"$external_doctor_env"
+chmod 600 "$external_doctor_env"
+ENV_FILE="$external_doctor_env" "$script_dir/doctor-production.sh" >"$test_root/external-doctor.log"
+grep -q 'external certificate and key are readable by hardened Caddy' "$test_root/external-doctor.log"
+
+missing_external_path_env="$test_root/missing-external-path.env"
+sed 's|^TLS_CERT_HOST_PATH=.*|TLS_CERT_HOST_PATH=|' "$external_env" >"$missing_external_path_env"
+chmod 600 "$missing_external_path_env"
+if ENV_FILE="$missing_external_path_env" "$script_dir/deploy-production.sh" --allow-dirty >/dev/null 2>&1; then
+  echo "deploy-production.sh accepted external TLS without TLS_CERT_HOST_PATH" >&2
+  exit 1
+fi
+
+invalid_external_file_env="$test_root/invalid-external-file.env"
+sed 's|^TLS_CERT_FILE=.*|TLS_CERT_FILE=/outside/fullchain.pem|' "$external_env" >"$invalid_external_file_env"
+chmod 600 "$invalid_external_file_env"
+if ENV_FILE="$invalid_external_file_env" "$script_dir/deploy-production.sh" --allow-dirty >/dev/null 2>&1; then
+  echo "deploy-production.sh accepted a certificate path outside /certs" >&2
+  exit 1
+fi
+
+missing_external_key_env="$test_root/missing-external-key.env"
+sed 's|^TLS_KEY_FILE=.*|TLS_KEY_FILE=/certs/missing-key.pem|' "$external_env" >"$missing_external_key_env"
+chmod 600 "$missing_external_key_env"
+if ENV_FILE="$missing_external_key_env" "$script_dir/deploy-production.sh" --allow-dirty >/dev/null 2>&1; then
+  echo "deploy-production.sh accepted a missing external TLS private key" >&2
+  exit 1
+fi
+
+invalid_tls_mode_env="$test_root/invalid-tls-mode.env"
+sed 's/^TLS_MODE=.*/TLS_MODE=unsupported/' "$external_env" >"$invalid_tls_mode_env"
+chmod 600 "$invalid_tls_mode_env"
+if ENV_FILE="$invalid_tls_mode_env" "$script_dir/deploy-production.sh" --allow-dirty >/dev/null 2>&1; then
+  echo "deploy-production.sh accepted an unsupported TLS mode" >&2
+  exit 1
+fi
 
 ENV_FILE="$ENV_FILE" "$script_dir/configure-ai-services.sh" \
   --llm managed --llm-model qwen3-vl:8b --llm-gpu 0 \

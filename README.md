@@ -84,7 +84,7 @@ not trapped in a single viewing experience.
 
 InfoSteed runs on your own infrastructure, where your recordings, screenshots,
 transcripts, and other media remain under your control.
-`v0.1.0-beta.14` is an unpublished InfoSteed release candidate. Beta.13 and
+`v0.1.0-beta.15` is an unpublished InfoSteed release candidate. Beta.14 and
 earlier beta tags were superseded without public publication. Start with the
 [deployment guide](docs/deployment.md), and check the [release readiness
 page](docs/release-readiness.md) before using InfoSteed in production.

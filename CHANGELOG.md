@@ -4,7 +4,20 @@ All notable changes are documented here. The project uses Semantic Versioning on
 
 ## [Unreleased]
 
+## [0.1.0-beta.15] - 2026-08-27
+
+### Added
+
+- Added externally managed TLS certificate support for private and LAN deployments, including installer validation, diagnostics, and safe proxy restarts.
+
+### Fixed
+
+- Prevented the web editor and recorder extension from invalidating each other's CSRF tokens when recording InfoSteed itself through one authenticated session.
+- Added an editor warning when a finalized recording contains no captured guide actions or steps.
+
 ## [0.1.0-beta.14] - 2026-08-26
+
+This signed candidate was superseded before public application publication. Its tag and published images remain immutable and must not be republished as the supported beta.
 
 ### Added
 

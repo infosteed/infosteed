@@ -110,6 +110,7 @@ An nginx warning about a read-only configuration file is harmless when the conta
 
 - Public mode requires public DNS and inbound TCP 80/443 for ACME.
 - Internal mode requires clients to trust the exported Caddy root certificate.
+- External mode requires a valid certificate and key below `TLS_CERT_HOST_PATH`; renewals must run `scripts/restart-production-proxy.sh` after replacing them.
 - Confirm `TLS_MODE` in `production.env`; do not edit the committed Caddyfile.
 
 ```bash

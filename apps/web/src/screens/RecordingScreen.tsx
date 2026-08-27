@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { CurrentUser } from "@infosteed/shared";
 import type { BrandingSettings } from "@infosteed/shared";
+import { AlertTriangle } from "lucide-react";
 import { VideoEditor } from "../VideoEditor";
 import { BrandMark } from "../components/BrandMark";
 import { AppShell } from "../components/design/AppShell";
@@ -79,6 +80,12 @@ export function RecordingScreen({
   const showVideo = contentView === "video" || contentView === "both";
   const showGuide = contentView === "guide" || contentView === "both";
   const combinedView = viewOnly && showVideo && showGuide && Boolean(video);
+  const emptyFinalizedGuide =
+    recording.captureMode !== "video" &&
+    recording.state === "finalized" &&
+    recording.events.length === 0 &&
+    recording.steps.length === 0 &&
+    recording.items.length === 0;
 
   return (
     <AppShell
@@ -106,6 +113,19 @@ export function RecordingScreen({
           controller={recordingController}
           contentView={contentView}
         />
+        {emptyFinalizedGuide && (
+          <div className="empty-guide-warning" role="alert">
+            <AlertTriangle aria-hidden="true" />
+            <div>
+              <strong>{t("No guide actions were captured")}</strong>
+              <p>
+                {t(
+                  "This recording has no captured guide steps. You can add steps manually or record the workflow again.",
+                )}
+              </p>
+            </div>
+          </div>
+        )}
         <div className="recording-workspace-container">
           <div
             className={`recording-workspace${combinedView ? " combined" : ""}`}

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import JSZip from "jszip";
 import { gunzipSync } from "node:zlib";
-import { test, expect } from "@playwright/test";
+import { expect, request as playwrightRequest, test } from "@playwright/test";
 import type { APIRequestContext } from "@playwright/test";
 
 const apiUrl = process.env.INFOSTEED_API_URL;
@@ -242,6 +242,103 @@ test("creates and exports an offline guide over HTTP", async ({ request }) => {
   };
   expect(videoCapability.enabled).toBe(true);
   expect(typeof videoCapability.transcription.enabled).toBe("boolean");
+});
+
+test("keeps editor and recorder writes valid on one shared session", async ({
+  request,
+}) => {
+  await authenticate(request);
+  const storageState = await request.storageState();
+  const [editorClient, recorderClient] = await Promise.all([
+    playwrightRequest.newContext({ storageState }),
+    playwrightRequest.newContext({ storageState }),
+  ]);
+
+  try {
+    const editorToken = (
+      (await (await editorClient.get(`${apiUrl}/auth/csrf`)).json()) as {
+        csrfToken: string;
+      }
+    ).csrfToken;
+    const recorderToken = (
+      (await (await recorderClient.get(`${apiUrl}/auth/csrf`)).json()) as {
+        csrfToken: string;
+      }
+    ).csrfToken;
+    expect(recorderToken).toBe(editorToken);
+
+    const created = await editorClient.post(`${apiUrl}/recordings`, {
+      headers: { "x-csrf-token": editorToken },
+      data: {
+        title: "Self-recording CSRF regression",
+        captureMode: "guide",
+      },
+    });
+    expect(created.ok()).toBe(true);
+    const { id } = (await created.json()) as { id: string };
+
+    const captureSession = await recorderClient.post(
+      `${apiUrl}/recordings/${id}/capture-sessions`,
+      { headers: { "x-csrf-token": recorderToken } },
+    );
+    expect(captureSession.ok()).toBe(true);
+    const { captureSessionId } = (await captureSession.json()) as {
+      captureSessionId: string;
+    };
+
+    const eventUpload = await recorderClient.post(
+      `${apiUrl}/recordings/${id}/events`,
+      {
+        headers: { "x-csrf-token": recorderToken },
+        data: {
+          captureSessionId,
+          events: [
+            {
+              actionType: "click",
+              pageTitle: "InfoSteed editor",
+              sanitizedUrl: "https://infosteed.example.test/",
+              elementName: "Save guide",
+              elementRole: "button",
+              boundingBox: {
+                x: 10,
+                y: 20,
+                width: 100,
+                height: 32,
+                devicePixelRatio: 1,
+                scrollX: 0,
+                scrollY: 0,
+              },
+              metadata: {},
+            },
+          ],
+        },
+      },
+    );
+    expect(eventUpload.ok()).toBe(true);
+
+    const editorUpdate = await editorClient.patch(
+      `${apiUrl}/recordings/${id}`,
+      {
+        headers: { "x-csrf-token": editorToken },
+        data: { purpose: "Edited while the extension records this session" },
+      },
+    );
+    expect(editorUpdate.ok()).toBe(true);
+
+    const recording = (await (
+      await editorClient.get(`${apiUrl}/recordings/${id}`)
+    ).json()) as {
+      purpose: string | null;
+      events: Array<{ elementName?: string }>;
+    };
+    expect(recording.purpose).toBe(
+      "Edited while the extension records this session",
+    );
+    expect(recording.events).toHaveLength(1);
+    expect(recording.events[0].elementName).toBe("Save guide");
+  } finally {
+    await Promise.all([editorClient.dispose(), recorderClient.dispose()]);
+  }
 });
 
 test("runs the video recording lifecycle over HTTP", async ({ request }) => {

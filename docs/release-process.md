@@ -8,7 +8,7 @@ Routine pushes run formatting, SPDX, licence-notice, release-metadata, type, uni
 
 Before release, update the root and workspace versions, active deployment examples, release-status documents, and changelog together. Set the root `package.json` `releaseStatus` to `candidate`; the tag workflow deliberately rejects metadata already claiming publication. The candidate changelog entry must use its intended ISO release date rather than `Unreleased`. Push the preparation commit and wait for both CI and CodeQL to pass on that exact commit.
 
-Exercise backup and restore with populated data and compare the Chrome offline and store packages built from the same commit as part of the manual readiness work.
+Exercise backup and restore with populated data and compare the Chrome offline and store packages built from the same commit as part of the manual readiness work. For an application-only release, also compare the Chrome package with the already-published extension and record that no browser-store submission is required.
 
 ## 2. Rehearse the container release
 
@@ -48,7 +48,7 @@ Verify `SHA256SUMS`, inspect the four immutable digests in `production-images.en
 
 Keep the GitHub Release as a draft while running the candidate privately for one week and completing [`release-readiness.md`](release-readiness.md). Release notes must list migrations, limitations, supported versions, backup requirements, image references, and rollback instructions.
 
-When all evidence is complete, edit the workflow-created draft, mark it as a prerelease, and publish that same draft. Then change `releaseStatus` to `published`, synchronize the public-status documentation, and commit that post-publication state on `main`. Submit the browser extension manually and announce the public beta only after publication.
+When all evidence is complete, edit the workflow-created draft, mark it as a prerelease, and publish that same draft. Then change `releaseStatus` to `published`, synchronize the public-status documentation, and commit that post-publication state on `main`. Submit the browser extension manually only when its packaged code or metadata changed; an application-only release continues using the existing Chrome Web Store version. Announce the public beta only after publication.
 
 Do not publish a candidate with a high- or critical-severity production vulnerability. Record an owner, justification, and expiry for any accepted lower-severity finding.
 

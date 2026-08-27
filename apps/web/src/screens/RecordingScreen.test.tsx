@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // @vitest-environment jsdom
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { Recording } from "@infosteed/shared";
 import {
   branding,
   currentUser,
@@ -50,9 +51,12 @@ vi.mock("../features/recording/RecordingDrawers", () => ({
 describe("recording screen workspace", () => {
   afterEach(cleanup);
 
-  function controller(captureMode: "guide" | "video" | "both") {
+  function controller(
+    captureMode: "guide" | "video" | "both",
+    overrides: Partial<Recording> = {},
+  ) {
     return {
-      recording: recording({ captureMode }),
+      recording: recording({ captureMode, ...overrides }),
       video: captureMode === "guide" ? undefined : recordingVideo(),
       error: undefined,
       viewOnly: true,
@@ -176,5 +180,70 @@ describe("recording screen workspace", () => {
     expect(
       container.querySelector(".recording-workspace")?.className,
     ).toContain("combined");
+  });
+
+  it("warns when a finalized guide-capable recording has no captured actions", () => {
+    const emptyGuide = {
+      state: "finalized" as const,
+      events: [],
+      steps: [],
+      items: [],
+    };
+    const { rerender } = renderScreen(controller("guide", emptyGuide));
+
+    expect(screen.getByRole("alert").textContent).toContain(
+      "No guide actions were captured",
+    );
+
+    rerender(
+      <RecordingScreen
+        user={currentUser()}
+        branding={branding()}
+        requestedView={null}
+        recordingController={controller("both", emptyGuide)}
+        onOpenAdmin={vi.fn()}
+        onLogout={vi.fn()}
+        onLogoutAll={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("alert")).toBeTruthy();
+  });
+
+  it("does not warn for video-only, active, or manually populated guides", () => {
+    const { rerender } = renderScreen(
+      controller("video", { events: [], steps: [], items: [] }),
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    rerender(
+      <RecordingScreen
+        user={currentUser()}
+        branding={branding()}
+        requestedView={null}
+        recordingController={controller("guide", {
+          state: "recording",
+          events: [],
+          steps: [],
+          items: [],
+        })}
+        onOpenAdmin={vi.fn()}
+        onLogout={vi.fn()}
+        onLogoutAll={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    rerender(
+      <RecordingScreen
+        user={currentUser()}
+        branding={branding()}
+        requestedView={null}
+        recordingController={controller("guide")}
+        onOpenAdmin={vi.fn()}
+        onLogout={vi.fn()}
+        onLogoutAll={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import {
   createHash,
+  createHmac,
   randomBytes,
   randomUUID,
   scrypt as scryptCallback,
@@ -32,6 +33,7 @@ const scrypt = promisify(scryptCallback);
 const HASH_PREFIX = "scrypt:v1";
 const ARGON_PREFIX = "$argon2";
 const KEY_LENGTH = 64;
+const CSRF_TOKEN_CONTEXT = "infosteed-csrf-token:v1";
 
 interface UserRow {
   id: string;
@@ -468,15 +470,16 @@ export async function createSession(
 }
 
 export async function issueCsrfToken(
-  db: Db,
+  _db: Db,
   sessionId: string,
 ): Promise<string> {
-  const token = randomBytes(32).toString("base64url");
-  await db.query(
-    "update sessions set csrf_token_hash = $2, csrf_token_created_at = now() where id = $1",
-    [sessionId, tokenHash(token)],
-  );
-  return token;
+  return csrfTokenForSession(sessionId);
+}
+
+export function csrfTokenForSession(sessionId: string): string {
+  return createHmac("sha256", sessionId)
+    .update(CSRF_TOKEN_CONTEXT)
+    .digest("base64url");
 }
 
 export async function verifyCsrfToken(
@@ -485,17 +488,14 @@ export async function verifyCsrfToken(
   token: string | undefined,
 ): Promise<boolean> {
   if (!token) return false;
-  const result = await db.query<{ csrf_token_hash: string | null }>(
-    "select csrf_token_hash from sessions where id = $1 and expires_at > now()",
+  const result = await db.query<{ active: boolean }>(
+    "select true as active from sessions where id = $1 and expires_at > now()",
     [sessionId],
   );
-  const expected = result.rows[0]?.csrf_token_hash;
-  if (!expected) return false;
-  const actual = tokenHash(token);
-  return (
-    actual.length === expected.length &&
-    timingSafeEqual(Buffer.from(actual), Buffer.from(expected))
-  );
+  if (!result.rows[0]?.active) return false;
+  const actual = Buffer.from(token);
+  const expected = Buffer.from(csrfTokenForSession(sessionId));
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
 export async function deleteSession(db: Db, sessionId: string): Promise<void> {

@@ -11,6 +11,7 @@ domain=""
 email=""
 extension_origin=""
 tls_mode=""
+requested_tls_cert_host_path=""
 allow_dirty=false
 
 usage() {
@@ -20,14 +21,15 @@ Usage: scripts/install-production.sh [options]
   --domain HOSTNAME
   --email ACME_EMAIL
   --extension-origin chrome-extension://ID
-  --tls public|internal
+  --tls public|internal|external
+  --tls-cert-host-path DIRECTORY
   --allow-dirty
 EOF
 }
 
 while (($#)); do
   case $1 in
-    --source | --domain | --email | --extension-origin | --tls)
+    --source | --domain | --email | --extension-origin | --tls | --tls-cert-host-path)
       (($# >= 2)) || { usage; exit 2; }
       case $1 in
         --source) requested_source=$2 ;;
@@ -35,6 +37,7 @@ while (($#)); do
         --email) email=$2 ;;
         --extension-origin) extension_origin=$2 ;;
         --tls) tls_mode=$2 ;;
+        --tls-cert-host-path) requested_tls_cert_host_path=$2 ;;
       esac
       shift 2
       ;;
@@ -61,6 +64,9 @@ if [[ -f $env_file ]]; then
   if [[ -n $tls_mode && $tls_mode != "${TLS_MODE:-public}" ]]; then
     production_die "existing $env_file uses TLS_MODE=${TLS_MODE:-public}; change it with the documented migration or edit it explicitly"
   fi
+  if [[ -n $requested_tls_cert_host_path && $requested_tls_cert_host_path != "${TLS_CERT_HOST_PATH:-}" ]]; then
+    production_die "existing $env_file uses a different TLS_CERT_HOST_PATH; edit it explicitly to change the certificate mount"
+  fi
   printf 'Using existing production configuration: %s\n' "$env_file"
   args=()
   [[ $allow_dirty == true ]] && args+=(--allow-dirty)
@@ -69,8 +75,11 @@ fi
 
 image_source=${requested_source:-ghcr}
 tls_mode=${tls_mode:-public}
+tls_cert_host_path=${requested_tls_cert_host_path:-${TLS_CERT_HOST_PATH:-}}
+tls_cert_file=${TLS_CERT_FILE:-/certs/fullchain.pem}
+tls_key_file=${TLS_KEY_FILE:-/certs/key.pem}
 [[ $image_source == ghcr || $image_source == build ]] || production_die "--source must be ghcr or build"
-[[ $tls_mode == public || $tls_mode == internal ]] || production_die "--tls must be public or internal"
+[[ $tls_mode == public || $tls_mode == internal || $tls_mode == external ]] || production_die "--tls must be public, internal, or external"
 production_check_platform
 production_checkout_metadata
 production_assert_checkout "$image_source" "$production_version" "$production_commit" "$allow_dirty"
@@ -91,6 +100,9 @@ prompt_required() {
 prompt_required domain "Application hostname"
 if [[ $tls_mode == public ]]; then
   prompt_required email "Email for HTTPS certificate notices"
+fi
+if [[ $tls_mode == external ]]; then
+  prompt_required tls_cert_host_path "Absolute host directory containing the certificate and private key"
 fi
 prompt_required extension_origin "Official Chrome extension origin"
 
@@ -120,6 +132,9 @@ DEPLOY_WAIT_TIMEOUT=300
 APP_DOMAIN=$domain
 TLS_MODE=$tls_mode
 ACME_EMAIL=$email
+TLS_CERT_HOST_PATH=$tls_cert_host_path
+TLS_CERT_FILE=$tls_cert_file
+TLS_KEY_FILE=$tls_key_file
 APP_SOURCE_URL=https://github.com/infosteed/infosteed
 EXTENSION_ORIGINS=$extension_origin
 SETUP_TOKEN=$setup_token

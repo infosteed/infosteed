@@ -84,17 +84,17 @@ jobs:
       - run: docker compose --env-file docker.env.example --profile transcription --profile voiceover config --quiet
       - run: >-
           CADDY_IMAGE=caddy:2.10.2@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          WEB_IMAGE=example/web:0.1.0-beta.14@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          API_IMAGE=example/api:0.1.0-beta.14@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          RENDER_IMAGE=example/render:0.1.0-beta.14@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          WEB_IMAGE=example/web:0.1.0-beta.15@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          API_IMAGE=example/api:0.1.0-beta.15@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          RENDER_IMAGE=example/render:0.1.0-beta.15@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           POSTGRES_IMAGE=postgres:16-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           MINIO_IMAGE=minio/minio:latest@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           MINIO_MC_IMAGE=minio/mc:latest@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          TRANSCRIPTION_IMAGE=example/transcription:0.1.0-beta.14@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          TRANSCRIPTION_IMAGE=example/transcription:0.1.0-beta.15@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           KOKORO_IMAGE=example/kokoro:v0.2.4@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           OLLAMA_IMAGE=example/ollama:0.32.3@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           APP_DOMAIN=guides.example.test ACME_EMAIL=admin@example.test
-          APP_SOURCE_URL=https://github.com/example/project RELEASE_VERSION=0.1.0-beta.14 RELEASE_COMMIT=abc
+          APP_SOURCE_URL=https://github.com/example/project RELEASE_VERSION=0.1.0-beta.15 RELEASE_COMMIT=abc
           EXTENSION_ORIGINS=chrome-extension://abcdefghijklmnop
           SETUP_TOKEN=01234567890123456789012345678901
           POSTGRES_PASSWORD=test-password MINIO_ROOT_USER=root MINIO_ROOT_PASSWORD=test-root-password
@@ -104,7 +104,7 @@ jobs:
       - run: >-
           IMAGE_SOURCE=build LOCAL_IMAGE_TAG=sha-abc
           APP_DOMAIN=guides.example.test ACME_EMAIL=admin@example.test
-          APP_SOURCE_URL=https://github.com/infosteed/infosteed RELEASE_VERSION=0.1.0-beta.14 RELEASE_COMMIT=abc
+          APP_SOURCE_URL=https://github.com/infosteed/infosteed RELEASE_VERSION=0.1.0-beta.15 RELEASE_COMMIT=abc
           EXTENSION_ORIGINS=chrome-extension://abcdefghijklmnopabcdefghijklmnop
           SETUP_TOKEN=01234567890123456789012345678901
           POSTGRES_PASSWORD=test-password MINIO_ROOT_USER=root MINIO_ROOT_PASSWORD=test-root-password
@@ -113,7 +113,7 @@ jobs:
           --profile transcription-gpu --profile voiceover-cpu config --quiet
       - name: Validate standalone AI service Compose
         run: >-
-          AI_BIND_ADDRESS=192.0.2.20 RELEASE_VERSION=0.1.0-beta.14 TRANSCRIPTION_API_KEY=test-token
+          AI_BIND_ADDRESS=192.0.2.20 RELEASE_VERSION=0.1.0-beta.15 TRANSCRIPTION_API_KEY=test-token
           docker compose -f deploy/compose.ai-services.yml
           --profile ollama --profile transcription --profile voiceover config --quiet
       - name: Validate Caddy configurations
@@ -124,12 +124,28 @@ jobs:
           docker run --rm -e APP_DOMAIN=guides.example.test \
             -v "$PWD/deploy/Caddyfile.internal:/etc/caddy/Caddyfile:ro" \
             caddy:2.10.2@sha256:c3d7ee5d2b11f9dc54f947f68a734c84e9c9666c92c88a7f30b9cba5da182adb caddy validate --config /etc/caddy/Caddyfile
+          mkdir -p "$RUNNER_TEMP/infosteed-test-certs"
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=guides.example.test \
+            -keyout "$RUNNER_TEMP/infosteed-test-certs/key.pem" \
+            -out "$RUNNER_TEMP/infosteed-test-certs/fullchain.pem"
+          docker run --rm -e APP_DOMAIN=guides.example.test \
+            -e TLS_CERT_FILE=/certs/fullchain.pem -e TLS_KEY_FILE=/certs/key.pem \
+            -v "$PWD/deploy/Caddyfile.external:/etc/caddy/Caddyfile:ro" \
+            -v "$RUNNER_TEMP/infosteed-test-certs:/certs:ro" \
+            caddy:2.10.2@sha256:c3d7ee5d2b11f9dc54f947f68a734c84e9c9666c92c88a7f30b9cba5da182adb caddy validate --config /etc/caddy/Caddyfile
+          CADDY_CONFIG_FILE=./Caddyfile.external TLS_CERT_HOST_PATH="$RUNNER_TEMP/infosteed-test-certs" \
+            APP_DOMAIN=guides.example.test RELEASE_VERSION=0.1.0-beta.15 RELEASE_COMMIT=abc \
+            EXTENSION_ORIGINS=chrome-extension://abcdefghijklmnopabcdefghijklmnop \
+            APP_SOURCE_URL=https://github.com/infosteed/infosteed SETUP_TOKEN=01234567890123456789012345678901 \
+            POSTGRES_PASSWORD=test-password MINIO_ROOT_USER=root MINIO_ROOT_PASSWORD=test-root-password \
+            S3_ACCESS_KEY_ID=app S3_SECRET_ACCESS_KEY=test-app-password \
+            docker compose -f deploy/compose.production.yml -f deploy/compose.external-tls.yml config --quiet
       - name: Smoke test production data services
         env:
           APP_DOMAIN: guides.example.test
           ACME_EMAIL: admin@example.test
           APP_SOURCE_URL: https://github.com/infosteed/infosteed
-          RELEASE_VERSION: 0.1.0-beta.14
+          RELEASE_VERSION: 0.1.0-beta.15
           RELEASE_COMMIT: abc
           EXTENSION_ORIGINS: chrome-extension://abcdefghijklmnopabcdefghijklmnop
           SETUP_TOKEN: 01234567890123456789012345678901
@@ -147,7 +163,7 @@ jobs:
           APP_DOMAIN: guides.example.test
           ACME_EMAIL: admin@example.test
           APP_SOURCE_URL: https://github.com/infosteed/infosteed
-          RELEASE_VERSION: 0.1.0-beta.14
+          RELEASE_VERSION: 0.1.0-beta.15
           RELEASE_COMMIT: abc
           EXTENSION_ORIGINS: chrome-extension://abcdefghijklmnopabcdefghijklmnop
           SETUP_TOKEN: 01234567890123456789012345678901

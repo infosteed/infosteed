@@ -13,26 +13,26 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1101.0",
+    "@aws-sdk/client-s3": "^3.1121.0",
     "@fastify/cors": "^11.3.0",
     "@fastify/rate-limit": "^11.2.0",
     "@infosteed/ai-step-writer": "workspace:*",
     "@infosteed/image-processor": "workspace:*",
     "@infosteed/markdown-exporter": "workspace:*",
     "@infosteed/shared": "workspace:*",
-    "@node-rs/argon2": "^2.0.2",
-    "fastify": "^5.11.2",
-    "ipaddr.js": "^2.2.0",
+    "@node-rs/argon2": "^2.1.0",
+    "fastify": "^5.12.1",
+    "ipaddr.js": "^2.5.0",
     "mdast-util-from-markdown": "^2.0.2",
     "otpauth": "^9.5.1",
-    "pg": "^8.12.0",
+    "pg": "^8.23.0",
     "playwright": "1.62.1",
-    "zod": "^3.23.8"
+    "zod": "^4.5.2"
   },
   "devDependencies": {
-    "@types/pg": "^8.11.6",
-    "tsx": "^4.16.2",
-    "typescript": "^5.5.4",
-    "vitest": "^2.0.5"
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.23.12",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
   }
 }

@@ -38,11 +38,11 @@
     "i18n:check": "node scripts/i18n.mjs --check"
   },
   "devDependencies": {
-    "@playwright/test": "1.62.1",
-    "@types/node": "^24.0.0",
-    "jszip": "^3.10.1",
-    "prettier": "^3.6.2",
-    "typescript": "^5.5.4",
-    "vitest": "^2.0.5"
+    "@playwright/test": "1.63.0",
+    "@types/node": "^26.6.2",
+    "jszip": "^3.10.2",
+    "prettier": "^3.9.8",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
   }
 }

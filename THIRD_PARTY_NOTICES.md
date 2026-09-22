@@ -69,10 +69,10 @@ This file is generated from the production pnpm lockfile by `pnpm notices:genera
 | @floating-ui/utils | 0.2.12 | MIT | https://floating-ui.com |
 | @hono/node-server | 2.1.0 | MIT | https://github.com/honojs/node-server |
 | @img/colour | 1.1.0 | MIT | https://github.com/lovell/colour#readme |
-| @img/sharp-libvips-linux-x64 | 1.3.2 | LGPL-3.0-or-later | https://sharp.pixelplumbing.com |
-| @img/sharp-libvips-linuxmusl-x64 | 1.3.2 | LGPL-3.0-or-later | https://sharp.pixelplumbing.com |
-| @img/sharp-linux-x64 | 0.35.3 | Apache-2.0 | https://sharp.pixelplumbing.com |
-| @img/sharp-linuxmusl-x64 | 0.35.3 | Apache-2.0 | https://sharp.pixelplumbing.com |
+| @img/sharp-libvips-linux-x64 | 1.3.3 | LGPL-3.0-or-later | https://sharp.pixelplumbing.com |
+| @img/sharp-libvips-linuxmusl-x64 | 1.3.3 | LGPL-3.0-or-later | https://sharp.pixelplumbing.com |
+| @img/sharp-linux-x64 | 0.35.4 | Apache-2.0 | https://sharp.pixelplumbing.com |
+| @img/sharp-linuxmusl-x64 | 0.35.4 | Apache-2.0 | https://sharp.pixelplumbing.com |
 | @jridgewell/gen-mapping | 0.3.13 | MIT | https://github.com/jridgewell/sourcemaps/tree/main/packages/gen-mapping |
 | @jridgewell/remapping | 2.3.5 | MIT | https://github.com/jridgewell/sourcemaps/tree/main/packages/remapping |
 | @jridgewell/resolve-uri | 3.1.2 | MIT | https://github.com/jridgewell/resolve-uri#readme |
@@ -152,7 +152,7 @@ This file is generated from the production pnpm lockfile by `pnpm notices:genera
 | @types/react-dom | 18.3.7 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react-dom |
 | @types/unist | 3.0.3 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/unist |
 | @types/validate-npm-package-name | 4.0.2 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/validate-npm-package-name |
-| @xmldom/xmldom | 0.9.10 | MIT | https://github.com/xmldom/xmldom |
+| @xmldom/xmldom | 0.9.12 | MIT | https://github.com/xmldom/xmldom |
 | abstract-logging | 2.0.1 | MIT | https://github.com/jsumners/abstract-logging#readme |
 | accepts | 2.0.0 | MIT | https://github.com/jshttp/accepts#readme |
 | ajv | 8.20.0 | MIT | https://ajv.js.org |
@@ -252,7 +252,7 @@ This file is generated from the production pnpm lockfile by `pnpm notices:genera
 | fast-glob | 3.3.3 | MIT | https://github.com/mrmlnc/fast-glob#readme |
 | fast-json-stringify | 7.0.1 | MIT | https://github.com/fastify/fast-json-stringify#readme |
 | fast-querystring | 1.1.2 | MIT | https://github.com/anonrig/fast-querystring#readme |
-| fast-uri | 3.1.5, 4.1.2 | BSD-3-Clause | https://github.com/fastify/fast-uri |
+| fast-uri | 3.1.8, 4.2.1 | BSD-3-Clause | https://github.com/fastify/fast-uri |
 | fastify | 5.11.2 | MIT | https://fastify.dev/ |
 | fastify-plugin | 6.0.0 | MIT | https://github.com/fastify/fastify-plugin#readme |
 | fastq | 1.20.1 | ISC | https://github.com/mcollina/fastq#readme |
@@ -312,7 +312,7 @@ This file is generated from the production pnpm lockfile by `pnpm notices:genera
 | jiti | 2.7.0 | MIT | https://github.com/unjs/jiti#readme |
 | jose | 6.2.8 | MIT | https://github.com/panva/jose |
 | js-tokens | 4.0.0 | MIT | https://github.com/lydell/js-tokens#readme |
-| js-yaml | 4.3.1 | MIT | https://github.com/nodeca/js-yaml#readme |
+| js-yaml | 4.3.2 | MIT | https://github.com/nodeca/js-yaml#readme |
 | jsesc | 3.1.0 | MIT | https://mths.be/jsesc |
 | json-parse-even-better-errors | 2.3.1 | MIT | https://github.com/npm/json-parse-even-better-errors#readme |
 | json-schema-ref-resolver | 3.0.0 | MIT | https://github.com/fastify/json-schema-ref-resolver#readme |
@@ -467,7 +467,7 @@ This file is generated from the production pnpm lockfile by `pnpm notices:genera
 | setimmediate | 1.0.5 | MIT | https://github.com/YuzuJS/setImmediate#readme |
 | setprototypeof | 1.2.0 | ISC | https://github.com/wesleytodd/setprototypeof |
 | shadcn | 4.16.1 | MIT | https://github.com/shadcn-ui/ui#readme |
-| sharp | 0.35.3 | Apache-2.0 | https://sharp.pixelplumbing.com |
+| sharp | 0.35.4 | Apache-2.0 | https://sharp.pixelplumbing.com |
 | shebang-command | 2.0.0 | MIT | https://github.com/kevva/shebang-command#readme |
 | shebang-regex | 3.0.0 | MIT | https://github.com/sindresorhus/shebang-regex#readme |
 | side-channel | 1.1.1 | MIT | https://github.com/ljharb/side-channel#readme |

@@ -42,38 +42,17 @@ export interface SanityPortableTextBlock {
 }
 
 export interface SanityImageImport {
+  _key: string;
   _type: "image";
   _sanityAsset: string;
   alt?: string;
-}
-
-export interface SanityWorkflowStep {
-  _key: string;
-  _type: "workflowStep";
-  title: string;
-  instruction: SanityPortableTextBlock[];
-  image?: SanityImageImport;
-  source: GuideItem["source"];
-  userEdited: boolean;
-}
-
-export interface SanityGuideCallout {
-  _key: string;
-  _type: "guideCallout";
-  tone: "tip" | "alert";
-  title: string;
-  body: SanityPortableTextBlock[];
 }
 
 export interface SanityWorkflowGuideDocument {
   _id: string;
   _type: "workflowGuide";
   title: string;
-  purpose: SanityPortableTextBlock[];
-  audience: string | null;
-  content: Array<
-    SanityPortableTextBlock | SanityWorkflowStep | SanityGuideCallout
-  >;
+  body: Array<SanityPortableTextBlock | SanityImageImport>;
   source: {
     _type: "infosteedSource";
     recordingId: string;
@@ -336,60 +315,120 @@ function headingBlock(title: string, itemId: string): SanityPortableTextBlock {
   );
 }
 
+function labelledBlock(
+  label: string,
+  keyPrefix: string,
+  style = "normal",
+): SanityPortableTextBlock {
+  const context: MarkdownContext = { definitions: new Map(), nextBlock: 0 };
+  return makeBlock(
+    [{ type: "strong", children: [{ type: "text", value: label }] }],
+    keyPrefix,
+    context,
+    { style },
+  );
+}
+
+function calloutBlocks(
+  markdown: string,
+  keyPrefix: string,
+): SanityPortableTextBlock[] {
+  return markdownToPortableText(markdown, keyPrefix).map((block) => ({
+    ...block,
+    style: "blockquote",
+  }));
+}
+
+function calloutLabel(kind: "tip" | "alert", title: string): string {
+  const tone = kind === "tip" ? "Tip" : "Alert";
+  const trimmedTitle = title.trim();
+  if (!trimmedTitle || trimmedTitle.toLowerCase() === kind) return tone;
+  return `${tone}: ${trimmedTitle}`;
+}
+
+function sequentialBodyKeys(
+  body: Array<SanityPortableTextBlock | SanityImageImport>,
+): Array<SanityPortableTextBlock | SanityImageImport> {
+  return body.map((item, index) => {
+    if (item._type === "image") return { ...item, _key: `b${index}` };
+    return {
+      ...item,
+      _key: `b${index}`,
+      children: item.children.map((child, childIndex) => ({
+        ...child,
+        _key: `s${childIndex}`,
+      })),
+    };
+  });
+}
+
 export function buildSanityWorkflowGuideDocument(
   recording: Recording,
 ): SanityWorkflowGuideDocument {
-  const content: SanityWorkflowGuideDocument["content"] = [];
+  const purpose = recording.purpose
+    ? markdownToPortableText(recording.purpose, `${recording.id}-purpose`)
+    : [];
+  const body: Array<SanityPortableTextBlock | SanityImageImport> = [...purpose];
+
+  if (recording.audience) {
+    const audience = recording.audience.trim();
+    if (audience)
+      body.push(
+        ...markdownToPortableText(
+          `Audience: ${audience}`,
+          `${recording.id}-audience`,
+        ),
+      );
+  }
+
+  let stepNumber = 0;
 
   for (const item of guideItems(recording)
     .slice()
     .sort((a, b) => a.ordinal - b.ordinal)) {
     if (item.kind === "header") {
-      content.push(headingBlock(item.title, item.id));
+      body.push(headingBlock(item.title, item.id));
       if (item.body && item.body !== item.title) {
-        content.push(...markdownToPortableText(item.body, `${item.id}-body`));
+        body.push(...markdownToPortableText(item.body, `${item.id}-body`));
       }
       continue;
     }
     if (item.kind === "tip" || item.kind === "alert") {
-      content.push({
-        _key: item.id,
-        _type: "guideCallout",
-        tone: item.kind,
-        title: item.title,
-        body: markdownToPortableText(item.body, `${item.id}-body`),
-      });
+      body.push(
+        labelledBlock(
+          calloutLabel(item.kind, item.title),
+          `${item.id}-label`,
+          "blockquote",
+        ),
+        ...calloutBlocks(item.body, `${item.id}-body`),
+      );
       continue;
     }
 
-    content.push({
-      _key: item.id,
-      _type: "workflowStep",
-      title: item.title,
-      instruction: markdownToPortableText(item.body, `${item.id}-instruction`),
-      ...(item.imageFilename
-        ? {
-            image: {
-              _type: "image" as const,
-              _sanityAsset: `image@file://./images/${item.imageFilename}`,
-              ...(item.altText ? { alt: item.altText } : {}),
-            },
-          }
-        : {}),
-      source: item.source,
-      userEdited: item.userEdited,
-    });
+    stepNumber++;
+    body.push(
+      labelledBlock(
+        `${stepNumber}. ${item.title || `Step ${stepNumber}`}`,
+        `${item.id}-heading`,
+        "h2",
+      ),
+      ...markdownToPortableText(item.body, `${item.id}-instruction`),
+    );
+    if (item.imageFilename) {
+      body.push({
+        _key: item.id,
+        _type: "image",
+        _sanityAsset: `image@file://./images/${item.imageFilename}`,
+        ...(item.altText ? { alt: item.altText } : {}),
+      });
+    }
   }
 
   return {
     _id: `infosteed-${recording.id}`,
     _type: "workflowGuide",
     title: recording.title,
-    purpose: recording.purpose
-      ? markdownToPortableText(recording.purpose, `${recording.id}-purpose`)
-      : [],
-    audience: recording.audience,
-    content,
+    body: sequentialBodyKeys(body),
     source: {
       _type: "infosteedSource",
       recordingId: recording.id,

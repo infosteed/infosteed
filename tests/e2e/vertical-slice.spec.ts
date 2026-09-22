@@ -223,10 +223,9 @@ test("creates and exports an offline guide over HTTP", async ({ request }) => {
   );
   expect(sanityDocument._id).toBe(`infosteed-${id}`);
   expect(sanityDocument._type).toBe("workflowGuide");
-  const sanityImagePath = sanityDocument.content[0].image._sanityAsset.replace(
-    "image@file://./",
-    "",
-  );
+  const sanityImagePath = sanityDocument.body
+    .find((item: { _type: string }) => item._type === "image")
+    ._sanityAsset.replace("image@file://./", "");
   expect(sanityImagePath).toMatch(/^images\/step-001-login-\d{8}T\d{9}\.webp$/);
   expect(sanityFiles.get(sanityImagePath)).toBeTruthy();
 

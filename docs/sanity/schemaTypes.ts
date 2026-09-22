@@ -36,6 +36,13 @@ const portableTextBlock = defineArrayMember({
   },
 });
 
+const portableTextImage = defineArrayMember({
+  type: "image",
+  fields: [
+    defineField({ name: "alt", title: "Alternative text", type: "string" }),
+  ],
+});
+
 export const infosteedSource = defineType({
   name: "infosteedSource",
   title: "InfoSteed source",
@@ -68,88 +75,6 @@ export const infosteedSource = defineType({
   ],
 });
 
-export const workflowStep = defineType({
-  name: "workflowStep",
-  title: "Workflow step",
-  type: "object",
-  fields: [
-    defineField({
-      name: "title",
-      title: "Title",
-      type: "string",
-      validation: (rule) => rule.required(),
-    }),
-    defineField({
-      name: "instruction",
-      title: "Instruction",
-      type: "array",
-      of: [portableTextBlock],
-      validation: (rule) => rule.required(),
-    }),
-    defineField({
-      name: "image",
-      title: "Screenshot",
-      type: "image",
-      fields: [
-        defineField({ name: "alt", title: "Alternative text", type: "string" }),
-      ],
-    }),
-    defineField({
-      name: "source",
-      title: "Source",
-      type: "string",
-      readOnly: true,
-      options: { list: ["deterministic", "ai", "manual"] },
-    }),
-    defineField({
-      name: "userEdited",
-      title: "User edited",
-      type: "boolean",
-      readOnly: true,
-    }),
-  ],
-  preview: {
-    select: { title: "title", media: "image" },
-  },
-});
-
-export const guideCallout = defineType({
-  name: "guideCallout",
-  title: "Guide callout",
-  type: "object",
-  fields: [
-    defineField({
-      name: "tone",
-      title: "Tone",
-      type: "string",
-      options: {
-        layout: "radio",
-        list: [
-          { title: "Tip", value: "tip" },
-          { title: "Alert", value: "alert" },
-        ],
-      },
-      validation: (rule) => rule.required(),
-    }),
-    defineField({
-      name: "title",
-      title: "Title",
-      type: "string",
-      validation: (rule) => rule.required(),
-    }),
-    defineField({
-      name: "body",
-      title: "Body",
-      type: "array",
-      of: [portableTextBlock],
-      validation: (rule) => rule.required(),
-    }),
-  ],
-  preview: {
-    select: { title: "title", subtitle: "tone" },
-  },
-});
-
 export const workflowGuide = defineType({
   name: "workflowGuide",
   title: "Workflow guide",
@@ -162,21 +87,10 @@ export const workflowGuide = defineType({
       validation: (rule) => rule.required(),
     }),
     defineField({
-      name: "purpose",
-      title: "Purpose",
+      name: "body",
+      title: "Body",
       type: "array",
-      of: [portableTextBlock],
-    }),
-    defineField({ name: "audience", title: "Audience", type: "string" }),
-    defineField({
-      name: "content",
-      title: "Content",
-      type: "array",
-      of: [
-        portableTextBlock,
-        defineArrayMember({ type: "workflowStep" }),
-        defineArrayMember({ type: "guideCallout" }),
-      ],
+      of: [portableTextBlock, portableTextImage],
       validation: (rule) => rule.required(),
     }),
     defineField({
@@ -188,9 +102,4 @@ export const workflowGuide = defineType({
   ],
 });
 
-export const infosteedSchemaTypes = [
-  infosteedSource,
-  workflowStep,
-  guideCallout,
-  workflowGuide,
-];
+export const infosteedSchemaTypes = [infosteedSource, workflowGuide];

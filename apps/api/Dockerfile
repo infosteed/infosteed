@@ -36,7 +36,8 @@ RUN pnpm --filter @infosteed/api deploy --prod /release
 FROM mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
 
 USER root
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certificates \
+RUN apt-get update && apt-get upgrade -y \
+  && apt-get install -y --no-install-recommends ffmpeg ca-certificates \
   && rm -rf /var/lib/apt/lists/* \
     /usr/local/lib/node_modules/npm \
     /usr/local/lib/node_modules/corepack \

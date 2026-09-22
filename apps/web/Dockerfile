@@ -21,7 +21,7 @@ RUN pnpm exec tsc -b --force \
 
 FROM nginxinc/nginx-unprivileged:1.30.4-alpine3.24@sha256:93722936b82ec8a1178d48448e619226680d2de3706a1640800e186cd5fa7fd3
 USER root
-RUN apk upgrade --no-cache libcrypto3 libssl3
+RUN apk upgrade --no-cache
 USER 101
 COPY infra/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /source/apps/web/dist /usr/share/nginx/html

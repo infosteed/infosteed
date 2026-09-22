@@ -13,7 +13,8 @@ RUN pnpm --filter @infosteed/video-render-worker deploy --prod /release
 
 FROM node:24-bookworm-slim@sha256:cd84903a12dbd26b46f1f3b8144a2568c41c5d37ddd0c7a80a34c7a19786b35f
 
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certificates \
+RUN apt-get update && apt-get upgrade -y \
+  && apt-get install -y --no-install-recommends ffmpeg ca-certificates \
   && rm -rf /var/lib/apt/lists/* \
     /usr/local/lib/node_modules/npm \
     /usr/local/lib/node_modules/corepack \

@@ -1,7 +1,8 @@
 # Import InfoSteed guides into Sanity
 
 InfoSteed's **Export Sanity** action downloads a Sanity dataset import archive containing one published
-`workflowGuide` document and its referenced screenshots.
+`workflowGuide` document and its referenced screenshots. The guide body is standard Portable Text: text blocks,
+list blocks, links, headings, and images. It does not contain product-specific article fields or references.
 
 ## One-time Studio setup
 
@@ -19,8 +20,11 @@ InfoSteed's **Export Sanity** action downloads a Sanity dataset import archive c
 
 3. Deploy or restart Studio so the `workflowGuide` type is available.
 
-The schema is intentionally canonical rather than configurable: InfoSteed exports `workflowGuide`, `workflowStep`,
-`guideCallout`, and `infosteedSource` values with these exact names.
+The document envelope uses the InfoSteed-neutral `workflowGuide` and `infosteedSource` types. Guide steps and
+callouts are flattened into ordinary Portable Text blocks, so consumers can map the `body` array into their own
+document type without having to support InfoSteed-specific block objects. Step titles use standard `h2` blocks;
+tip and alert labels and their content use standard `blockquote` blocks, with the callout type retained in the bold
+label text.
 
 ## Import a guide
 

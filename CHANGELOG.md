@@ -4,7 +4,19 @@ All notable changes are documented here. The project uses Semantic Versioning on
 
 ## [Unreleased]
 
+## [0.1.0-beta.16] - 2026-09-22
+
+### Changed
+
+- Changed Sanity guide exports to use a portable `body` representation made from standard Portable Text blocks and images.
+
+### Fixed
+
+- Preserved guide purpose, audience, headers, numbered steps, tips, alerts, inline formatting, lists, screenshots, and alternative text in Sanity exports.
+
 ## [0.1.0-beta.15] - 2026-08-27
+
+This signed candidate was superseded before public application publication. Its tag and published images remain immutable and must not be republished as the supported beta.
 
 ### Added
 

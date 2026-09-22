@@ -316,7 +316,7 @@ describe("markdown exporter", () => {
     );
   });
 
-  it("maps ordered guide items to a deterministic Sanity document", () => {
+  it("maps ordered guide items to a deterministic Portable Text guide", () => {
     const input = {
       ...recording,
       purpose: "For **support** teams.\n\n- Check access",
@@ -326,23 +326,107 @@ describe("markdown exporter", () => {
     const second = buildSanityWorkflowGuideDocument(input);
 
     expect(first).toEqual(second);
-    expect(first._id).toBe(`infosteed-${recording.id}`);
-    expect(first._type).toBe("workflowGuide");
-    expect(first.purpose).toHaveLength(2);
-    expect(first.content.map((item) => item._type)).toEqual([
-      "block",
-      "guideCallout",
-      "workflowStep",
-      "guideCallout",
-    ]);
-    expect(first.content.every((item) => Boolean(item._key))).toBe(true);
-    expect(first.source).toEqual({
-      _type: "infosteedSource",
-      recordingId: recording.id,
-      createdAt: recording.createdAt,
-      updatedAt: recording.updatedAt,
-      finalizedAt: recording.finalizedAt,
+    expect(first).toMatchObject({
+      _id: `infosteed-${recording.id}`,
+      _type: "workflowGuide",
+      title: recording.title,
+      source: {
+        _type: "infosteedSource",
+        recordingId: recording.id,
+        createdAt: recording.createdAt,
+        updatedAt: recording.updatedAt,
+        finalizedAt: recording.finalizedAt,
+      },
     });
+    expect(first.body.every((item) => Boolean(item._key))).toBe(true);
+    expect(first.body.map((item) => item._key)).toEqual(
+      first.body.map((_, index) => `b${index}`),
+    );
+    expect(
+      first.body
+        .filter((item) => item._type === "block")
+        .map((item) => item.children.map((child) => child.text).join("")),
+    ).toEqual([
+      "For support teams.",
+      "Check access",
+      "Audience: Agents",
+      "Before you start",
+      "Tip",
+      "Use the search box for long lists.",
+      "1. Open customers",
+      "Click Customers.",
+      "Alert",
+      "Do not save until all fields are checked.",
+    ]);
+    const labels = first.body.filter(
+      (item) =>
+        item._type === "block" && item.children[0]?.marks.includes("strong"),
+    );
+    expect(labels).toHaveLength(3);
+    expect(
+      labels.map((item) => (item._type === "block" ? item.style : undefined)),
+    ).toEqual(["blockquote", "h2", "blockquote"]);
+    expect(
+      first.body
+        .filter(
+          (item) =>
+            item._type === "block" &&
+            [
+              "Use the search box for long lists.",
+              "Do not save until all fields are checked.",
+            ].includes(item.children.map((child) => child.text).join("")),
+        )
+        .map((item) => (item._type === "block" ? item.style : undefined)),
+    ).toEqual(["blockquote", "blockquote"]);
+    expect(first.body.filter((item) => item._type === "image")).toEqual([
+      {
+        _key: "b8",
+        _type: "image",
+        _sanityAsset: "image@file://./images/step-001-open-customers.webp",
+        alt: "Customers navigation",
+      },
+    ]);
+  });
+
+  it("prefixes custom callout titles without incrementing step numbers", () => {
+    const document = buildSanityWorkflowGuideDocument({
+      ...recording,
+      items: recording.items.map((item) =>
+        item.kind === "tip"
+          ? {
+              ...item,
+              title: "Search faster",
+              body: "Use **search**.\n\n- Filter the list",
+            }
+          : item,
+      ),
+    });
+    const strongLabels = document.body
+      .filter((item) => item._type === "block")
+      .filter((item) => item.children[0]?.marks.includes("strong"))
+      .map((item) => item.children.map((child) => child.text).join(""));
+
+    expect(strongLabels).toEqual([
+      "Tip: Search faster",
+      "1. Open customers",
+      "Alert",
+    ]);
+    const searchBlock = document.body.find(
+      (item) =>
+        item._type === "block" &&
+        item.children.some((child) => child.text === "search"),
+    );
+    expect(searchBlock).toMatchObject({ style: "blockquote" });
+    expect(
+      searchBlock?._type === "block"
+        ? searchBlock.children.find((child) => child.text === "search")?.marks
+        : undefined,
+    ).toContain("strong");
+    expect(
+      document.body.find(
+        (item) => item._type === "block" && item.listItem === "bullet",
+      ),
+    ).toMatchObject({ style: "blockquote", level: 1 });
   });
 
   it("builds a Sanity dataset archive with only referenced images", async () => {
@@ -360,7 +444,11 @@ describe("markdown exporter", () => {
 
     expect(lines).toHaveLength(1);
     expect(document._id).toBe(`infosteed-${recording.id}`);
-    expect(document.content[2].image).toEqual({
+    expect(document._type).toBe("workflowGuide");
+    expect(
+      document.body.find((item: { _type: string }) => item._type === "image"),
+    ).toEqual({
+      _key: "b5",
       _type: "image",
       _sanityAsset: "image@file://./images/step-001-open-customers.webp",
       alt: "Customers navigation",
@@ -387,7 +475,10 @@ describe("markdown exporter", () => {
       files.get("data.ndjson")!.toString("utf8").trimEnd(),
     );
 
-    expect(document.content[2].image._sanityAsset).toBe(
+    expect(
+      document.body.find((item: { _type: string }) => item._type === "image")
+        ._sanityAsset,
+    ).toBe(
       "image@file://./images/step-001-open-customers-20260806T170000000.webp",
     );
     expect(
@@ -430,8 +521,10 @@ describe("markdown exporter", () => {
 
     expect([...files.keys()]).toEqual(["data.ndjson"]);
     expect(
-      JSON.parse(files.get("data.ndjson")!.toString("utf8")).content[2].image,
-    ).toBeUndefined();
+      JSON.parse(files.get("data.ndjson")!.toString("utf8")).body.some(
+        (item: { _type: string }) => item._type === "image",
+      ),
+    ).toBe(false);
   });
 
   it("builds self-contained HTML with embedded images and guide blocks", () => {

@@ -41,7 +41,7 @@ Load `apps/extension/dist` as an unpacked extension in Chromium after running th
 
 ## Self-hosted deployment
 
-`v0.1.0-beta.15` is an unpublished InfoSteed release candidate. Beta.14 and earlier beta tags were superseded without public application publication. Beta builds are intended for evaluation and are not a production support commitment.
+`v0.1.0-beta.16` is an unpublished InfoSteed release candidate. Beta.15 and earlier beta tags were superseded without public application publication. Beta builds are intended for evaluation and are not a production support commitment.
 
 Use the supported local and production instructions in [docs/deployment.md](docs/deployment.md). Production supports Caddy-managed public HTTPS, Caddy's internal CA, or externally managed certificate files for private/LAN HTTPS; it uses versioned GHCR images by default, provides an equivalent source-build fallback, keeps application data services internal, and requires a 32-byte first-admin setup token. Ollama, Whisper, and Kokoro can each be managed locally, connected externally, or disabled; see [AI services](docs/ai-services.md). Back up before every upgrade using [docs/backup-and-upgrade.md](docs/backup-and-upgrade.md).
 

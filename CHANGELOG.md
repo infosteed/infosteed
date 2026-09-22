@@ -13,6 +13,7 @@ All notable changes are documented here. The project uses Semantic Versioning on
 ### Fixed
 
 - Preserved guide purpose, audience, headers, numbered steps, tips, alerts, inline formatting, lists, screenshots, and alternative text in Sanity exports.
+- Switched pinned MinIO container images from Docker Hub to Quay after the upstream Docker Hub repositories became unavailable.
 
 ## [0.1.0-beta.15] - 2026-08-27
 

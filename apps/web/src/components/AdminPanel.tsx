@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { useState } from "react";
+import type { CurrentUser } from "@infosteed/shared";
+import { PasswordResetDialog } from "./PasswordResetDialog";
 import { useAdminController } from "../features/admin/useAdminController";
 import { adminExtensionDownloadUrl, wordTemplateFileUrl } from "../api";
 import { plural, t } from "../i18n";
@@ -19,6 +22,8 @@ function formatBytes(byteSize: number | null): string {
 
 export function AdminPanel({ onClose }: { onClose: () => void }) {
   const controller = useAdminController();
+  const [passwordResetUser, setPasswordResetUser] = useState<CurrentUser>();
+  const [passwordResetMessage, setPasswordResetMessage] = useState("");
   const {
     users,
     projects,
@@ -51,6 +56,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
     addMember,
     toggleProjectPrivate,
     updateUserRole,
+    resetUserPassword,
     toggleUserEnabled,
     removeUser,
     toggleTwoFactorRequirement,
@@ -476,6 +482,14 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                       ? t("Make 2FA Optional")
                       : t("Require 2FA")}
                   </button>
+                  <button
+                    onClick={() => {
+                      setPasswordResetMessage("");
+                      setPasswordResetUser(user);
+                    }}
+                  >
+                    {t("Reset password")}
+                  </button>
                   <button onClick={() => setTwoFactorResetUser(user)}>
                     {t("Reset 2FA")}
                   </button>
@@ -604,9 +618,25 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
               </div>
             </div>
           </article>
+          {passwordResetMessage && <p role="status">{passwordResetMessage}</p>}
           {error && <p className="error">{error}</p>}
         </section>
       </div>
+      {passwordResetUser && (
+        <PasswordResetDialog
+          user={passwordResetUser}
+          onClose={() => setPasswordResetUser(undefined)}
+          onReset={resetUserPassword}
+          onSuccess={() => {
+            setPasswordResetMessage(
+              t("Password reset for {username}.", {
+                username: passwordResetUser.username,
+              }),
+            );
+            setPasswordResetUser(undefined);
+          }}
+        />
+      )}
       {twoFactorResetUser && (
         <div className="modal-backdrop">
           <form

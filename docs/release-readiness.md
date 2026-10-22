@@ -1,10 +1,10 @@
 # Official release status
 
-`v0.1.0-beta.16` is an unpublished InfoSteed release candidate. Beta.15 and earlier beta tags are unpublished, superseded application candidates; do not treat them or an untagged checkout as supported.
+`v0.1.0-beta.17` is an unpublished InfoSteed release candidate. Beta.16 and earlier beta tags are unpublished, superseded application candidates; do not treat them or an untagged checkout as supported.
 
-The repository already includes the application, dual GHCR/source-build production Compose configuration, unchanged Chrome extension packaging for beta.16, backup tools, automated checks, and tag-triggered release workflow.
+The repository already includes the application, dual GHCR/source-build production Compose configuration, unchanged Chrome extension packaging for beta.17, backup tools, automated checks, and tag-triggered release workflow.
 
-The beta.16 release sequence is documented in [`release-process.md`](release-process.md): successful CI and CodeQL on the candidate commit, a manual Container security rehearsal on that same commit, a signed immutable tag, verification of the generated draft and published image digests, a private soak, and publication of the existing draft.
+The beta.17 release sequence is documented in [`release-process.md`](release-process.md): successful CI and CodeQL on the candidate commit, a manual Container security rehearsal on that same commit, a signed immutable tag, verification of the generated draft and published image digests, a private soak, and publication of the existing draft.
 
 ## What remains before publication
 
@@ -18,9 +18,15 @@ The release owner must confirm and publish the following project and deployment 
 
 These are publication controls, not settings required to run InfoSteed locally or evaluate the candidate privately.
 
+## Local candidate validation
+
+On 2026-10-22, the full `pnpm check` gate, frozen lockfile installation, SPDX and third-party notice checks, release tag metadata validation, deployment script checks, development Compose validation, Chrome extension packaging, and four transcription contract tests passed. All five HTTP integration tests passed against an isolated stack built from this candidate.
+
+The integration run used cached Docker Hub copies of the configured MinIO release versions. Anonymous pulls of the configured Quay images failed from the local environment; Docker Hub manifest requests were also denied. Confirm that a clean CI runner can pull the configured MinIO images, or supply a verified reachable mirror before publication. The cached-image integration result does not establish registry availability.
+
 ## Release and deployment evidence
 
-Beta.16 must not be published until the release owner has retained evidence that they have:
+Beta.17 must not be published until the release owner has retained evidence that they have:
 
 - recorded successful CI, CodeQL, and manual Container security workflow URLs for the exact candidate commit;
 - confirmed that the rehearsal completed the dependency audit, full-history secret scan, extension SBOM, four image builds, four container SBOMs, and all high/critical vulnerability gates without publishing an image;
@@ -30,15 +36,16 @@ Beta.16 must not be published until the release owner has retained evidence that
 - exercised the redesigned library, project, shared, trash, administration, guide, recording, and video-editor layouts at desktop and responsive widths;
 - uploaded, inspected, selected, exported with, and deleted Word templates, including rejection of malformed, unsafe, oversized, macro-enabled, and externally linked documents;
 - downloaded the guided Confluence DOCX export and imported it into a disposable Confluence page, checking headings, steps, callouts, screenshots, and permissions;
+- verified readable WebM and MP4 export actions, MP4 conversion and retries, responsive project access controls, and administrator password resets with session revocation;
 - tested transcription, voiceover, and rendering through success, failure, retry, restart, and cache reuse;
 - restored a realistic backup after rebuilding the deployment and compared database records with stored objects;
 - verified the signed tag and successful Publish release workflow for the same candidate commit;
-- confirmed that the beta.16 Chrome packages match the already-published extension, so no Chrome Web Store resubmission is required;
-- confirmed that the workflow-created draft contains only the beta.16 Chrome extension packages, checksums, SBOM, deployment bundle, `production-images.env`, and `SHA256SUMS` without deleting or recreating the draft;
+- confirmed that the beta.17 Chrome packages match the already-published extension, so no Chrome Web Store resubmission is required;
+- confirmed that the workflow-created draft contains only the beta.17 Chrome extension packages, checksums, SBOM, deployment bundle, `production-images.env`, and `SHA256SUMS` without deleting or recreating the draft;
 - scanned and signed the final images, verified their SBOMs and provenance, recorded all four immutable digests, and tested anonymous access after making the packages public;
 - tested both GHCR and source-build installation paths from the candidate artifacts;
 - completed a one-week private installation soak.
 
-The resulting evidence must identify the beta.16 release commit and immutable image digests. Beta.16 upgrade validation covers beta.1 through beta.15. The beta.1 path must include removal of its temporary Compose and internal-TLS workarounds.
+The resulting evidence must identify the beta.17 release commit and immutable image digests. Beta.17 upgrade validation covers beta.1 through beta.16. The beta.1 path must include removal of its temporary Compose and internal-TLS workarounds.
 
-Do not move or recreate the beta.15 tag, overwrite its images, or publish its draft as the supported application beta. Retain the beta.15 draft as unpublished and mark it superseded. The same immutability rule applies to every earlier candidate tag and image.
+Do not move or recreate the beta.16 tag, overwrite its images, or publish its draft as the supported application beta. Retain the beta.16 draft as unpublished and mark it superseded. The same immutability rule applies to every earlier candidate tag and image.

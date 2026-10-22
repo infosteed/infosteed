@@ -189,6 +189,13 @@ export function useAdminController() {
     await load();
   }
 
+  async function resetUserPassword(userId: string, password: string) {
+    const updated = await updateUser(userId, { password });
+    setUsers((current) =>
+      current.map((user) => (user.id === userId ? updated : user)),
+    );
+  }
+
   async function toggleUserEnabled(user: CurrentUser) {
     await updateUser(user.id, { enabled: !user.enabled });
     await load();
@@ -266,6 +273,7 @@ export function useAdminController() {
     addMember,
     toggleProjectPrivate,
     updateUserRole,
+    resetUserPassword,
     toggleUserEnabled,
     removeUser,
     toggleTwoFactorRequirement,

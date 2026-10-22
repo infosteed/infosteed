@@ -74,6 +74,7 @@ function controller() {
     addMember: vi.fn(),
     toggleProjectPrivate: vi.fn(),
     updateUserRole: vi.fn(),
+    resetUserPassword: vi.fn(),
     toggleUserEnabled: vi.fn(),
     removeUser: vi.fn(),
     toggleTwoFactorRequirement: vi.fn(),

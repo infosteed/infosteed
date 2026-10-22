@@ -539,6 +539,16 @@
     "Screenshot import progress": "Progression de l’importation des captures",
     "{processed} of {total} screenshots processed": "{processed} captures traitées sur {total}",
     "These screenshot URLs could not be imported:": "Ces URL de captures d’écran n’ont pas pu être importées :",
-    "Copy missed URLs": "Copier les URL manquantes"
+    "Copy missed URLs": "Copier les URL manquantes",
+    "Access is inherited from this project. Membership changes affect every guide in it.": "L’accès est hérité de ce projet. Les modifications des membres affectent tous ses guides.",
+    "Project members": "Membres du projet",
+    "Role": "Rôle",
+    "Reset password": "Réinitialiser le mot de passe",
+    "New password": "Nouveau mot de passe",
+    "Password reset for {username}.": "Mot de passe réinitialisé pour {username}.",
+    "Set a new password for {username}. This signs them out of all existing sessions.": "Définissez un nouveau mot de passe pour {username}. Toutes ses sessions seront déconnectées.",
+    "Use 10 to 256 characters.": "Utilisez entre 10 et 256 caractères.",
+    "Hide password": "Masquer le mot de passe",
+    "Show password": "Afficher le mot de passe"
   }
 }

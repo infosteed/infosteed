@@ -2613,3 +2613,78 @@ a:focus-visible {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Menu links must not inherit the legacy filled-link appearance. */
+.app-menu-item {
+  color: var(--color-popover-foreground);
+  background: transparent;
+  border: 0;
+  text-decoration: none;
+}
+
+.app-menu-item[data-highlighted] {
+  color: var(--color-accent-foreground);
+  background: var(--color-accent);
+}
+
+.app-menu-item[data-disabled] {
+  opacity: 0.5;
+}
+
+.app-menu-item.text-destructive {
+  color: var(--color-destructive);
+}
+
+/* Access controls fit the drawer independently of viewport width. */
+.share-panel .share-panel-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.share-panel .share-box,
+.share-panel .member-form,
+.share-panel .move-controls {
+  min-width: 0;
+}
+
+.share-panel .member-form.compact {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.share-panel .member-form select:first-child {
+  grid-column: 1 / -1;
+}
+
+.share-panel select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.share-panel .move-controls {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.share-panel .compact-member-row > div {
+  overflow-wrap: anywhere;
+}
+
+.share-panel .compact-member-row > :first-child,
+.share-panel .compact-member-row > :last-child {
+  flex-shrink: 0;
+}
+
+.password-reset-form,
+.password-reset-form label {
+  display: grid;
+  gap: 8px;
+}
+
+.password-reset-form {
+  gap: 16px;
+}
+
+.share-panel .compact-member-row .status-token {
+  display: inline-flex;
+  flex-shrink: 0;
+  white-space: nowrap;
+}

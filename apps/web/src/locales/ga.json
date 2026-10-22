@@ -560,6 +560,16 @@
     "Screenshot import progress": "Dul chun cinn iompórtála seatanna scáileáin",
     "{processed} of {total} screenshots processed": "Próiseáladh {processed} as {total} seat scáileáin",
     "These screenshot URLs could not be imported:": "Níorbh fhéidir na URLanna seatanna scáileáin seo a iompórtáil:",
-    "Copy missed URLs": "Cóipeáil URLanna ar iarraidh"
+    "Copy missed URLs": "Cóipeáil URLanna ar iarraidh",
+    "Access is inherited from this project. Membership changes affect every guide in it.": "Faightear rochtain ón tionscadal seo. Bíonn tionchar ag athruithe ballraíochta ar gach treoir ann.",
+    "Project members": "Baill an tionscadail",
+    "Role": "Ról",
+    "Reset password": "Athshocraigh pasfhocal",
+    "New password": "Pasfhocal nua",
+    "Password reset for {username}.": "Pasfhocal athshocraithe do {username}.",
+    "Set a new password for {username}. This signs them out of all existing sessions.": "Socraigh pasfhocal nua do {username}. Síneofar amach as gach seisiún reatha iad.",
+    "Use 10 to 256 characters.": "Úsáid idir 10 agus 256 carachtar.",
+    "Hide password": "Folaigh pasfhocal",
+    "Show password": "Taispeáin pasfhocal"
   }
 }

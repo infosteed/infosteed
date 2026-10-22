@@ -4,6 +4,22 @@ All notable changes are documented here. The project uses Semantic Versioning on
 
 ## [Unreleased]
 
+## [0.1.0-beta.17] - 2026-10-22
+
+### Changed
+
+- Updated application dependencies and runtime container packages to address known vulnerabilities.
+
+### Added
+
+- Added administrator password resets with password visibility controls, inline error handling, and confirmation that existing sessions are revoked.
+- Added a dedicated video Export menu for WebM downloads and MP4 creation, conversion progress, retries, and downloads.
+
+### Fixed
+
+- Restored visible labels and focus states for download links in output menus.
+- Fixed overlapping access controls at narrow drawer widths and clarified that project membership changes affect every guide in the project.
+
 ## [0.1.0-beta.16] - 2026-09-22
 
 ### Changed

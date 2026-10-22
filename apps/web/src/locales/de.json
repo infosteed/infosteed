@@ -539,6 +539,16 @@
     "Screenshot import progress": "Fortschritt des Screenshot-Imports",
     "{processed} of {total} screenshots processed": "{processed} von {total} Screenshots verarbeitet",
     "These screenshot URLs could not be imported:": "Diese Screenshot-URLs konnten nicht importiert werden:",
-    "Copy missed URLs": "Fehlende URLs kopieren"
+    "Copy missed URLs": "Fehlende URLs kopieren",
+    "Access is inherited from this project. Membership changes affect every guide in it.": "Der Zugriff wird von diesem Projekt geerbt. Änderungen an der Mitgliedschaft betreffen alle Anleitungen darin.",
+    "Project members": "Projektmitglieder",
+    "Role": "Rolle",
+    "Reset password": "Passwort zurücksetzen",
+    "New password": "Neues Passwort",
+    "Password reset for {username}.": "Passwort für {username} zurückgesetzt.",
+    "Set a new password for {username}. This signs them out of all existing sessions.": "Legen Sie ein neues Passwort für {username} fest. Dadurch werden alle bestehenden Sitzungen abgemeldet.",
+    "Use 10 to 256 characters.": "Verwenden Sie 10 bis 256 Zeichen.",
+    "Hide password": "Passwort ausblenden",
+    "Show password": "Passwort anzeigen"
   }
 }

@@ -57,10 +57,15 @@ export function GuideShareMovePanel({
           </StatusBadge>
         )}
       </div>
+      <p className="share-note">
+        {t(
+          "Access is inherited from this project. Membership changes affect every guide in it.",
+        )}
+      </p>
       <div className="share-panel-grid">
         <div className="share-box">
           <div className="share-box-head">
-            <strong>{t("Members")}</strong>
+            <strong>{t("Project members")}</strong>
             {!canManageMembers && <span>{t("View only")}</span>}
           </div>
           {canManageMembers && recording.projectId && (
@@ -72,6 +77,7 @@ export function GuideShareMovePanel({
               }}
             >
               <select
+                aria-label={t("Select user")}
                 value={memberUserId}
                 onChange={(event) => setMemberUserId(event.target.value)}
               >
@@ -83,6 +89,7 @@ export function GuideShareMovePanel({
                 ))}
               </select>
               <select
+                aria-label={t("Role")}
                 value={memberRole}
                 onChange={(event) =>
                   setMemberRole(event.target.value as "viewer" | "editor")
@@ -91,7 +98,7 @@ export function GuideShareMovePanel({
                 <option value="viewer">{t("Viewer")}</option>
                 <option value="editor">{t("Editor")}</option>
               </select>
-              <Button type="submit" size="sm">
+              <Button type="submit" size="sm" disabled={!memberUserId}>
                 {t("Add")}
               </Button>
             </form>
@@ -128,13 +135,10 @@ export function GuideShareMovePanel({
           </div>
         </div>
         <div className="share-box advanced">
-          <div className="share-box-head">
-            <strong>{t("Advanced")}</strong>
-            <span>{t("Access follows project")}</span>
-          </div>
           <h3>{t("Move Guide")}</h3>
           <div className="move-controls">
             <select
+              aria-label={t("Select destination project")}
               disabled={!canMoveGuide}
               value={destinationProjectId}
               onChange={(event) => setDestinationProjectId(event.target.value)}

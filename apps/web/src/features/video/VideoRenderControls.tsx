@@ -131,16 +131,11 @@ export function VideoRenderControls({
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button aria-label={t("More output actions")}>{t("More")}</button>
+            <button disabled={render?.status !== "ready"}>{t("Export")}</button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {render?.status === "ready" && (
               <>
-                <DropdownMenuItem
-                  onSelect={() => setCandidatePreview((current) => !current)}
-                >
-                  {candidatePreview ? t("Preview source") : t("Preview render")}
-                </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <a
                     download={`${safeTitle}.webm`}
@@ -175,6 +170,32 @@ export function VideoRenderControls({
                     </a>
                   </DropdownMenuItem>
                 )}
+                {mp4Export &&
+                  (mp4Export.status === "queued" ||
+                    mp4Export.status === "processing") && (
+                    <DropdownMenuItem disabled>
+                      {t("MP4 {percent}%", {
+                        percent: Math.round(mp4Export.progress * 100),
+                      })}
+                    </DropdownMenuItem>
+                  )}
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button aria-label={t("More output actions")}>{t("More")}</button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {render?.status === "ready" && (
+              <>
+                <DropdownMenuItem
+                  onSelect={() => setCandidatePreview((current) => !current)}
+                >
+                  {candidatePreview ? t("Preview source") : t("Preview render")}
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
               </>
             )}

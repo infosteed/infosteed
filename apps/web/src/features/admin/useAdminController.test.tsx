@@ -12,6 +12,7 @@ import {
   listUsers,
   listWordTemplates,
   updateWordTemplate,
+  updateUser,
   uploadWordTemplate,
 } from "../../api";
 import { useAdminController } from "./useAdminController";
@@ -115,6 +116,19 @@ describe("admin Word templates controller", () => {
 
     await act(() => result.current.removeTemplate(template.id));
     expect(deleteWordTemplate).toHaveBeenCalledWith(template.id);
+  });
+
+  it("resets the selected user's password through the admin API", async () => {
+    const { result } = renderHook(() => useAdminController());
+    await waitFor(() =>
+      expect(result.current.wordTemplates).toEqual([template]),
+    );
+    await act(() =>
+      result.current.resetUserPassword("user-1", "replacement-password"),
+    );
+    expect(updateUser).toHaveBeenCalledWith("user-1", {
+      password: "replacement-password",
+    });
   });
 
   it("deletes users and reloads admin data", async () => {

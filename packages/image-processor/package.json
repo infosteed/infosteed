@@ -13,10 +13,10 @@
   },
   "dependencies": {
     "@infosteed/shared": "workspace:*",
-    "sharp": "^0.35.4"
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
-    "typescript": "^5.5.4",
-    "vitest": "^2.0.5"
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
   }
 }

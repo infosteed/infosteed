@@ -19,7 +19,7 @@ RUN pnpm exec tsc -b --force \
   apps/web/tsconfig.json \
   && pnpm --filter @infosteed/web build
 
-FROM nginxinc/nginx-unprivileged:1.30.4-alpine3.24@sha256:93722936b82ec8a1178d48448e619226680d2de3706a1640800e186cd5fa7fd3
+FROM nginxinc/nginx-unprivileged:1.30.6-alpine3.24@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03 AS runtime
 USER root
 RUN apk upgrade --no-cache
 USER 101

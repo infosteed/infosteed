@@ -33,7 +33,7 @@ RUN pnpm exec tsc -b --force \
   apps/api/tsconfig.json
 RUN pnpm --filter @infosteed/api deploy --prod /release
 
-FROM mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
+FROM mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e AS runtime
 
 USER root
 RUN apt-get update && apt-get upgrade -y \

@@ -228,6 +228,7 @@ production_load_compose() {
   set +a
 
   production_configure_modes || return 1
+  production_configure_storage || return 1
 
   IMAGE_SOURCE=${IMAGE_SOURCE:-ghcr}
   [[ $IMAGE_SOURCE == ghcr || $IMAGE_SOURCE == build ]] || {
@@ -243,6 +244,9 @@ production_load_compose() {
     if [[ $IMAGE_SOURCE == build ]]; then
       compose_paths+=(deploy/compose.build.yml)
     fi
+  fi
+  if [[ $STORAGE_MODE == garage ]]; then
+    compose_paths+=(deploy/compose.garage.yml)
   fi
   if [[ $TLS_MODE == external ]]; then
     compose_paths+=(deploy/compose.external-tls.yml)
@@ -365,4 +369,32 @@ production_verify_host_https() {
     'The InfoSteed containers were left running for diagnosis.' >&2
   rm -rf "$temporary"
   return 1
+}
+
+# Storage selection belongs to deployment; applications only receive S3 settings.
+production_configure_storage() {
+  if [[ -z ${STORAGE_MODE:-} && -n ${MINIO_ROOT_USER:-}${MINIO_ROOT_PASSWORD:-} ]]; then
+    production_die "Legacy MinIO deployment detected. Run scripts/migrate-storage.sh before deploying; existing media must be copied and verified."
+    return 1
+  fi
+  STORAGE_MODE=${STORAGE_MODE:-garage}
+  case $STORAGE_MODE in
+    garage)
+      S3_ENDPOINT=${S3_ENDPOINT:-http://garage:3900}
+      S3_REGION=${S3_REGION:-us-east-1}
+      S3_BUCKET=${S3_BUCKET:-app-media}
+      [[ ${GARAGE_RPC_SECRET:-} =~ ^[a-fA-F0-9]{64}$ ]] || { production_die "GARAGE_RPC_SECRET must be 64 hexadecimal characters"; return 1; }
+      [[ ${S3_ACCESS_KEY_ID:-} =~ ^GK[a-fA-F0-9]{32}$ ]] || { production_die "Garage S3_ACCESS_KEY_ID must be GK followed by 32 hexadecimal characters"; return 1; }
+      [[ $S3_REGION =~ ^[a-zA-Z0-9_-]+$ ]] || { production_die "S3_REGION contains invalid characters"; return 1; }
+      ;;
+    external)
+      [[ -n ${S3_ENDPOINT:-} && -n ${S3_REGION:-} && -n ${S3_BUCKET:-} ]] || { production_die "External storage requires S3_ENDPOINT, S3_REGION and S3_BUCKET"; return 1; }
+      ;;
+    *) production_die "STORAGE_MODE must be garage or external"; return 1 ;;
+  esac
+  export STORAGE_MODE S3_ENDPOINT S3_REGION S3_BUCKET
+}
+
+production_storage() {
+  "${production_compose[@]}" run --rm --no-deps -T storage-tools "$@"
 }

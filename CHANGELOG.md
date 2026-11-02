@@ -4,19 +4,25 @@ All notable changes are documented here. The project uses Semantic Versioning on
 
 ## [Unreleased]
 
-## [0.1.0-beta.17] - 2026-10-22
+## [0.1.0-beta.17] - 2026-11-02
 
 ### Changed
 
-- Updated application dependencies and runtime container packages to address known vulnerabilities.
+- Replaced bundled MinIO with pinned single-node Garage while retaining configurable S3 storage for external providers.
+- Replaced MinIO-specific backup tooling with a streaming S3 CLI, metadata-preserving verified backups, and coordinated restore.
+- Updated dependencies and runtime container packages to address known vulnerabilities; removed the unused shadcn generator CLI from production dependencies.
 
 ### Added
 
+- Added an explicit staged MinIO-to-Garage migration with resumable object restoration, preserved application image IDs, and coordinated rollback.
 - Added administrator password resets with password visibility controls, inline error handling, and confirmation that existing sessions are revoked.
 - Added a dedicated video Export menu for WebM downloads and MP4 creation, conversion progress, retries, and downloads.
+- Added live S3 compatibility, persistence, real-media rendering and MP4 export acceptance checks for bundled and external storage.
 
 ### Fixed
 
+- Preserved the original native-development database volume when the Docker Compose project name changes.
+- Included Garage configuration, migration helpers and recovery documentation in release deployment archives.
 - Restored visible labels and focus states for download links in output menus.
 - Fixed overlapping access controls at narrow drawer widths and clarified that project membership changes affect every guide in the project.
 

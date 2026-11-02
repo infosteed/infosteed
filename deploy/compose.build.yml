@@ -26,3 +26,15 @@ services:
     build:
       context: ../whisper
       dockerfile: Dockerfile
+
+  storage-ready:
+    image: ${STORAGE_TOOLS_IMAGE:-infosteed/api:${LOCAL_IMAGE_TAG:?Set LOCAL_IMAGE_TAG}}
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+
+  storage-tools:
+    image: ${STORAGE_TOOLS_IMAGE:-infosteed/api:${LOCAL_IMAGE_TAG:?Set LOCAL_IMAGE_TAG}}
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile

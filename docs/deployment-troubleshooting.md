@@ -86,14 +86,17 @@ sudo docker compose --env-file deploy/production.env \
 
 Beta.2 runs the hardened image as `postgres`. Errors mentioning `chmod` or switching users usually indicate a beta.1 Compose file or an unsupported bind-mounted data directory. Do not delete the data volume to make the error disappear.
 
-## MinIO initialization never completes
+## Object storage is not ready
+
+Run `scripts/doctor-production.sh` to check the authenticated S3 bucket. For bundled storage, inspect Garage with the production Compose base and Garage overlay:
 
 ```bash
-sudo docker compose --env-file deploy/production.env \
-  -f deploy/compose.production.yml logs --tail=200 minio minio-init
+docker compose --env-file deploy/production.env -f deploy/compose.production.yml -f deploy/compose.garage.yml logs --tail=200 garage storage-ready
 ```
 
-Beta.2 gives the MinIO client a writable `/tmp/.mc` configuration directory. Verify object-storage credentials are populated and the environment file remains mode `0600`.
+Check that `S3_REGION` matches Garage, the access key starts with `GK` followed by 32 hexadecimal characters, the RPC secret is 64 hexadecimal characters, and both Garage volumes persist. The application will not create missing buckets. For external storage, provision its bucket and permissions first.
+
+A legacy MinIO configuration is deliberately rejected by new deployment commands. Follow [the migration runbook](storage-migration.md); do not remove the old volume or point the app at an empty replacement bucket.
 
 ## Web repeatedly restarts
 
@@ -149,4 +152,4 @@ fetch("http://host.docker.internal:11434/api/tags")
 '
 ```
 
-For a native service on the application host, use `host.docker.internal`, not `127.0.0.1`. A service bound only to the host loopback address remains unreachable from Docker; bind it to a controlled host address and restrict access with the firewall. For another host, check its bind address and allowed source network. Never publish PostgreSQL, MinIO, or application-internal ports to solve an AI routing problem.
+For a native service on the application host, use `host.docker.internal`, not `127.0.0.1`. A service bound only to the host loopback address remains unreachable from Docker; bind it to a controlled host address and restrict access with the firewall. For another host, check its bind address and allowed source network. Never publish PostgreSQL, Garage, or application-internal ports to solve an AI routing problem.

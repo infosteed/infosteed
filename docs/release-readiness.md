@@ -1,51 +1,33 @@
 # Official release status
 
-`v0.1.0-beta.17` is an unpublished InfoSteed release candidate. Beta.16 and earlier beta tags are unpublished, superseded application candidates; do not treat them or an untagged checkout as supported.
+`v0.1.0-beta.17` is an unpublished InfoSteed release candidate. Beta.16 and earlier tags are immutable, superseded application candidates.
 
-The repository already includes the application, dual GHCR/source-build production Compose configuration, unchanged Chrome extension packaging for beta.17, backup tools, automated checks, and tag-triggered release workflow.
-
-The beta.17 release sequence is documented in [`release-process.md`](release-process.md): successful CI and CodeQL on the candidate commit, a manual Container security rehearsal on that same commit, a signed immutable tag, verification of the generated draft and published image digests, a private soak, and publication of the existing draft.
+This candidate includes Garage as the bundled storage service, provider-independent S3 operation, verified backup/restore, explicit MinIO migration and rollback, MP4 exports, administrator password resets, and security dependency updates. Local release preparation was requested by the repository owner on 2026-11-02; the owner handles GitHub pushes, release tags and publication.
 
 ## What remains before publication
 
-The release owner must confirm and publish the following project and deployment details:
+Run CI, CodeQL, and Container security against the exact candidate commit before creating its signed tag. Verify the resulting Publish release workflow, generated draft, image digests, checksums, deployment archive, anonymous GHCR access, and final installation checks before publishing the same draft as a prerelease. Record the commit and run URLs below when available.
 
-- legal clearance for the product name and slug;
-- the copyright holder and, if commercial terms are offered, the contracting entity and approved licence;
-- the production domain and browser-store publisher, and public visibility for the four `ghcr.io/infosteed` packages;
-- the stable extension ID and public manifest key;
-- approved contributor, security, and moderation contacts.
-
-These are publication controls, not settings required to run InfoSteed locally or evaluate the candidate privately.
+A one-week production soak of the final commit has not been recorded. This release is a beta for evaluation; do not describe it as production-qualified or claim unperformed manual browser-store, legal, translation, 2FA or AI-provider validation. No browser-store submission or public announcement is part of this GitHub publication.
 
 ## Local candidate validation
 
-On 2026-10-22, the full `pnpm check` gate, frozen lockfile installation, SPDX and third-party notice checks, release tag metadata validation, deployment script checks, development Compose validation, Chrome extension packaging, and four transcription contract tests passed. All five HTTP integration tests passed against an isolated stack built from this candidate.
+The Garage migration implementation was checked on 2026-10-22 with live S3 contract tests against Garage and SeaweedFS, persistence across Garage container recreation, six HTTP end-to-end tests in both bundled and external storage modes, real FFmpeg rendering and MP4 downloads, v1/v2 backup restoration, and a populated MinIO-to-Garage migration and coordinated rollback after new database writes. The original development media was copied and verified without deleting the MinIO source volume.
 
-The integration run used cached Docker Hub copies of the configured MinIO release versions. Anonymous pulls of the configured Quay images failed from the local environment; Docker Hub manifest requests were also denied. Confirm that a clean CI runner can pull the configured MinIO images, or supply a verified reachable mirror before publication. The cached-image integration result does not establish registry availability.
+On 2026-11-02, the original native-development database was reconnected and verified to contain its existing user and recordings. Both the API and browser-facing setup routes returned `required:false`, with PostgreSQL and object-storage readiness passing. The persistent native-development volume now has a stable name independent of the debugger's Compose project.
 
-## Release and deployment evidence
+Fresh release validation also updates the affected production dependencies, removes the unused shadcn generator CLI from the web package, and moves schema validation to the patched Zod release. The fresh production dependency audit reports zero findings at every severity. The full `pnpm check` gate, SPDX and generated notices checks, signed-tag metadata validation, production deployment/restore/migration-preflight tests, deployment archive test, four transcription contract tests, and live Garage S3 contract all pass. The candidate API, web and renderer images build locally. Initial image scanning identified fixable Ubuntu and Nginx findings. Runtime OS layers were rebuilt, Nginx was updated to pinned 1.30.6, and all four local release images now pass the configured fixable high/critical vulnerability gate. Release and security workflows refresh runtime layers before publication. Full-history and candidate-patch secret scans pass; the scanner allows only the exact public development RPC fixture and the nonfunctional production template placeholder. Exact remote commit, workflow and artifact evidence follows after publication gates complete.
 
-Beta.17 must not be published until the release owner has retained evidence that they have:
+## Storage and upgrade requirements
 
-- recorded successful CI, CodeQL, and manual Container security workflow URLs for the exact candidate commit;
-- confirmed that the rehearsal completed the dependency audit, full-history secret scan, extension SBOM, four image builds, four container SBOMs, and all high/critical vulnerability gates without publishing an image;
-- exercised guide, video, and combined capture with the signed Chrome extension, including permission loss, child-tab handoff, recovery, and server changes;
-- exercised optional and required 2FA enrollment, normal and recovery-code login, code regeneration, self-service disablement, administrator reset, operator reset, session revocation, and recovery after deployment-wide enrollment is disabled;
-- validated web and extension locale selection, English fallback, placeholders, plural forms, and right-to-left direction with a non-production test catalog;
-- exercised the redesigned library, project, shared, trash, administration, guide, recording, and video-editor layouts at desktop and responsive widths;
-- uploaded, inspected, selected, exported with, and deleted Word templates, including rejection of malformed, unsafe, oversized, macro-enabled, and externally linked documents;
-- downloaded the guided Confluence DOCX export and imported it into a disposable Confluence page, checking headings, steps, callouts, screenshots, and permissions;
-- verified readable WebM and MP4 export actions, MP4 conversion and retries, responsive project access controls, and administrator password resets with session revocation;
-- tested transcription, voiceover, and rendering through success, failure, retry, restart, and cache reuse;
-- restored a realistic backup after rebuilding the deployment and compared database records with stored objects;
-- verified the signed tag and successful Publish release workflow for the same candidate commit;
-- confirmed that the beta.17 Chrome packages match the already-published extension, so no Chrome Web Store resubmission is required;
-- confirmed that the workflow-created draft contains only the beta.17 Chrome extension packages, checksums, SBOM, deployment bundle, `production-images.env`, and `SHA256SUMS` without deleting or recreating the draft;
-- scanned and signed the final images, verified their SBOMs and provenance, recorded all four immutable digests, and tested anonymous access after making the packages public;
-- tested both GHCR and source-build installation paths from the candidate artifacts;
-- completed a one-week private installation soak.
+- Fresh installations default to single-node Garage; this mode has no storage redundancy. External S3 remains configurable.
+- Existing MinIO deployments must complete [storage migration](storage-migration.md) before normal upgrades. Do not start the new deployment against an empty Garage bucket and assume old objects moved automatically.
+- Storage migration preserves the original application images and database release. Upgrade application code separately after verified cutover.
+- Format v2 backups preserve object bytes, keys and metadata. Legacy v1 backups remain readable with documented metadata limitations.
+- Take a coordinated PostgreSQL/object backup before upgrading. After new writes or database migrations, rollback restores both stores and the previous image set; an endpoint switch alone is insufficient.
+- Linux amd64 production images, Node.js 24 for native development, Docker Compose 2.23.1 or newer, and Chrome 116 or newer are the supported baseline.
+- Chrome packages are rebuilt from the final release commit and attached with checksums. The dependency refresh can change bundled extension code; do not claim byte-for-byte equality with a previously published extension without comparison. No Chrome Web Store resubmission is performed here.
 
-The resulting evidence must identify the beta.17 release commit and immutable image digests. Beta.17 upgrade validation covers beta.1 through beta.16. The beta.1 path must include removal of its temporary Compose and internal-TLS workarounds.
+## Release evidence
 
-Do not move or recreate the beta.16 tag, overwrite its images, or publish its draft as the supported application beta. Retain the beta.16 draft as unpublished and mark it superseded. The same immutability rule applies to every earlier candidate tag and image.
+The owner will record the signed tag, candidate commit, workflow run URLs, published image digests and final artifact verification after performing the GitHub release steps. The validated changes are prepared as a local commit for owner review. No tag, push or GitHub release is created during local preparation; the owner handles release signing and publication. Never move an existing tag or overwrite a versioned image; prepare a new version if publication fails after an image is published.

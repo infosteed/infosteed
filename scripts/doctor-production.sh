@@ -48,7 +48,9 @@ if [[ $TLS_MODE == external ]]; then
   fi
 fi
 
-note "Configured modes: TLS=$TLS_MODE LLM=$LLM_MODE transcription=$TRANSCRIPTION_MODE voiceover=$VOICEOVER_MODE"
+if production_storage check; then pass "S3 bucket is accessible"; else fail "S3 bucket authentication or readiness failed"; fi
+
+note "Configured modes: storage=$STORAGE_MODE TLS=$TLS_MODE LLM=$LLM_MODE transcription=$TRANSCRIPTION_MODE voiceover=$VOICEOVER_MODE"
 "${production_compose[@]}" ps -a || fail "container state could not be read"
 
 if getent ahosts "$APP_DOMAIN" >/dev/null 2>&1; then pass "$APP_DOMAIN resolves on this host"; else fail "$APP_DOMAIN does not resolve on this host"; fi

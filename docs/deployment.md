@@ -8,7 +8,7 @@ InfoSteed installs the core application first. LLM, transcription, and voiceover
 
 | Layout            | Application host                                          | AI configuration                             |
 | ----------------- | --------------------------------------------------------- | -------------------------------------------- |
-| Core only         | App, PostgreSQL, MinIO, Caddy, renderer                   | All services `off`                           |
+| Core only         | App, PostgreSQL, Garage, Caddy, renderer                  | All services `off`                           |
 | One host          | Core plus selected Ollama, Whisper, and Kokoro containers | Selected services `managed`                  |
 | Split hosts       | Core on one machine; selected AI containers on another    | App uses `external` endpoints                |
 | Existing services | Core plus operator-provided Ollama or compatible APIs     | Matching services `external`                 |
@@ -226,3 +226,15 @@ Start the core application with 4 CPU cores, 8 GB RAM, 40 GB persistent storage,
 ## GHCR visibility and zero-cost controls
 
 The organization owner must make the four InfoSteed GHCR packages public and enable inherited repository permissions. Public images can then be pulled anonymously. Set GitHub Actions and Packages spending budgets to `$0`, do not enable larger runners, and retain the local source-build path if GitHub policy changes.
+
+## Object storage
+
+New deployments use single-node Garage with persistent data and metadata volumes. Docker Compose 2.23.1 or newer is required for inline Garage configuration. Native development keeps its database in the stable `infra_infosteed-postgres` volume even when a debugger changes the Compose project name; set `DEV_POSTGRES_VOLUME` explicitly to use a separate native-development database. The installer generates a stable RPC secret and S3 application key. Keep both volumes and the private environment file when recreating containers; one host provides no redundancy.
+
+Production scripts select `deploy/compose.garage.yml` when `STORAGE_MODE=garage`. For direct Compose commands, include that overlay after the base file (and the build overlay if used). `S3_REGION` configures both Garage and all clients. The authenticated storage readiness service must succeed before the API starts. Storage administration ports are not published.
+
+For another S3 service, set `STORAGE_MODE=external`, `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` and `S3_FORCE_PATH_STYLE`. Provision the bucket and permissions first. The application needs bucket HEAD and object read/write/delete/multipart access; backup tooling also needs object listing. It does not create buckets or manage provider permissions.
+
+For a fresh external installation, export those S3 settings and pass `--storage external` to the installer. External mode starts no Garage service. In development, `docker compose` automatically loads the Garage override; explicitly select only `-f docker-compose.yml` for external storage. Infrastructure-only development uses the same base/override convention and exposes S3 on `127.0.0.1:59000`.
+
+Existing MinIO installations must follow [the one-time migration runbook](storage-migration.md). Storage migration preserves the running application release; upgrade it separately after acceptance.

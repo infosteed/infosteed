@@ -2,7 +2,6 @@
 import {
   AbortMultipartUploadCommand,
   CompleteMultipartUploadCommand,
-  CreateBucketCommand,
   CreateMultipartUploadCommand,
   DeleteObjectCommand,
   GetObjectCommand,
@@ -99,24 +98,9 @@ export function createVideoStorage(config: ApiConfig): VideoStorage {
           throw error;
       }
 
-      try {
-        await client.send(
-          new CreateBucketCommand({
-            Bucket: bucket,
-            CreateBucketConfiguration:
-              config.S3_REGION === "us-east-1"
-                ? undefined
-                : { LocationConstraint: config.S3_REGION as never },
-          }),
-        );
-      } catch (createError) {
-        // A concurrent API instance may have created the bucket after our HEAD.
-        try {
-          await client.send(new HeadBucketCommand({ Bucket: bucket }));
-        } catch {
-          throw createError;
-        }
-      }
+      throw new Error(
+        "Configured S3 bucket does not exist; provision it before starting InfoSteed",
+      );
     })().catch((error) => {
       bucketReady = undefined;
       throw error;

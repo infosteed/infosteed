@@ -7,6 +7,7 @@ script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 source "$script_dir/production-compose.sh"
 
 requested_source=""
+requested_storage=""
 domain=""
 email=""
 extension_origin=""
@@ -18,6 +19,7 @@ usage() {
   cat >&2 <<'EOF'
 Usage: scripts/install-production.sh [options]
   --source ghcr|build
+  --storage garage|external
   --domain HOSTNAME
   --email ACME_EMAIL
   --extension-origin chrome-extension://ID
@@ -29,10 +31,11 @@ EOF
 
 while (($#)); do
   case $1 in
-    --source | --domain | --email | --extension-origin | --tls | --tls-cert-host-path)
+    --source | --storage | --domain | --email | --extension-origin | --tls | --tls-cert-host-path)
       (($# >= 2)) || { usage; exit 2; }
       case $1 in
         --source) requested_source=$2 ;;
+        --storage) requested_storage=$2 ;;
         --domain) domain=$2 ;;
         --email) email=$2 ;;
         --extension-origin) extension_origin=$2 ;;
@@ -58,6 +61,9 @@ if [[ -f $env_file ]]; then
   # shellcheck disable=SC1090
   source "$env_file"
   set +a
+  if [[ -n $requested_storage && $requested_storage != "${STORAGE_MODE:-garage}" ]]; then
+    production_die "existing $env_file uses a different storage mode; use the documented migration"
+  fi
   if [[ -n $requested_source && $requested_source != "${IMAGE_SOURCE:-ghcr}" ]]; then
     production_die "existing $env_file uses IMAGE_SOURCE=${IMAGE_SOURCE:-ghcr}; edit it explicitly to change deployment source"
   fi
@@ -73,6 +79,8 @@ if [[ -f $env_file ]]; then
   ENV_FILE="$env_file" exec "$script_dir/deploy-production.sh" "${args[@]}"
 fi
 
+storage_mode=${requested_storage:-${STORAGE_MODE:-garage}}
+[[ $storage_mode == garage || $storage_mode == external ]] || production_die "--storage must be garage or external"
 image_source=${requested_source:-ghcr}
 tls_mode=${tls_mode:-public}
 tls_cert_host_path=${requested_tls_cert_host_path:-${TLS_CERT_HOST_PATH:-}}
@@ -116,8 +124,32 @@ fi
 setup_token=$(openssl rand -hex 32)
 two_factor_encryption_key=$(openssl rand -hex 32)
 postgres_password=$(openssl rand -hex 32)
-minio_root_password=$(openssl rand -hex 32)
-s3_secret=$(openssl rand -hex 32)
+garage_rpc_secret=""
+if [[ $storage_mode == garage ]]; then
+  garage_rpc_secret=$(openssl rand -hex 32)
+  s3_access_key=GK$(openssl rand -hex 16)
+  s3_secret=$(openssl rand -hex 32)
+  s3_endpoint=http://garage:3900
+  s3_region=${S3_REGION:-us-east-1}
+  s3_bucket=${S3_BUCKET:-app-media}
+  s3_path_style=true
+else
+  for storage_variable in S3_ENDPOINT S3_REGION S3_BUCKET S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY; do
+    [[ -n ${!storage_variable:-} ]] || production_die "$storage_variable is required for external storage"
+  done
+  s3_endpoint=$S3_ENDPOINT
+  s3_region=$S3_REGION
+  s3_bucket=$S3_BUCKET
+  s3_access_key=$S3_ACCESS_KEY_ID
+  s3_secret=$S3_SECRET_ACCESS_KEY
+  s3_path_style=${S3_FORCE_PATH_STYLE:-true}
+fi
+# The environment file is both shell-sourced and parsed by Compose. Keep generated
+# values in their shared unquoted syntax, including standard AWS key alphabets.
+[[ $s3_endpoint =~ ^https?://[a-zA-Z0-9._:/-]+$ ]] || production_die "S3_ENDPOINT must be an HTTP(S) URL without credentials, query or shell characters"
+[[ $s3_region =~ ^[a-zA-Z0-9_-]+$ && $s3_bucket =~ ^[a-zA-Z0-9._-]+$ ]] || production_die "Invalid S3 region or bucket"
+[[ $s3_access_key =~ ^[a-zA-Z0-9/+=._-]+$ && $s3_secret =~ ^[a-zA-Z0-9/+=._-]+$ ]] || production_die "S3 credentials contain unsupported environment-file characters; use a protected manually quoted environment file"
+[[ $s3_path_style == true || $s3_path_style == false ]] || production_die "S3_FORCE_PATH_STYLE must be true or false"
 temporary_env=$(mktemp "$production_root/deploy/.production.env.XXXXXX")
 trap 'rm -f "$temporary_env"' EXIT
 umask 077
@@ -148,10 +180,13 @@ VOICEOVER_MODE=off
 POSTGRES_USER=app
 POSTGRES_PASSWORD=$postgres_password
 POSTGRES_DB=app
-MINIO_ROOT_USER=minio-root
-MINIO_ROOT_PASSWORD=$minio_root_password
-S3_BUCKET=app-media
-S3_ACCESS_KEY_ID=app-media-user
+STORAGE_MODE=$storage_mode
+GARAGE_RPC_SECRET=$garage_rpc_secret
+S3_ENDPOINT=$s3_endpoint
+S3_REGION=$s3_region
+S3_FORCE_PATH_STYLE=$s3_path_style
+S3_BUCKET=$s3_bucket
+S3_ACCESS_KEY_ID=$s3_access_key
 S3_SECRET_ACCESS_KEY=$s3_secret
 EOF
 

@@ -12,6 +12,10 @@ cat >"$test_root/bin/docker" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 printf '%s\n' "$*" >>"$DOCKER_LOG"
+if [[ -n ${DOCKER_FAIL_PATTERN:-} && " $* " == *"$DOCKER_FAIL_PATTERN"* ]]; then exit 1; fi
+if [[ " $* " == *"select count(*) from recording_video_assets"* ]]; then
+  printf '%s\n' "${MOCK_UNFINISHED_UPLOADS:-0}"
+fi
 if [[ ${1:-} == info ]]; then
   printf '{"nvidia":{}}\n'
 fi
@@ -357,3 +361,74 @@ if "$script_dir/install-ai-services.sh" --help >/dev/null 2>&1; then :; else
 fi
 
 printf 'Production deployment script checks passed.\n'
+
+source "$script_dir/production-compose.sh"
+# Storage mode validation must happen before any Docker operation.
+storage_test_env="$test_root/storage.env"
+sed '/^STORAGE_MODE=/d; /^GARAGE_RPC_SECRET=/d' "$ENV_FILE" > "$storage_test_env"
+printf 'MINIO_ROOT_USER=legacy\nMINIO_ROOT_PASSWORD=legacy-secret\n' >> "$storage_test_env"
+chmod 600 "$storage_test_env"
+: > "$DOCKER_LOG"
+if ENV_FILE="$storage_test_env" "$script_dir/deploy-production.sh" --allow-dirty >"$test_root/storage-legacy.log" 2>&1; then
+  echo 'Legacy MinIO was accepted without migration' >&2; exit 1
+fi
+grep -q 'migrate-storage.sh' "$test_root/storage-legacy.log"
+if grep -Eq 'pull|build|up -d' "$DOCKER_LOG"; then echo 'Legacy rejection mutated Docker' >&2; exit 1; fi
+sed '/^MINIO_/d' "$storage_test_env" > "$test_root/external-storage.env"
+printf 'STORAGE_MODE=external\nS3_ENDPOINT=https://s3.example.test\nS3_REGION=test-region\nS3_BUCKET=external-bucket\n' >> "$test_root/external-storage.env"
+chmod 600 "$test_root/external-storage.env"
+(
+  ENV_FILE="$test_root/external-storage.env" production_load_compose
+  [[ " ${production_compose[*]} " != *'compose.garage.yml'* ]]
+)
+printf 'Storage mode checks passed.\n'
+external_install_env="$test_root/external-install.env"
+ENV_FILE="$external_install_env" S3_ENDPOINT=https://s3.example.test S3_REGION=us-east-1 \
+  S3_BUCKET=external-media S3_ACCESS_KEY_ID=external-key S3_SECRET_ACCESS_KEY=external-secret \
+  "$script_dir/install-production.sh" --source build --allow-dirty --storage external --tls internal \
+  --domain external-storage.example.test --extension-origin chrome-extension://abcdefghijklmnopabcdefghijklmnop >/dev/null
+grep -q '^STORAGE_MODE=external$' "$external_install_env"
+grep -q '^S3_BUCKET=external-media$' "$external_install_env"
+
+# Restore orchestration must name the database, stop before inspection and verify before restart.
+restore_fixture="$test_root/restore-fixture"
+mkdir -p "$restore_fixture/objects"
+printf 'fixture database dump\n' > "$restore_fixture/postgres.dump"
+printf 'format_version=2\n' > "$restore_fixture/manifest.txt"
+printf '{"formatVersion":2,"objects":[]}\n' > "$restore_fixture/objects.json"
+touch "$restore_fixture/complete"
+(cd "$restore_fixture" && sha256sum postgres.dump manifest.txt objects.json > checksums.sha256)
+: > "$DOCKER_LOG"
+"$script_dir/restore.sh" --confirm-replace-target "$restore_fixture" >/dev/null
+grep -q 'pg_restore --exit-on-error --no-owner -U app -d app' "$DOCKER_LOG"
+stop_line=$(grep -n ' stop caddy web api video-render-worker' "$DOCKER_LOG" | head -1 | cut -d: -f1)
+inspect_line=$(grep -n 'select count' "$DOCKER_LOG" | head -1 | cut -d: -f1)
+verify_line=$(grep -n 'storage-tools verify' "$DOCKER_LOG" | head -1 | cut -d: -f1)
+start_line=$(grep -n ' up -d' "$DOCKER_LOG" | head -1 | cut -d: -f1)
+((stop_line < inspect_line && verify_line < start_line))
+: > "$DOCKER_LOG"
+if DOCKER_FAIL_PATTERN='storage-tools restore' "$script_dir/restore.sh" --confirm-replace-target "$restore_fixture" >/dev/null 2>&1; then
+  echo 'Restore accepted an upload failure' >&2; exit 1
+fi
+if grep -q ' up -d' "$DOCKER_LOG"; then echo 'Failed restore restarted writers' >&2; exit 1; fi
+printf 'Restore orchestration checks passed.\n'
+
+# A staged migration must refuse unfinished uploads before taking a database snapshot.
+migration_fixture="$test_root/migration-state"
+mkdir -m 700 "$migration_fixture"
+cp "$ENV_FILE" "$migration_fixture/source.env"
+cp "$ENV_FILE" "$migration_fixture/target.env"
+printf 'services: {}\n' > "$migration_fixture/source.compose.yml"
+touch "$migration_fixture/prepare.done"
+: > "$DOCKER_LOG"
+if MOCK_UNFINISHED_UPLOADS=1 "$script_dir/migrate-storage.sh" backup "$ENV_FILE" "$ENV_FILE" "$migration_fixture" >"$test_root/pending.log" 2>&1; then
+  echo 'Migration accepted identical source and target files' >&2; exit 1
+fi
+# Use separate, otherwise matching protected config files for the actual pending check.
+cp "$ENV_FILE" "$test_root/migration-target.env"
+if MOCK_UNFINISHED_UPLOADS=1 "$script_dir/migrate-storage.sh" backup "$ENV_FILE" "$test_root/migration-target.env" "$migration_fixture" >"$test_root/pending.log" 2>&1; then
+  echo 'Migration accepted unfinished uploads' >&2; exit 1
+fi
+grep -q 'Unfinished uploads exist' "$test_root/pending.log"
+if grep -Eq 'pg_dump|storage-tools backup| up -d' "$DOCKER_LOG"; then echo 'Pending upload refusal copied data or restarted writers' >&2; exit 1; fi
+printf 'Migration preflight checks passed.\n'

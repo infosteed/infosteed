@@ -87,7 +87,9 @@ ENV_FILE="$candidate_env" "$script_dir/deploy-production.sh" "${prepare_args[@]}
 
 backup_dir=""
 if [[ $allow_without_backup == false ]]; then
-  BACKUP_RESULT_FILE="$backup_result" "$script_dir/backup.sh" "${BACKUP_ROOT:-backups}"
+  active_compose="$(dirname "$production_env_file")/.production.active.yml"
+  [[ -f $active_compose ]] || production_die "Missing active deployment snapshot. Re-run the current deployment before upgrading."
+  BACKUP_COMPOSE_FILE="$active_compose" BACKUP_RESULT_FILE="$backup_result" "$script_dir/backup.sh" "${BACKUP_ROOT:-backups}"
   backup_dir=$(<"$backup_result")
 fi
 

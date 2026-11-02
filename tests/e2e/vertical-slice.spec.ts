@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import JSZip from "jszip";
+import { readFile } from "node:fs/promises";
 import { gunzipSync } from "node:zlib";
 import { expect, request as playwrightRequest, test } from "@playwright/test";
 import type { APIRequestContext } from "@playwright/test";
@@ -616,4 +617,120 @@ test("keeps combined guide and video output synchronized over HTTP", async ({
     ).status(),
   ).toBe(204);
   expect((await request.get(`${apiUrl}/recordings/${bothId}`)).ok()).toBe(true);
+});
+
+test("renders real source media and downloads an MP4 through S3 storage", async ({
+  request,
+}) => {
+  test.skip(
+    !process.env.INFOSTEED_MEDIA_FIXTURE,
+    "Set INFOSTEED_MEDIA_FIXTURE to a two-second VP9/Opus WebM",
+  );
+  test.setTimeout(120_000);
+  const headers = await authenticate(request);
+  const media = await readFile(process.env.INFOSTEED_MEDIA_FIXTURE!);
+  const created = await request.post(`${apiUrl}/recordings`, {
+    headers,
+    data: { title: "Storage render acceptance", captureMode: "video" },
+  });
+  expect(created.ok()).toBe(true);
+  const { id } = await created.json();
+  const base = `${apiUrl}/recordings/${id}/video`;
+  try {
+    const initialized = await request.post(base, {
+      headers,
+      data: {
+        captureSettings: {
+          tabAudio: true,
+          microphone: false,
+          webcam: false,
+          maxWidth: 320,
+          maxHeight: 240,
+          frameRate: 10,
+        },
+        assets: ["composite", "screen"].map((kind) => ({
+          kind,
+          mimeType: "video/webm",
+          codec: "vp9,opus",
+          width: 320,
+          height: 240,
+        })),
+      },
+    });
+    expect(initialized.ok(), await initialized.text()).toBe(true);
+    const { assets } = await initialized.json();
+    for (const asset of assets) {
+      const part = await request.put(`${base}/assets/${asset.id}/parts/1`, {
+        headers: {
+          ...headers,
+          "content-type": "application/octet-stream",
+          "x-infosteed-start-ms": "0",
+          "x-infosteed-end-ms": "2000",
+        },
+        data: media,
+      });
+      expect(part.ok()).toBe(true);
+    }
+    const finalized = await request.post(`${base}/finalize`, {
+      headers,
+      data: {
+        durationMs: 2000,
+        assets: assets.map((asset: { id: string }) => ({
+          assetId: asset.id,
+          durationMs: 2000,
+        })),
+      },
+    });
+    expect(finalized.ok(), await finalized.text()).toBe(true);
+    const editor = await (await request.get(`${base}/editor`)).json();
+    const queued = await request.post(`${base}/renders`, {
+      headers,
+      data: { expectedRevision: editor.draft.revision },
+    });
+    expect(queued.status(), await queued.text()).toBe(202);
+    const render = await queued.json();
+    const renderUrl = `${base}/renders/${render.id}`;
+    await expect
+      .poll(
+        async () => {
+          const current = await (await request.get(renderUrl)).json();
+          expect(
+            current.status,
+            current.errorMessage ?? "render failed",
+          ).not.toBe("failed");
+          return current.status;
+        },
+        { timeout: 90_000, intervals: [500, 1000] },
+      )
+      .toBe("ready");
+    const webm = await request.get(`${renderUrl}/content`, {
+      headers: { Range: "bytes=0-3" },
+    });
+    expect(webm.status()).toBe(206);
+    expect(await webm.body()).toEqual(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]));
+    expect(
+      (await request.post(`${renderUrl}/mp4-export`, { headers })).ok(),
+    ).toBe(true);
+    await expect
+      .poll(
+        async () => {
+          const current = await (
+            await request.get(`${renderUrl}/mp4-export`)
+          ).json();
+          expect(
+            current.status,
+            current.errorMessage ?? "export failed",
+          ).not.toBe("failed");
+          return current.status;
+        },
+        { timeout: 90_000, intervals: [500, 1000] },
+      )
+      .toBe("ready");
+    const mp4 = await request.get(`${renderUrl}/mp4-export/content`);
+    expect(mp4.ok()).toBe(true);
+    expect(mp4.headers()["content-type"]).toContain("video/mp4");
+    expect((await mp4.body()).subarray(4, 8).toString()).toBe("ftyp");
+  } finally {
+    expect((await request.delete(base, { headers })).status()).toBe(204);
+  }
 });

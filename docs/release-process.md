@@ -14,7 +14,7 @@ Exercise backup and restore with populated data and compare the Chrome offline a
 
 Run [Container security](https://github.com/infosteed/infosteed/actions/workflows/container-security.yml) manually on the candidate commit and wait for every job to pass. The workflow also runs weekly.
 
-The rehearsal performs the production dependency audit, full-history secret scan, extension packaging and SBOM generation, and Linux amd64 builds, SBOM generation, and high/critical Trivy scans for the API, web, render-worker, and transcription images. It does not publish images. Successful builds populate per-image BuildKit caches that the tag workflow can reuse.
+The rehearsal performs the production dependency audit, full-history secret scan, extension packaging and SBOM generation, and Linux amd64 builds, SBOM generation, and high/critical Trivy scans for the API, web, render-worker, and transcription images. It does not publish images. Successful builds populate per-image BuildKit caches that the tag workflow can reuse. Runtime stages are rebuilt without cache in both security rehearsals and tagged builds so OS package upgrades are refreshed.
 
 This rehearsal is deliberately separate from routine push CI so four production images are not rebuilt for every commit. It is also separate from the tag workflow because a signed release tag and any images published from it are immutable. Do not tag a candidate whose rehearsal failed or ran against a different commit.
 

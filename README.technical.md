@@ -28,9 +28,9 @@ See [Sanity import setup](docs/sanity/README.md) for the one-time Studio schema 
 
 ```bash
 pnpm install
-docker compose -f infra/docker-compose.yml up -d
+docker compose -f infra/docker-compose.yml -f infra/docker-compose.override.yml up -d
 export S3_ENDPOINT=http://localhost:59000 S3_BUCKET=infosteed-videos
-export S3_ACCESS_KEY_ID=infosteed S3_SECRET_ACCESS_KEY=infosteed-video-secret
+export S3_ACCESS_KEY_ID=GK0123456789abcdef0123456789abcdef S3_SECRET_ACCESS_KEY=local-video-service-secret
 pnpm dev:api
 pnpm --filter @infosteed/video-render-worker dev
 pnpm dev:web
@@ -49,7 +49,7 @@ Connect the extension to your server from its Options page. The extension reques
 
 ### Local Docker Compose
 
-The root compose file runs PostgreSQL, MinIO object storage, the Fastify API, and the built React web UI behind nginx.
+The root compose file runs PostgreSQL, Garage object storage, the Fastify API, and the built React web UI behind nginx.
 
 ```bash
 cp docker.env.example .env.docker
@@ -75,7 +75,7 @@ AI_MODEL=qwen3-vl:8b-instruct
 AI_API_KEY=
 ```
 
-Persistent data lives in the `infosteed-postgres` and `infosteed-minio` Docker volumes. External S3-compatible services can replace MinIO by setting the `S3_*` variables. When S3 is not configured, the API advertises video as unavailable and the extension keeps Guide Only enabled.
+Persistent data lives in the `infosteed-postgres`, `garage-data` and `garage-meta` Docker volumes. External S3-compatible services can replace Garage by selecting only the base Compose file and setting the `S3_*` variables. When S3 is not configured, the API advertises video as unavailable and the extension keeps Guide Only enabled.
 
 ## Environment
 
@@ -89,8 +89,8 @@ AI_API_KEY=
 AI_MODEL=
 S3_ENDPOINT=http://localhost:59000
 S3_BUCKET=infosteed-videos
-S3_ACCESS_KEY_ID=infosteed
-S3_SECRET_ACCESS_KEY=infosteed-video-secret
+S3_ACCESS_KEY_ID=GK0123456789abcdef0123456789abcdef
+S3_SECRET_ACCESS_KEY=local-video-service-secret
 ```
 
 When no AI endpoint/key is configured, InfoSteed uses deterministic local step writing.
@@ -168,7 +168,7 @@ docker compose --env-file .env.docker --profile voiceover up -d --build
 For native development, start the profile in `infra/docker-compose.yml` and configure:
 
 ```bash
-docker compose -f infra/docker-compose.yml --profile voiceover up -d
+docker compose -f infra/docker-compose.yml -f infra/docker-compose.override.yml --profile voiceover up -d
 # .env
 TTS_BASE_URL=http://127.0.0.1:58880/v1
 TTS_MODEL=kokoro

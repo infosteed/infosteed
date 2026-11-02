@@ -97,7 +97,7 @@ The faster-whisper runtime downloads a separately licensed Whisper model selecte
 | nginx-unprivileged | static web server | BSD-2-Clause plus bundled module notices |
 | Caddy | HTTPS reverse proxy | Apache-2.0 plus bundled notices |
 | PostgreSQL | database | PostgreSQL Licence |
-| MinIO server and client | bundled object storage | AGPL-3.0-only; administrators may instead configure an external S3-compatible service |
+| Garage | bundled object storage | AGPL-3.0-only; administrators may instead configure an external S3-compatible service |
 | NVIDIA CUDA runtime image | optional GPU transcription base | NVIDIA container/CUDA terms; redistribution approval must be checked for the chosen image |
 | Ollama v0.32.3 | optional managed LLM server | MIT plus bundled notices |
 | Ollama-managed models | optional LLM assets selected by the administrator | Model-specific terms and model-card notices apply |

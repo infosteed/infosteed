@@ -57,7 +57,7 @@ export const captureModeSchema = z.enum(["guide", "video", "both"]);
 export const outputLocaleSchema = z.enum(["en", "ga", "fr", "de"]);
 export const outputLocaleRequestSchema = z
   .object({ outputLocale: outputLocaleSchema.default("en") })
-  .default({});
+  .default({ outputLocale: "en" });
 
 export const OUTPUT_LOCALE_NAMES = {
   en: "English",
@@ -143,7 +143,7 @@ export const recordingEventSchema = z.object({
   inputCategory: safeTextSchema.optional(),
   boundingBox: boundingBoxSchema.optional(),
   videoOffsetMs: z.number().int().nonnegative().optional(),
-  metadata: z.record(z.unknown()).default({}),
+  metadata: z.record(z.string(), z.unknown()).default({}),
 });
 
 const INTERACTIVE_CLICK_ROLES = new Set([
@@ -1025,7 +1025,7 @@ export const auditEventSchema = z.object({
   entityId: z.string().nullable(),
   ipAddress: z.string().nullable(),
   userAgent: z.string().nullable(),
-  metadata: z.record(z.unknown()),
+  metadata: z.record(z.string(), z.unknown()),
   createdAt: z.string(),
 });
 
@@ -1045,7 +1045,7 @@ export const guideVersionListItemSchema = z.object({
 });
 
 export const guideVersionSchema = guideVersionListItemSchema.extend({
-  snapshot: z.record(z.unknown()),
+  snapshot: z.record(z.string(), z.unknown()),
 });
 
 export const brandingSettingsSchema = z.object({

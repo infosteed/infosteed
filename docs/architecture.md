@@ -20,7 +20,7 @@ packages/
   markdown-exporter/   Markdown and ZIP export validation/generation
   image-processor/     Sharp WebP conversion and target annotation helpers
 migrations/            Ordered SQL migrations
-infra/                 Docker Compose for PostgreSQL and MinIO
+infra/                 Docker Compose for PostgreSQL and Garage
 docs/                  Operations, architecture, privacy, and release guidance
 tests/e2e/             Compose-backed HTTP integration tests
 ```

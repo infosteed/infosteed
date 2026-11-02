@@ -12,3 +12,8 @@ test-results
 *.log
 Dockerfile
 docker-compose*.yml
+/storage-migration
+/backups
+deploy/*.env
+deploy/.production.*
+deploy/production.env.backup.*

@@ -35,7 +35,9 @@ async function readTarGz(buffer: Buffer): Promise<Map<string, Buffer>> {
     archive.on("entry", (header, stream, next) => {
       const chunks: Buffer[] = [];
       stream.on("data", (chunk) =>
-        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)),
+        chunks.push(
+          Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array),
+        ),
       );
       stream.on("error", reject);
       stream.on("end", () => {

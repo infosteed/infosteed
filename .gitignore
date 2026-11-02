@@ -55,3 +55,6 @@ packages/image-processor/*.tsbuildinfo
 packages/i18n/node_modules/
 packages/i18n/dist/
 packages/i18n/*.tsbuildinfo
+
+/storage-migration/
+deploy/.production.active.*

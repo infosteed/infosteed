@@ -251,7 +251,8 @@ export function buildApp(
 ) {
   const app = Fastify({
     logger: true,
-    trustProxy: config.TRUST_PROXY_HOPS === 1 ? 1 : false,
+    trustProxy:
+      config.TRUST_PROXY_HOPS === 1 ? (_address, hop) => hop < 1 : false,
   });
   const routeInventory: RegisteredRoute[] = [];
   routeInventories.set(app, routeInventory);

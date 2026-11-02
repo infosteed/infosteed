@@ -52,7 +52,7 @@ jobs:
           --volume "$PWD:/repo"
           --workdir /repo
           ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
-          git --redact --no-banner /repo
+          git --config /repo/.gitleaks.toml --redact --no-banner /repo
       - run: corepack pnpm extension:package -- --chrome-only
       - uses: anchore/sbom-action@v0
         with:
@@ -141,6 +141,7 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           platforms: linux/amd64
+          no-cache-filters: runtime
           push: true
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
@@ -186,22 +187,7 @@ jobs:
           VERSION: ${{ needs.verify.outputs.version }}
           SHORT_SHA: ${{ needs.verify.outputs.short_sha }}
         run: |
-          cp deploy/compose.production.yml deploy/compose.build.yml deploy/compose.ai-services.yml deploy/compose.external-tls.yml artifacts/
-          cp deploy/Caddyfile deploy/Caddyfile.internal deploy/Caddyfile.external deploy/production.env.example artifacts/
-          cp deploy/ai-services.env.example deploy/ai-services.connection.env.example artifacts/
-          cp docs/deployment.md docs/ai-services.md docs/internal-https.md docs/deployment-troubleshooting.md artifacts/
-          cp scripts/production-compose.sh scripts/ai-common.sh scripts/deploy-production.sh artifacts/
-          cp scripts/install-production.sh scripts/configure-ai-services.sh scripts/install-ai-services.sh artifacts/
-          cp scripts/doctor-production.sh scripts/doctor-ai-services.sh scripts/restart-production-proxy.sh scripts/backup.sh scripts/restore.sh scripts/upgrade-production.sh artifacts/
-          cp THIRD_PARTY_NOTICES.md LICENSE CHANGELOG.md artifacts/
-          tar -czf "artifacts/infosteed-deployment-$VERSION.tar.gz" \
-            deploy/compose.production.yml deploy/compose.build.yml deploy/compose.ai-services.yml deploy/compose.external-tls.yml \
-            deploy/Caddyfile deploy/Caddyfile.internal deploy/Caddyfile.external deploy/production.env.example \
-            deploy/ai-services.env.example deploy/ai-services.connection.env.example \
-            scripts/production-compose.sh scripts/ai-common.sh scripts/deploy-production.sh \
-            scripts/install-production.sh scripts/configure-ai-services.sh scripts/install-ai-services.sh \
-            scripts/doctor-production.sh scripts/doctor-ai-services.sh scripts/restart-production-proxy.sh scripts/backup.sh scripts/restore.sh scripts/upgrade-production.sh \
-            docs/deployment.md docs/ai-services.md docs/internal-https.md docs/deployment-troubleshooting.md docs/backup-and-upgrade.md
+          node scripts/package-deployment.mjs
           web=ghcr.io/infosteed/infosteed-web:$VERSION
           api=ghcr.io/infosteed/infosteed-api:$VERSION
           render=ghcr.io/infosteed/infosteed-video-render-worker:$VERSION

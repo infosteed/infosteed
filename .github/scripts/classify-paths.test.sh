@@ -22,7 +22,7 @@ assert_classification \
   $'compose=false\nintegration=true\npython=false' \
   apps/web/src/App.tsx packages/shared/src/index.ts
 assert_classification \
-  $'compose=true\nintegration=false\npython=false' \
+  $'compose=true\nintegration=true\npython=false' \
   deploy/compose.production.yml scripts/deploy-production.sh
 assert_classification \
   $'compose=false\nintegration=false\npython=true' \
@@ -30,3 +30,7 @@ assert_classification \
 assert_classification \
   $'compose=true\nintegration=true\npython=true' \
   .github/workflows/ci.yml
+
+assert_classification \
+  $'compose=true\nintegration=true\npython=false' \
+  scripts/storage-migration-config.mjs scripts/migrate-storage.sh deploy/compose.garage.yml

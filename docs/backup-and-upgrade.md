@@ -16,7 +16,7 @@ To restore into an isolated empty installation:
 scripts/restore.sh --confirm-empty-target /srv/backups/infosteed/20260804T120000Z
 ```
 
-The command verifies checksums, refuses non-empty stores, restores PostgreSQL and MinIO, compares object counts, and starts the application services.
+The command verifies checksums, refuses non-empty stores, restores PostgreSQL and S3 objects, verifies content hashes and metadata, and starts the application services.
 
 ## Upgrade
 
@@ -66,3 +66,17 @@ curl -I https://infosteed.example.com
 ```
 
 Do not delete the beta.1 environment backup or retired hotfix until the application, database, stored media, TLS, and configured providers have been verified.
+
+## Portable storage backups
+
+Format v2 records original object keys and metadata in `objects.json`, with payloads under flat numbered files in `objects/`. It preserves content type, content encoding, content disposition, cache control and user metadata. The manifest records byte counts and SHA-256 hashes. Backups capture current object values; provider version histories and bucket policies are not included. A `complete` marker is written only after a successful backup; checksums cover the database, object manifest, release metadata and payloads.
+
+The API image contains a separate S3 administration CLI used through `storage-tools`. It runs no migrations or background jobs. Normal operations require no MinIO server or client image. Backup and restore use the same S3 configuration as the application and require listing permission. Streaming transfers keep memory bounded; large restores use multipart uploads. Restore validates the entire local backup before modifying stores, stops writers before checking emptiness and leaves writers stopped on failure.
+
+`backup.sh --leave-stopped DIRECTORY` leaves writers stopped for maintenance. Ordinary backups restart them on completion or failure. Do not use an ordinary backup during a migration that requires a continuous write freeze.
+
+Format v1 backups remain readable. Content types come from restored database rows when available, then known filename extensions, otherwise `application/octet-stream`; other missing legacy metadata cannot be reconstructed. Conversion uses a temporary staging directory without altering the original backup. Allow additional disk space for that copy.
+
+Successful deployments save a private `deploy/.production.active.yml` configuration snapshot. Upgrades use it for their pre-upgrade backup, so a new checkout cannot silently change which storage is backed up. Re-run the current deployment if this snapshot is missing before attempting a normal upgrade.
+
+See [storage migration](storage-migration.md) for the explicit MinIO-to-Garage cutover and coordinated rollback.

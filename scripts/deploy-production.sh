@@ -23,7 +23,7 @@ done
 production_check_platform
 production_load_compose
 
-required=(RELEASE_VERSION RELEASE_COMMIT APP_DOMAIN EXTENSION_ORIGINS SETUP_TOKEN POSTGRES_PASSWORD MINIO_ROOT_USER MINIO_ROOT_PASSWORD S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY)
+required=(RELEASE_VERSION RELEASE_COMMIT APP_DOMAIN EXTENSION_ORIGINS SETUP_TOKEN POSTGRES_PASSWORD S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY)
 [[ $TLS_MODE == public ]] && required+=(ACME_EMAIL)
 [[ $TLS_MODE == external ]] && required+=(TLS_CERT_HOST_PATH TLS_CERT_FILE TLS_KEY_FILE)
 [[ $IMAGE_SOURCE == build ]] && required+=(LOCAL_IMAGE_TAG)
@@ -51,4 +51,9 @@ if ! production_start; then
 fi
 production_export_internal_ca
 production_verify_host_https "${PRODUCTION_HOST_VERIFY_TIMEOUT:-60}"
+# Retain the last successful configuration for backups taken from a newer checkout.
+active_config=$(mktemp "$(dirname "$production_env_file")/.production.active.XXXXXX")
+chmod 600 "$active_config"
+"${production_compose[@]}" --profile tools config > "$active_config"
+mv "$active_config" "$(dirname "$production_env_file")/.production.active.yml"
 printf 'InfoSteed %s is healthy at https://%s\n' "$RELEASE_VERSION" "$APP_DOMAIN"

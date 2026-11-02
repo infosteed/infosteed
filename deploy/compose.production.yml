@@ -1,6 +1,37 @@
 name: infosteed
 
 services:
+  storage-ready:
+    image: ${STORAGE_TOOLS_IMAGE:-${API_IMAGE:-ghcr.io/infosteed/infosteed-api:${RELEASE_VERSION:?Set RELEASE_VERSION}}}
+    pull_policy: ${STORAGE_TOOLS_PULL_POLICY:-missing}
+    entrypoint: ["node", "dist/storageAdmin.js"]
+    command: ["check"]
+    restart: "no"
+    environment: &storage-environment
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://garage:3900}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_BUCKET: ${S3_BUCKET:-app-media}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?Set S3_ACCESS_KEY_ID}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?Set S3_SECRET_ACCESS_KEY}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
+      S3_WAIT_SECONDS: ${S3_WAIT_SECONDS:-120}
+    read_only: true
+    tmpfs: ["/tmp:size=16m,mode=1777"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
+  storage-tools:
+    profiles: ["tools"]
+    image: ${STORAGE_TOOLS_IMAGE:-${API_IMAGE:-ghcr.io/infosteed/infosteed-api:${RELEASE_VERSION:?Set RELEASE_VERSION}}}
+    pull_policy: ${STORAGE_TOOLS_PULL_POLICY:-missing}
+    entrypoint: ["node", "dist/storageAdmin.js"]
+    command: ["check"]
+    environment: *storage-environment
+    read_only: true
+    tmpfs: ["/tmp:size=16m,mode=1777"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
   caddy:
     image: ${CADDY_IMAGE:-caddy:2.10.2@sha256:c3d7ee5d2b11f9dc54f947f68a734c84e9c9666c92c88a7f30b9cba5da182adb}
     restart: unless-stopped
@@ -47,7 +78,7 @@ services:
     restart: unless-stopped
     depends_on:
       postgres: { condition: service_healthy }
-      minio-init: { condition: service_completed_successfully }
+      storage-ready: { condition: service_completed_successfully }
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-app}
@@ -100,12 +131,12 @@ services:
       VIDEO_RENDER_TIMEOUT_MS: ${VIDEO_RENDER_TIMEOUT_MS:-14400000}
       VIDEO_RENDER_STALE_MS: ${VIDEO_RENDER_STALE_MS:-300000}
       VIDEO_RENDER_RETENTION_DAYS: ${VIDEO_RENDER_RETENTION_DAYS:-7}
-      S3_ENDPOINT: http://minio:9000
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://garage:3900}
       S3_REGION: ${S3_REGION:-us-east-1}
       S3_BUCKET: ${S3_BUCKET:-app-media}
-      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?Set a non-root MinIO application user}
-      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?Set the MinIO application secret}
-      S3_FORCE_PATH_STYLE: "true"
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?Set S3_ACCESS_KEY_ID}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?Set S3_SECRET_ACCESS_KEY}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
     extra_hosts:
       - host.docker.internal:host-gateway
     read_only: true
@@ -129,12 +160,12 @@ services:
       api: { condition: service_healthy }
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-app}
-      S3_ENDPOINT: http://minio:9000
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://garage:3900}
       S3_REGION: ${S3_REGION:-us-east-1}
       S3_BUCKET: ${S3_BUCKET:-app-media}
       S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?Set S3_ACCESS_KEY_ID}
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?Set S3_SECRET_ACCESS_KEY}
-      S3_FORCE_PATH_STYLE: "true"
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
       VIDEO_RENDER_CONCURRENCY: ${VIDEO_RENDER_CONCURRENCY:-1}
       VIDEO_RENDER_TIMEOUT_MS: ${VIDEO_RENDER_TIMEOUT_MS:-14400000}
       VIDEO_RENDER_STALE_MS: ${VIDEO_RENDER_STALE_MS:-300000}
@@ -158,36 +189,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
-    security_opt: ["no-new-privileges:true"]
-    cap_drop: ["ALL"]
-
-  minio:
-    image: ${MINIO_IMAGE:-quay.io/minio/minio:RELEASE.2025-07-23T15-54-02Z@sha256:d249d1fb6966de4d8ad26c04754b545205ff15a62e4fd19ebd0f26fa5baacbc0}
-    restart: unless-stopped
-    command: server /data
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD}
-    volumes: ["minio-data:/data"]
-    security_opt: ["no-new-privileges:true"]
-    cap_drop: ["ALL"]
-
-  minio-init:
-    image: ${MINIO_MC_IMAGE:-quay.io/minio/mc:RELEASE.2025-07-21T05-28-08Z@sha256:fb8f773eac8ef9d6da0486d5dec2f42f219358bcb8de579d1623d518c9ebd4cc}
-    depends_on: { minio: { condition: service_started } }
-    restart: "no"
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      [
-        'until mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"; do sleep 1; done; mc mb --ignore-existing local/"$${S3_BUCKET}"; mc admin user add local "$${S3_ACCESS_KEY_ID}" "$${S3_SECRET_ACCESS_KEY}" || true; mc admin policy attach local readwrite --user "$${S3_ACCESS_KEY_ID}"',
-      ]
-    environment:
-      MC_CONFIG_DIR: /tmp/.mc
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD}
-      S3_BUCKET: ${S3_BUCKET:-app-media}
-      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?Set S3_ACCESS_KEY_ID}
-      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?Set S3_SECRET_ACCESS_KEY}
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
 
@@ -284,6 +285,5 @@ volumes:
   caddy-data:
   caddy-config:
   postgres-data:
-  minio-data:
   transcription-models:
   ollama-models:
